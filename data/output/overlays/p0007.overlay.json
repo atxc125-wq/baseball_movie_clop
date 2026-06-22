@@ -1,0 +1,35 @@
+{
+  "clip_file": "p0007.mp4",
+  "pitch_id": "p0007",
+  "pitch_call": "ball",
+  "outcome": "take",
+  "needs_review": true,
+  "keyframes": [
+    {
+      "t": 0.0,
+      "inning": 1,
+      "half": "top",
+      "balls": 0,
+      "strikes": 0,
+      "outs": 0,
+      "runners": {
+        "1B": true,
+        "2B": false,
+        "3B": false
+      }
+    },
+    {
+      "t": 1.466666666666665,
+      "inning": 1,
+      "half": "top",
+      "balls": 1,
+      "strikes": 0,
+      "outs": 0,
+      "runners": {
+        "1B": true,
+        "2B": false,
+        "3B": false
+      }
+    }
+  ]
+}
