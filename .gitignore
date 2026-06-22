@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# フルの試合映像は容量が大きいため追跡しない。検証用には data/samples/ の
+# 短い(1分程度の)クリップを使う。
+data/raw/main/*
+data/raw/wide/*
+!data/raw/main/README.md
+!data/raw/wide/README.md
+
+# 切り出しクリップ(mp4)は render で再生成できるため追跡しない。
+# タイムラインJSON/CSVとオーバーレイファイルは軽量なので追跡対象に残す。
+data/output/clips/*
+!data/output/clips/.gitkeep
