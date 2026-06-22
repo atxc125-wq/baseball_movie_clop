@@ -61,7 +61,7 @@ def iter_frames(
             t = frame_idx / fps
             if end_sec is not None and t > end_sec:
                 break
-            if target_width is not None and frame.shape[1] != target_width:
+            if target_width is not None and frame.shape[1] > target_width:
                 scale = target_width / frame.shape[1]
                 target_height = max(1, round(frame.shape[0] * scale))
                 frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)

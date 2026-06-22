@@ -60,11 +60,18 @@ def find_motion_rises(
     still_threshold: float,
     rise_threshold: float,
     min_still_sec: float,
+    max_rise_threshold: float | None = None,
+    peak_lookahead_sec: float = 0.4,
 ) -> list[float]:
     """静止状態が min_still_sec 続いた後に rise_threshold を超えた時刻の一覧を返す。
 
     ヒステリシス(still_threshold < rise_threshold)を設けることで、閾値付近の
     揺らぎによる誤検出を抑える。
+
+    max_rise_threshold を指定すると、立ち上がり直後 peak_lookahead_sec 以内の
+    ピークがそれを超えるイベントは「対象(投手等)にしては動きすぎ」とみなして
+    除外する。カメラ近くを人が横切る、打球処理後の乱戦などの大きな動きは、対象
+    本来の動作よりずっと大きな差分を生むため、上限で弾き分けられる。
     """
 
     if not samples:
@@ -74,9 +81,15 @@ def find_motion_rises(
     state = "still"
     still_start = samples[0].t
 
-    for s in samples:
+    for i, s in enumerate(samples):
         if state == "still":
             if s.score > rise_threshold and (s.t - still_start) >= min_still_sec:
+                if max_rise_threshold is not None:
+                    window = [s2 for s2 in samples[i:] if s2.t <= s.t + peak_lookahead_sec]
+                    peak = max((s2.score for s2 in window), default=s.score)
+                    if peak > max_rise_threshold:
+                        state = "moving"
+                        continue
                 events.append(s.t)
                 state = "moving"
         else:

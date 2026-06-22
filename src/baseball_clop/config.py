@@ -34,34 +34,49 @@ class ROI:
 
 @dataclass
 class MainCameraROIs:
-    """main(マウンド-ホーム)カメラ上のROI。デフォルトはカメラがマウンド-ホームを
-    縦に収めるアングルを想定したおおよその値。実映像に合わせて要調整。"""
+    """main(マウンド-ホーム)カメラ上のROI。
 
-    pitcher: ROI = field(default_factory=lambda: ROI(0.30, 0.05, 0.70, 0.45))
-    batter_box: ROI = field(default_factory=lambda: ROI(0.15, 0.55, 0.85, 0.85))
-    catcher: ROI = field(default_factory=lambda: ROI(0.30, 0.75, 0.70, 0.98))
+    デフォルト値は実サンプル映像(data/samples/062201_*.mp4)を目視・モーション解析で
+    実測したもの: そのカメラは「マウンド-ホームを縦に収める」想定とは異なり、三塁側
+    付近から内野全体を横に収める広角寄りのアングルで、捕手・打者は画面右寄り、投手は
+    画面中央やや左に小さく写る。カメラ位置やズーム倍率が変わる場合は要再調整。"""
+
+    # 投手のシルエットだけにできるだけ絞ったタイトな矩形。広めに取ると周囲の地面・
+    # 観客・他の野手の動きが平均に混ざり、ワインドアップのSNRが大きく落ちる。
+    pitcher: ROI = field(default_factory=lambda: ROI(0.26, 0.45, 0.40, 0.68))
+    batter_box: ROI = field(default_factory=lambda: ROI(0.58, 0.30, 0.80, 0.90))
+    catcher: ROI = field(default_factory=lambda: ROI(0.76, 0.55, 0.93, 0.95))
     # ストライクゾーン推定用(捕手付近、打者の腰〜膝の高さを想定した粗い矩形)
-    strike_zone: ROI = field(default_factory=lambda: ROI(0.40, 0.62, 0.60, 0.80))
-    # 牽制の送球先候補 (1塁/3塁方向は画面左右、2塁方向は中央上)
-    base_first: ROI = field(default_factory=lambda: ROI(0.70, 0.20, 1.00, 0.55))
-    base_third: ROI = field(default_factory=lambda: ROI(0.00, 0.20, 0.30, 0.55))
+    strike_zone: ROI = field(default_factory=lambda: ROI(0.68, 0.58, 0.80, 0.78))
+    # 牽制の送球先候補(投手の右=1塁方向、投手の左=3塁方向の内野上)。
+    # サンプル映像に牽制シーンが無いため低確度の推定値。実際の牽制映像で要検証。
+    base_first: ROI = field(default_factory=lambda: ROI(0.36, 0.35, 0.62, 0.58))
+    base_third: ROI = field(default_factory=lambda: ROI(0.04, 0.45, 0.26, 0.70))
 
 
 @dataclass
 class DetectionConfig:
     # 解析用に縮小する際の幅(px)。4K映像でも処理速度を確保するため。
-    analysis_width: int = 480
+    # 実サンプル映像は1076px幅(4Kではない)なので、それより縮小しないよう
+    # 高めに設定している(iter_frames側はこれより狭い映像を拡大はしない)。
+    analysis_width: int = 1080
 
     # --- 投球動作検出 ---
+    # 以下のしきい値は実サンプル映像(投手がフレーム中央やや左に小さく写る広角アングル)
+    # で実測した値: 静止時の平均輝度差分は0.2〜0.4程度、実際のワインドアップでの
+    # ピークは1〜2.5程度、一方でカメラ近くを人が横切る/打球処理後の乱戦などでは
+    # 10〜25程度まで跳ね上がる。この差が大きいため、上限(max_rise)で
+    # 「投手にしては動きすぎ」なイベントを別物として弾く。
     pre_roll_sec: float = 1.0  # セット/ワインドアップ開始の何秒前から切り出すか
-    pitcher_motion_threshold: float = 6.0  # 静止とみなす平均輝度差分の上限
-    pitcher_motion_min_rise: float = 14.0  # これを超えたら「動き出した」と判定
+    pitcher_motion_threshold: float = 0.45  # 静止とみなす平均輝度差分の上限
+    pitcher_motion_min_rise: float = 0.85  # これを超えたら「動き出した」と判定
+    pitcher_motion_max_rise: float = 6.0  # これを超える急上昇は人の横切り等とみなし除外
     pitcher_still_min_sec: float = 0.5  # 静止期間としてみなす最小長さ
     pickoff_max_sec_after_motion: float = 1.2  # 動作開始から牽制/投球が完了するまでの探索窓
 
     # --- スイング/打球判定 ---
     swing_reaction_window_sec: tuple[float, float] = (0.15, 1.0)
-    swing_motion_threshold: float = 16.0
+    swing_motion_threshold: float = 4.5  # 実測: 静止時は最大3.7程度、スイング中は4〜7.5程度
     pitch_flight_max_sec: float = 1.2  # リリースから捕手到達までの最大探索時間
     catch_buffer_sec: float = 0.3  # 捕手到達からクリップ終了までの余白
 

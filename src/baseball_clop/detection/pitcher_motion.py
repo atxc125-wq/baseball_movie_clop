@@ -49,6 +49,7 @@ def detect_pitch_and_pickoff_candidates(
         config.pitcher_motion_threshold,
         config.pitcher_motion_min_rise,
         config.pitcher_still_min_sec,
+        max_rise_threshold=config.pitcher_motion_max_rise,
     )
 
     pitches: list[PitchCandidate] = []
