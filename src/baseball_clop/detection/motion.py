@@ -62,6 +62,7 @@ def find_motion_rises(
     min_still_sec: float,
     max_rise_threshold: float | None = None,
     peak_lookahead_sec: float = 0.4,
+    min_consecutive_rise: int = 1,
 ) -> list[float]:
     """静止状態が min_still_sec 続いた後に rise_threshold を超えた時刻の一覧を返す。
 
@@ -72,6 +73,13 @@ def find_motion_rises(
     ピークがそれを超えるイベントは「対象(投手等)にしては動きすぎ」とみなして
     除外する。カメラ近くを人が横切る、打球処理後の乱戦などの大きな動きは、対象
     本来の動作よりずっと大きな差分を生むため、上限で弾き分けられる。
+
+    min_consecutive_rise(>=2)を指定すると、rise_threshold超えが単発1フレームだけの
+    ノイズ(圧縮アーティファクトや虫・埃などの一瞬の写り込み)を「動き出し」から除外する。
+    実映像では本物の投球動作は複数フレームに渡って閾値を超え続けるのに対し、ノイズは
+    1フレームだけ跳ねて即座に元の値へ戻るため、この条件で明確に弾き分けられる。
+    条件を満たさない場合は静止期間を継続したものとみなし(still_startは更新しない)、
+    そのまま次の本物の立ち上がりを待つ。
     """
 
     if not samples:
@@ -89,6 +97,10 @@ def find_motion_rises(
                     peak = max((s2.score for s2 in window), default=s.score)
                     if peak > max_rise_threshold:
                         state = "moving"
+                        continue
+                if min_consecutive_rise > 1:
+                    run = samples[i : i + min_consecutive_rise]
+                    if len(run) < min_consecutive_rise or any(s2.score <= rise_threshold for s2 in run):
                         continue
                 events.append(s.t)
                 state = "moving"

@@ -11,10 +11,10 @@
       "id": "p0001",
       "inning": 1,
       "half": "top",
-      "pitcher_motion_start_sec": 6.366666666666666,
-      "pitch_release_sec": 6.366666666666666,
-      "clip_start_sec": 5.366666666666666,
-      "clip_end_sec": 7.0,
+      "pitcher_motion_start_sec": 13.366666666666667,
+      "pitch_release_sec": 13.4,
+      "clip_start_sec": 12.366666666666667,
+      "clip_end_sec": 13.8,
       "outcome": "take",
       "pitch_call": "strike",
       "in_play": {
@@ -27,8 +27,8 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 5.366666666666666,
-          "end_sec": 7.0,
+          "start_sec": 12.366666666666667,
+          "end_sec": 13.8,
           "note": ""
         }
       ],
@@ -61,15 +61,15 @@
       "id": "p0002",
       "inning": 1,
       "half": "top",
-      "pitcher_motion_start_sec": 8.966666666666667,
-      "pitch_release_sec": 8.966666666666667,
-      "clip_start_sec": 7.966666666666667,
-      "clip_end_sec": 9.366666666666667,
-      "outcome": "take",
-      "pitch_call": "ball",
+      "pitcher_motion_start_sec": 16.966666666666665,
+      "pitch_release_sec": 17.466666666666665,
+      "clip_start_sec": 15.966666666666665,
+      "clip_end_sec": 18.066666666666666,
+      "outcome": "in_play",
+      "pitch_call": "in_play",
       "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
+        "contact_sec": 18.066666666666666,
+        "play_end_sec": 18.066666666666666,
         "result": "none",
         "outs_on_play": 0,
         "resolved_runners": null
@@ -77,8 +77,14 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 7.966666666666667,
-          "end_sec": 9.366666666666667,
+          "start_sec": 15.966666666666665,
+          "end_sec": 18.066666666666666,
+          "note": ""
+        },
+        {
+          "camera": "wide",
+          "start_sec": 18.066666666666666,
+          "end_sec": 18.066666666666666,
           "note": ""
         }
       ],
@@ -89,8 +95,8 @@
         "outs": 0
       },
       "count_after": {
-        "balls": 1,
-        "strikes": 1,
+        "balls": 0,
+        "strikes": 0,
         "outs": 0
       },
       "runners_before": {
@@ -111,15 +117,15 @@
       "id": "p0003",
       "inning": 1,
       "half": "top",
-      "pitcher_motion_start_sec": 13.366666666666667,
-      "pitch_release_sec": 13.4,
-      "clip_start_sec": 12.366666666666667,
-      "clip_end_sec": 13.8,
-      "outcome": "take",
-      "pitch_call": "strike",
+      "pitcher_motion_start_sec": 29.933333333333334,
+      "pitch_release_sec": 30.0,
+      "clip_start_sec": 28.933333333333334,
+      "clip_end_sec": 30.2,
+      "outcome": "in_play",
+      "pitch_call": "in_play",
       "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
+        "contact_sec": 30.2,
+        "play_end_sec": 30.2,
         "result": "none",
         "outs_on_play": 0,
         "resolved_runners": null
@@ -127,20 +133,26 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 12.366666666666667,
-          "end_sec": 13.8,
+          "start_sec": 28.933333333333334,
+          "end_sec": 30.2,
+          "note": ""
+        },
+        {
+          "camera": "wide",
+          "start_sec": 30.2,
+          "end_sec": 30.2,
           "note": ""
         }
       ],
       "camera_override": null,
       "count_before": {
-        "balls": 1,
-        "strikes": 1,
+        "balls": 0,
+        "strikes": 0,
         "outs": 0
       },
       "count_after": {
-        "balls": 1,
-        "strikes": 2,
+        "balls": 0,
+        "strikes": 0,
         "outs": 0
       },
       "runners_before": {
@@ -161,415 +173,9 @@
       "id": "p0004",
       "inning": 1,
       "half": "top",
-      "pitcher_motion_start_sec": 16.666666666666668,
-      "pitch_release_sec": 17.466666666666665,
-      "clip_start_sec": 15.666666666666668,
-      "clip_end_sec": 18.0,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 15.666666666666668,
-          "end_sec": 18.0,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 1,
-        "strikes": 2,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 2,
-        "strikes": 2,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": false,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": false,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0005",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 18.0,
-      "pitch_release_sec": 18.0,
-      "clip_start_sec": 17.0,
-      "clip_end_sec": 18.333333333333336,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 17.0,
-          "end_sec": 18.333333333333336,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 2,
-        "strikes": 2,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 3,
-        "strikes": 2,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": false,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": false,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0006",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 19.833333333333332,
-      "pitch_release_sec": 19.833333333333332,
-      "clip_start_sec": 18.833333333333332,
-      "clip_end_sec": 20.166666666666668,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 18.833333333333332,
-          "end_sec": 20.166666666666668,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 3,
-        "strikes": 2,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 0,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": false,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0007",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 20.666666666666668,
-      "pitch_release_sec": 20.666666666666668,
-      "clip_start_sec": 19.666666666666668,
-      "clip_end_sec": 21.133333333333333,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 19.666666666666668,
-          "end_sec": 21.133333333333333,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 0,
-        "strikes": 0,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 1,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0008",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 22.033333333333335,
-      "pitch_release_sec": 22.033333333333335,
-      "clip_start_sec": 21.033333333333335,
-      "clip_end_sec": 22.400000000000002,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 21.033333333333335,
-          "end_sec": 22.400000000000002,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 1,
-        "strikes": 0,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 2,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0009",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 24.966666666666665,
-      "pitch_release_sec": 24.966666666666665,
-      "clip_start_sec": 23.966666666666665,
-      "clip_end_sec": 25.3,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 23.966666666666665,
-          "end_sec": 25.3,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 2,
-        "strikes": 0,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 3,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0010",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 29.933333333333334,
-      "pitch_release_sec": 30.0,
-      "clip_start_sec": 28.933333333333334,
-      "clip_end_sec": 30.400000000000002,
-      "outcome": "take",
-      "pitch_call": "ball",
-      "in_play": {
-        "contact_sec": null,
-        "play_end_sec": null,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 28.933333333333334,
-          "end_sec": 30.400000000000002,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 3,
-        "strikes": 0,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 0,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": true,
-        "2B": false,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": true,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0011",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 33.0,
-      "pitch_release_sec": 33.0,
-      "clip_start_sec": 32.0,
-      "clip_end_sec": 33.233333333333334,
-      "outcome": "in_play",
-      "pitch_call": "in_play",
-      "in_play": {
-        "contact_sec": 33.233333333333334,
-        "play_end_sec": 33.233333333333334,
-        "result": "none",
-        "outs_on_play": 0,
-        "resolved_runners": null
-      },
-      "segments": [
-        {
-          "camera": "main",
-          "start_sec": 32.0,
-          "end_sec": 33.233333333333334,
-          "note": ""
-        },
-        {
-          "camera": "wide",
-          "start_sec": 33.233333333333334,
-          "end_sec": 33.233333333333334,
-          "note": ""
-        }
-      ],
-      "camera_override": null,
-      "count_before": {
-        "balls": 0,
-        "strikes": 0,
-        "outs": 0
-      },
-      "count_after": {
-        "balls": 0,
-        "strikes": 0,
-        "outs": 0
-      },
-      "runners_before": {
-        "1B": true,
-        "2B": true,
-        "3B": false
-      },
-      "runners_after": {
-        "1B": true,
-        "2B": true,
-        "3B": false
-      },
-      "detection_confidence": 0.2,
-      "needs_review": true,
-      "notes": ""
-    },
-    {
-      "id": "p0012",
-      "inning": 1,
-      "half": "top",
-      "pitcher_motion_start_sec": 33.8,
+      "pitcher_motion_start_sec": 33.96666666666667,
       "pitch_release_sec": 34.0,
-      "clip_start_sec": 32.8,
+      "clip_start_sec": 32.96666666666667,
       "clip_end_sec": 34.166666666666664,
       "outcome": "in_play",
       "pitch_call": "in_play",
@@ -583,7 +189,7 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 32.8,
+          "start_sec": 32.96666666666667,
           "end_sec": 34.166666666666664,
           "note": ""
         },
@@ -606,13 +212,13 @@
         "outs": 0
       },
       "runners_before": {
-        "1B": true,
-        "2B": true,
+        "1B": false,
+        "2B": false,
         "3B": false
       },
       "runners_after": {
-        "1B": true,
-        "2B": true,
+        "1B": false,
+        "2B": false,
         "3B": false
       },
       "detection_confidence": 0.4,
@@ -620,7 +226,7 @@
       "notes": ""
     },
     {
-      "id": "p0013",
+      "id": "p0005",
       "inning": 1,
       "half": "top",
       "pitcher_motion_start_sec": 45.56666666666667,
@@ -656,13 +262,13 @@
         "outs": 0
       },
       "runners_before": {
-        "1B": true,
-        "2B": true,
+        "1B": false,
+        "2B": false,
         "3B": false
       },
       "runners_after": {
-        "1B": true,
-        "2B": true,
+        "1B": false,
+        "2B": false,
         "3B": false
       },
       "detection_confidence": 0.2,
@@ -671,20 +277,6 @@
     }
   ],
   "pickoffs": [
-    {
-      "sec": 11.633333333333333,
-      "target_base": "3B",
-      "detection_confidence": 1.0,
-      "needs_review": false,
-      "notes": "モーション検出による牽制候補(要確認)"
-    },
-    {
-      "sec": 41.0,
-      "target_base": "3B",
-      "detection_confidence": 1.0,
-      "needs_review": false,
-      "notes": "モーション検出による牽制候補(要確認)"
-    },
     {
       "sec": 44.93333333333333,
       "target_base": "1B",

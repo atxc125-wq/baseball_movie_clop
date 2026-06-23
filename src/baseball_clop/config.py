@@ -72,11 +72,19 @@ class DetectionConfig:
     pitcher_motion_min_rise: float = 0.85  # これを超えたら「動き出した」と判定
     pitcher_motion_max_rise: float = 6.0  # これを超える急上昇は人の横切り等とみなし除外
     pitcher_still_min_sec: float = 0.5  # 静止期間としてみなす最小長さ
+    # rise_threshold超えが単発1フレームだけのノイズ(圧縮アーティファクト等)を「動き出し」
+    # から除外するため、最低でも連続してこの数のフレームを超え続けることを要求する。実測では
+    # セットへの移行や捕手とのボールやり取りなど本物の投球ではない動きが単発1フレームの
+    # スパイクとして紛れ込みやすく、本物のワインドアップ/リリースは複数フレーム連続して
+    # 閾値を超え続ける。
+    pitcher_motion_min_consecutive_rise: int = 2
     pickoff_max_sec_after_motion: float = 1.2  # 動作開始から牽制/投球が完了するまでの探索窓
 
     # --- スイング/打球判定 ---
     swing_reaction_window_sec: tuple[float, float] = (0.15, 1.0)
-    swing_motion_threshold: float = 4.5  # 実測: 静止時は最大3.7程度、スイング中は4〜7.5程度
+    # 実測(実映像で確認済みの見逃し1球・打球1球): 見逃し時のバッターボックスROIピークは
+    # 1.3程度、実際のスイング+打球時のピークは2.7程度。中間の2.0をしきい値とする。
+    swing_motion_threshold: float = 2.0
     pitch_flight_max_sec: float = 1.2  # リリースから捕手到達までの最大探索時間
     catch_buffer_sec: float = 0.3  # 捕手到達からクリップ終了までの余白
 
