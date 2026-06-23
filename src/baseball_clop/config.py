@@ -96,6 +96,10 @@ class DetectionConfig:
     pre_roll_anchor_sec: float = 5.0
 
     # --- 打球処理(プレー終了)判定 ---
+    # 暫定: 打球処理にかかる時間はプレーの種類(内野安打/長打/エラー処理等)で大きく
+    # 異なり、静止検出ベースの自動推定(detect_play_end, 以下のplay_end_*)は
+    # 信頼性が低いため、当面はcontact_secからの固定長を採用する。
+    in_play_clip_duration_sec: float = 10.0
     play_end_still_threshold: float = 5.0
     play_end_min_still_sec: float = 1.5
     play_end_max_search_sec: float = 25.0

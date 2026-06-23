@@ -64,12 +64,12 @@
       "pitcher_motion_start_sec": 16.966666666666665,
       "pitch_release_sec": 17.466666666666665,
       "clip_start_sec": 13.066666666666666,
-      "clip_end_sec": 18.066666666666666,
+      "clip_end_sec": 28.066666666666666,
       "outcome": "in_play",
       "pitch_call": "in_play",
       "in_play": {
         "contact_sec": 18.066666666666666,
-        "play_end_sec": 18.066666666666666,
+        "play_end_sec": 28.066666666666666,
         "result": "none",
         "outs_on_play": 0,
         "resolved_runners": null
@@ -84,7 +84,7 @@
         {
           "camera": "wide",
           "start_sec": 18.066666666666666,
-          "end_sec": 18.066666666666666,
+          "end_sec": 28.066666666666666,
           "note": ""
         }
       ],
@@ -120,12 +120,12 @@
       "pitcher_motion_start_sec": 29.933333333333334,
       "pitch_release_sec": 30.0,
       "clip_start_sec": 25.2,
-      "clip_end_sec": 30.2,
+      "clip_end_sec": 40.2,
       "outcome": "in_play",
       "pitch_call": "in_play",
       "in_play": {
         "contact_sec": 30.2,
-        "play_end_sec": 30.2,
+        "play_end_sec": 40.2,
         "result": "none",
         "outs_on_play": 0,
         "resolved_runners": null
@@ -140,7 +140,7 @@
         {
           "camera": "wide",
           "start_sec": 30.2,
-          "end_sec": 30.2,
+          "end_sec": 40.2,
           "note": ""
         }
       ],
@@ -176,12 +176,12 @@
       "pitcher_motion_start_sec": 33.96666666666667,
       "pitch_release_sec": 34.0,
       "clip_start_sec": 29.166666666666664,
-      "clip_end_sec": 34.166666666666664,
+      "clip_end_sec": 44.166666666666664,
       "outcome": "in_play",
       "pitch_call": "in_play",
       "in_play": {
         "contact_sec": 34.166666666666664,
-        "play_end_sec": 34.166666666666664,
+        "play_end_sec": 44.166666666666664,
         "result": "none",
         "outs_on_play": 0,
         "resolved_runners": null
@@ -196,7 +196,7 @@
         {
           "camera": "wide",
           "start_sec": 34.166666666666664,
-          "end_sec": 34.166666666666664,
+          "end_sec": 44.166666666666664,
           "note": ""
         }
       ],

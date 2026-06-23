@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import PipelineConfig
-from .detection.ball_tracking import detect_play_end
 from .detection.camera_selector import decide_camera_for_play
 from .detection.pitcher_motion import detect_pitch_and_pickoff_candidates
 from .detection.swing_contact import analyze_pitch_result
@@ -77,7 +76,7 @@ def detect(
         )
 
         if result.outcome == PitchOutcome.IN_PLAY:
-            _fill_in_play(pitch, main_path, wide_path, result.contact_sec or cand.release_sec, wide_offset_sec, config)
+            _fill_in_play(pitch, main_path, result.contact_sec or cand.release_sec, config)
         else:
             pitch.clip_end_sec = result.clip_end_sec
             pitch.segments = [
@@ -94,35 +93,21 @@ def detect(
 def _fill_in_play(
     pitch: PitchEvent,
     main_path: str,
-    wide_path: str,
     contact_sec: float,
-    wide_offset_sec: float,
     config: PipelineConfig,
 ) -> None:
-    """打球発生後のカメラ選択とプレー終了(クリップ終了点保留の解消)を行う。"""
+    """打球発生後のカメラ選択を行う。プレー終了点は暫定的にcontact_sec+固定長とする。
+
+    打球処理にかかる時間はプレーの種類(内野安打/長打/エラー処理等)で大きく異なり、
+    静止検出ベースの自動推定(detect_play_end)は信頼性が低いため、当面は固定長
+    (in_play_clip_duration_sec)を採用する。実際の試合映像で精度を確認しながら再検討する。
+    """
 
     decision = decide_camera_for_play(main_path, contact_sec, config.detection)
-
-    if decision.camera == "wide":
-        search_path = wide_path
-        search_start_file_sec = contact_sec + wide_offset_sec
-    else:
-        search_path = main_path
-        search_start_file_sec = contact_sec
-
-    play_end_file_sec, resolved = detect_play_end(
-        search_path,
-        search_start_file_sec,
-        config.detection.play_end_still_threshold,
-        config.detection.play_end_min_still_sec,
-        config.detection.play_end_max_search_sec,
-    )
-
-    play_end_sec = play_end_file_sec - wide_offset_sec if decision.camera == "wide" else play_end_file_sec
+    play_end_sec = contact_sec + config.detection.in_play_clip_duration_sec
 
     pitch.in_play = InPlayInfo(contact_sec=contact_sec, play_end_sec=play_end_sec)
     pitch.clip_end_sec = play_end_sec
-    pitch.needs_review = pitch.needs_review or (not resolved) or decision.needs_review
     pitch.segments = [
         CameraSegment(camera=CameraName.MAIN, start_sec=pitch.clip_start_sec, end_sec=contact_sec),
         CameraSegment(camera=CameraName(decision.camera), start_sec=contact_sec, end_sec=play_end_sec),
