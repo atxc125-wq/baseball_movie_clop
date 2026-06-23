@@ -57,10 +57,11 @@ def detect(
     pitches: list[PitchEvent] = []
     for i, cand in enumerate(candidates, start=1):
         result = analyze_pitch_result(main_path, cand.release_sec, config.detection)
-        if result.outcome in (PitchOutcome.TAKE, PitchOutcome.SWING_MISS) and result.catch_reference_sec is not None:
-            # 見逃し/空振りは捕球を基準点として、その手前から切り出す
-            # (motion_start基準だとセット/ワインドアップの途中からしか映らないことがある)。
-            clip_start = max(0.0, result.catch_reference_sec - config.detection.take_pre_roll_sec)
+        # 見逃し/空振りは捕球、打球は打音(コンタクト)を基準点として、その手前から
+        # 切り出す(motion_start基準だとセット/ワインドアップの途中からしか映らないことがある)。
+        anchor_sec = result.catch_reference_sec if result.catch_reference_sec is not None else result.contact_sec
+        if anchor_sec is not None:
+            clip_start = max(0.0, anchor_sec - config.detection.pre_roll_anchor_sec)
         else:
             clip_start = max(0.0, cand.motion_start_sec - config.detection.pre_roll_sec)
 

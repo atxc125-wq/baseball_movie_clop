@@ -62,7 +62,7 @@ def analyze_pitch_result(main_video_path: str, release_sec: float, config: Detec
         return PitchResult(
             outcome=PitchOutcome.SWING_MISS,
             pitch_call=PitchCall.STRIKE,
-            clip_end_sec=end + config.catch_buffer_sec,
+            clip_end_sec=end + config.catch_post_roll_sec,
             contact_sec=None,
             confidence=0.7 if catcher_arrival_sec is not None else 0.3,
             needs_review=catcher_arrival_sec is None,
@@ -74,7 +74,7 @@ def analyze_pitch_result(main_video_path: str, release_sec: float, config: Detec
     return PitchResult(
         outcome=PitchOutcome.TAKE,
         pitch_call=call,
-        clip_end_sec=end + config.catch_buffer_sec,
+        clip_end_sec=end + config.catch_post_roll_sec,
         contact_sec=None,
         confidence=0.2,
         needs_review=True,
