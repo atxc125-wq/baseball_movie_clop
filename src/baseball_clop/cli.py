@@ -15,9 +15,17 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import pipeline
+from . import pipeline, roi_preview
 from .config import PipelineConfig
 from .scoring import count_state, timeline_io
+
+
+def _cmd_check_rois(args: argparse.Namespace) -> None:
+    config = PipelineConfig()
+    path = roi_preview.save_roi_preview(args.video, config.detection.main_rois, args.out, t_sec=args.t_sec)
+    print(f"ROIプレビュー画像を書き出しました: {path}")
+    print("投手・捕手・バッターの枠が実際の選手の位置に合っているか目視で確認してください。")
+    print("ズレている場合は config.py の MainCameraROIs を調整してから detect を実行してください。")
 
 
 def _cmd_detect(args: argparse.Namespace) -> None:
@@ -82,6 +90,12 @@ def _cmd_all(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="baseball-clop")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("check-rois", help="ROI(投手/捕手/打者など)の位置を画像で確認する(detect前の推奨ステップ)")
+    p.add_argument("--video", required=True, help="確認したい映像のパス(main想定)")
+    p.add_argument("--t-sec", type=float, default=5.0, help="プレビューに使うフレームの時刻(秒)")
+    p.add_argument("--out", required=True, help="出力する画像のパス(.png/.jpg)")
+    p.set_defaults(func=_cmd_check_rois)
 
     p = sub.add_parser("detect", help="2カメラ映像からタイムラインJSONを自動検出する")
     p.add_argument("--main", required=True, help="マウンド-ホーム4K映像のパス")
