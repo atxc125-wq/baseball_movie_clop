@@ -13,7 +13,7 @@
       "half": "top",
       "pitcher_motion_start_sec": 13.366666666666667,
       "pitch_release_sec": 13.4,
-      "clip_start_sec": 12.366666666666667,
+      "clip_start_sec": 8.5,
       "clip_end_sec": 13.8,
       "outcome": "take",
       "pitch_call": "strike",
@@ -27,7 +27,7 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 12.366666666666667,
+          "start_sec": 8.5,
           "end_sec": 13.8,
           "note": ""
         }
@@ -231,7 +231,7 @@
       "half": "top",
       "pitcher_motion_start_sec": 45.56666666666667,
       "pitch_release_sec": 46.36666666666667,
-      "clip_start_sec": 44.56666666666667,
+      "clip_start_sec": 42.56666666666667,
       "clip_end_sec": 47.86666666666667,
       "outcome": "take",
       "pitch_call": "ball",
@@ -245,7 +245,7 @@
       "segments": [
         {
           "camera": "main",
-          "start_sec": 44.56666666666667,
+          "start_sec": 42.56666666666667,
           "end_sec": 47.86666666666667,
           "note": ""
         }

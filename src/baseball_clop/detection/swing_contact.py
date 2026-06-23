@@ -27,6 +27,9 @@ class PitchResult:
     contact_sec: float | None
     confidence: float
     needs_review: bool
+    # 捕手到達(捕球)の推定時刻(バッファ加算前の生値)。take/swing_missクリップの
+    # 開始点をここから逆算するために、バッファ込みのclip_end_secとは別に保持する。
+    catch_reference_sec: float | None = None
 
 
 def analyze_pitch_result(main_video_path: str, release_sec: float, config: DetectionConfig) -> PitchResult:
@@ -63,6 +66,7 @@ def analyze_pitch_result(main_video_path: str, release_sec: float, config: Detec
             contact_sec=None,
             confidence=0.7 if catcher_arrival_sec is not None else 0.3,
             needs_review=catcher_arrival_sec is None,
+            catch_reference_sec=end,
         )
 
     end = catcher_arrival_sec if catcher_arrival_sec is not None else search_end
@@ -74,6 +78,7 @@ def analyze_pitch_result(main_video_path: str, release_sec: float, config: Detec
         contact_sec=None,
         confidence=0.2,
         needs_review=True,
+        catch_reference_sec=end,
     )
 
 

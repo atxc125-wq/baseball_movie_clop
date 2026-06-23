@@ -87,6 +87,10 @@ class DetectionConfig:
     swing_motion_threshold: float = 2.0
     pitch_flight_max_sec: float = 1.2  # リリースから捕手到達までの最大探索時間
     catch_buffer_sec: float = 0.3  # 捕手到達からクリップ終了までの余白
+    # 見逃し/空振りクリップの開始点: 捕手到達(捕球)を基準点(0)とし、その何秒前から
+    # 切り出すか。motion_start基準だとセット〜ワインドアップの一部しか映らないことが
+    # あるため、捕球側を基準にする方が「投球モーション開始〜捕球」を安定して収められる。
+    take_pre_roll_sec: float = 5.0
 
     # --- 打球処理(プレー終了)判定 ---
     play_end_still_threshold: float = 5.0
