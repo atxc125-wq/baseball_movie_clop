@@ -107,6 +107,9 @@ class DetectionConfig:
     # --- カメラ選択 ---
     camera_switch_radius_frac: float = 0.35  # ホームベースからこの比率を超えて
     # ボールが離れたら広角(wide)に切り替える
+    # wideへ切り替えると判定された場合でも、打音直後の打者・捕手の反応はmainで見せたい
+    # ため、コンタクトの瞬間ではなくこの秒数後にwideへ切り替える。
+    wide_switch_delay_sec: float = 1.5
 
     main_rois: MainCameraROIs = field(default_factory=MainCameraROIs)
 

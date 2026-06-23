@@ -78,12 +78,12 @@
         {
           "camera": "main",
           "start_sec": 13.066666666666666,
-          "end_sec": 18.066666666666666,
+          "end_sec": 19.566666666666666,
           "note": ""
         },
         {
           "camera": "wide",
-          "start_sec": 18.066666666666666,
+          "start_sec": 19.566666666666666,
           "end_sec": 28.066666666666666,
           "note": ""
         }
@@ -134,12 +134,12 @@
         {
           "camera": "main",
           "start_sec": 25.2,
-          "end_sec": 30.2,
+          "end_sec": 31.7,
           "note": ""
         },
         {
           "camera": "wide",
-          "start_sec": 30.2,
+          "start_sec": 31.7,
           "end_sec": 40.2,
           "note": ""
         }
@@ -190,12 +190,12 @@
         {
           "camera": "main",
           "start_sec": 29.166666666666664,
-          "end_sec": 34.166666666666664,
+          "end_sec": 35.666666666666664,
           "note": ""
         },
         {
           "camera": "wide",
-          "start_sec": 34.166666666666664,
+          "start_sec": 35.666666666666664,
           "end_sec": 44.166666666666664,
           "note": ""
         }

@@ -108,10 +108,19 @@ def _fill_in_play(
 
     pitch.in_play = InPlayInfo(contact_sec=contact_sec, play_end_sec=play_end_sec)
     pitch.clip_end_sec = play_end_sec
-    pitch.segments = [
-        CameraSegment(camera=CameraName.MAIN, start_sec=pitch.clip_start_sec, end_sec=contact_sec),
-        CameraSegment(camera=CameraName(decision.camera), start_sec=contact_sec, end_sec=play_end_sec),
-    ]
+
+    if decision.camera == "wide":
+        # 打音直後の打者・捕手の反応はmainで見せたいため、コンタクト直後ではなく
+        # 少し遅らせてwideへ切り替える。
+        switch_sec = min(contact_sec + config.detection.wide_switch_delay_sec, play_end_sec)
+        pitch.segments = [
+            CameraSegment(camera=CameraName.MAIN, start_sec=pitch.clip_start_sec, end_sec=switch_sec),
+            CameraSegment(camera=CameraName.WIDE, start_sec=switch_sec, end_sec=play_end_sec),
+        ]
+    else:
+        pitch.segments = [
+            CameraSegment(camera=CameraName.MAIN, start_sec=pitch.clip_start_sec, end_sec=play_end_sec),
+        ]
 
 
 def render(timeline: GameTimeline, output_dir: str, config: PipelineConfig | None = None) -> list[str]:
