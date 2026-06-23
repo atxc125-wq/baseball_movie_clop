@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import cv2
 import numpy as np
 
@@ -54,3 +56,20 @@ def save_roi_preview(video_path: str, rois: MainCameraROIs, output_path: str, t_
         cv2.imwrite(str(output_path), annotated)
         return str(output_path)
     raise ValueError(f"指定時刻 {t_sec}s のフレームを取得できませんでした: {video_path}")
+
+
+def save_roi_previews(
+    video_path: str, rois: MainCameraROIs, output_path: str, t_secs: list[float]
+) -> list[str]:
+    """複数の時刻についてROIプレビュー画像を書き出す(時刻ごとに別ファイル)。
+
+    試合開始直後は投球練習などで選手が定位置にいないことが多く、1枚のプレビューだけでは
+    実戦中の枠の合い方を判断しづらい。複数時刻を見比べられるようにする。
+    """
+
+    path = Path(output_path)
+    written = []
+    for t_sec in t_secs:
+        suffixed = path.with_name(f"{path.stem}_t{t_sec:g}{path.suffix}")
+        written.append(save_roi_preview(video_path, rois, str(suffixed), t_sec=t_sec))
+    return written

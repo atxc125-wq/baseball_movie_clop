@@ -22,9 +22,12 @@ from .scoring import count_state, timeline_io
 
 def _cmd_check_rois(args: argparse.Namespace) -> None:
     config = PipelineConfig()
-    path = roi_preview.save_roi_preview(args.video, config.detection.main_rois, args.out, t_sec=args.t_sec)
-    print(f"ROIプレビュー画像を書き出しました: {path}")
+    paths = roi_preview.save_roi_previews(args.video, config.detection.main_rois, args.out, t_secs=args.t_sec)
+    for path in paths:
+        print(f"ROIプレビュー画像を書き出しました: {path}")
     print("投手・捕手・バッターの枠が実際の選手の位置に合っているか目視で確認してください。")
+    print("試合開始直後は投球練習などで選手が定位置にいないことが多いため、")
+    print("--t-sec に実際のプレー中と思われる複数の時刻を指定して見比べてください。")
     print("ズレている場合は config.py の MainCameraROIs を調整してから detect を実行してください。")
 
 
@@ -93,8 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("check-rois", help="ROI(投手/捕手/打者など)の位置を画像で確認する(detect前の推奨ステップ)")
     p.add_argument("--video", required=True, help="確認したい映像のパス(main想定)")
-    p.add_argument("--t-sec", type=float, default=5.0, help="プレビューに使うフレームの時刻(秒)")
-    p.add_argument("--out", required=True, help="出力する画像のパス(.png/.jpg)")
+    p.add_argument(
+        "--t-sec",
+        type=float,
+        nargs="+",
+        default=[5.0],
+        help="プレビューに使うフレームの時刻(秒)。複数指定すると時刻ごとに別画像を書き出す(例: --t-sec 60 180 300)",
+    )
+    p.add_argument("--out", required=True, help="出力する画像のパス(.png/.jpg)。複数時刻指定時は時刻が自動でファイル名に付く")
     p.set_defaults(func=_cmd_check_rois)
 
     p = sub.add_parser("detect", help="2カメラ映像からタイムラインJSONを自動検出する")
