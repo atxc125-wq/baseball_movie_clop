@@ -134,3 +134,63 @@ document.getElementById("save-btn").addEventListener("click", async () => {
 });
 
 render();
+
+const detectBtn = document.getElementById("detect-btn");
+const detectStatusEl = document.getElementById("detect-status");
+let detectPollTimer = null;
+
+function renderDetectStatus(data) {
+  if (data.state === "running") {
+    detectStatusEl.textContent = data.message || "実行中...";
+    detectStatusEl.style.color = "#555";
+  } else if (data.state === "done") {
+    detectStatusEl.textContent =
+      `検出完了: 投球${data.pitch_count}件・牽制候補${data.pickoff_count}件` +
+      `(${data.timeline_path})。${data.message}`;
+    detectStatusEl.style.color = "green";
+  } else if (data.state === "error") {
+    detectStatusEl.textContent = "エラー: " + data.message;
+    detectStatusEl.style.color = "#c00";
+  }
+}
+
+function pollDetectStatus() {
+  fetch("/api/detect-status")
+    .then((res) => res.json())
+    .then((data) => {
+      renderDetectStatus(data);
+      if (data.state !== "running") {
+        clearInterval(detectPollTimer);
+        detectPollTimer = null;
+        detectBtn.disabled = false;
+      }
+    });
+}
+
+detectBtn.addEventListener("click", async () => {
+  detectBtn.disabled = true;
+  detectStatusEl.textContent = "検出を開始しています...";
+  detectStatusEl.style.color = "#555";
+
+  const res = await fetch("/api/detect", { method: "POST" });
+  const data = await res.json();
+  if (!res.ok) {
+    detectStatusEl.textContent = data.error || "検出を開始できませんでした。";
+    detectStatusEl.style.color = "#c00";
+    detectBtn.disabled = false;
+    return;
+  }
+  detectPollTimer = setInterval(pollDetectStatus, 2000);
+});
+
+// 画面を開き直した場合に、前回/実行中の検出状態を復元する。
+fetch("/api/detect-status")
+  .then((res) => res.json())
+  .then((data) => {
+    if (data.state === "idle") return;
+    renderDetectStatus(data);
+    if (data.state === "running") {
+      detectBtn.disabled = true;
+      detectPollTimer = setInterval(pollDetectStatus, 2000);
+    }
+  });

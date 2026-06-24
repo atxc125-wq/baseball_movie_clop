@@ -98,7 +98,7 @@ def _cmd_ui(args: argparse.Namespace) -> None:
     print("終了するには Ctrl+C を押してください。")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    create_app().run(host="127.0.0.1", port=args.port, debug=False)
+    create_app().run(host="127.0.0.1", port=args.port, debug=False, threaded=True)
 
 
 def _cmd_all(args: argparse.Namespace) -> None:

@@ -23,6 +23,15 @@
   <p><small>枠の角をドラッグしてサイズ変更、枠の中をドラッグして移動できます。試合開始直後は投球練習中で
   選手が定位置にいないことが多いので、時刻を変えて実際のプレー中の枠の合い方を確認してください。</small></p>
 
+  <hr>
+  <h2>投球イベントの検出</h2>
+  <p>
+    <button id="detect-btn">検出を実行</button>
+    <span id="detect-status" class="hint-text"></span>
+  </p>
+  <p><small>映像の長さによって数分かかります。完了するとタイムラインJSONが出力先ディレクトリの
+  events/game.jsonに保存されます。自動検出はあくまで暫定結果なので、後で人の目で確認・修正してください。</small></p>
+
   <script>
     window.INITIAL_ROIS = {{ rois | tojson }};
   </script>

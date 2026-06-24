@@ -1,4 +1,5 @@
 import json
+import time
 
 import cv2
 import numpy as np
@@ -131,3 +132,81 @@ def test_api_sync_audio_rejects_video_without_audio(tmp_path):
     )
     assert res.status_code == 400
     assert "音声" in res.get_json()["error"]
+
+
+def test_api_detect_rejects_before_setup():
+    client = create_app().test_client()
+    res = client.post("/api/detect")
+    assert res.status_code == 400
+
+
+def test_api_detect_rejects_without_wide_path(tmp_path):
+    video_path = tmp_path / "main.mp4"
+    _write_video(video_path)
+    out_dir = tmp_path / "out"
+
+    client = create_app().test_client()
+    client.post(
+        "/api/setup",
+        json={"main_path": str(video_path), "wide_path": "", "out_dir": str(out_dir)},
+    )
+
+    res = client.post("/api/detect")
+    assert res.status_code == 400
+
+
+def _wait_for_detect_done(client, timeout=10.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        data = client.get("/api/detect-status").get_json()
+        if data["state"] != "running":
+            return data
+        time.sleep(0.1)
+    raise AssertionError("detect did not finish in time")
+
+
+def test_api_detect_runs_and_reports_done(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+    out_dir = tmp_path / "out"
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/setup",
+        json={"main_path": str(main_path), "wide_path": str(wide_path), "out_dir": str(out_dir)},
+    )
+    assert res.status_code == 200
+
+    res = client.post("/api/detect")
+    assert res.status_code == 200
+
+    data = _wait_for_detect_done(client)
+    assert data["state"] == "done"
+    timeline_path = out_dir / "events" / "game.json"
+    assert str(timeline_path) == data["timeline_path"]
+    assert timeline_path.exists()
+    json.loads(timeline_path.read_text())
+
+
+def test_api_detect_rejects_concurrent_run(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+    out_dir = tmp_path / "out"
+
+    client = create_app().test_client()
+    client.post(
+        "/api/setup",
+        json={"main_path": str(main_path), "wide_path": str(wide_path), "out_dir": str(out_dir)},
+    )
+
+    res = client.post("/api/detect")
+    assert res.status_code == 200
+
+    res = client.post("/api/detect")
+    assert res.status_code == 409
+
+    _wait_for_detect_done(client)

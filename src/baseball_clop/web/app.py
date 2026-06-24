@@ -9,15 +9,26 @@ from __future__ import annotations
 
 import io
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
-from .. import audio_sync, roi_store
-from ..config import MainCameraROIs
+from .. import audio_sync, pipeline, roi_store
+from ..config import MainCameraROIs, PipelineConfig
+from ..scoring import timeline_io
 from ..video_io import iter_frames
+
+
+@dataclass
+class DetectStatus:
+    state: str = "idle"  # idle | running | done | error
+    message: str = ""
+    timeline_path: str = ""
+    pitch_count: int = 0
+    pickoff_count: int = 0
 
 
 @dataclass
@@ -27,6 +38,7 @@ class AppState:
     out_dir: str = ""
     wide_offset_sec: float = 0.0
     rois: MainCameraROIs = field(default_factory=MainCameraROIs)
+    detect: DetectStatus = field(default_factory=DetectStatus)
 
 
 def _rois_path(out_dir: str) -> Path:
@@ -36,6 +48,7 @@ def _rois_path(out_dir: str) -> Path:
 def create_app() -> Flask:
     app = Flask(__name__)
     state = AppState()
+    detect_lock = threading.Lock()
 
     @app.get("/")
     def setup_page():
@@ -131,6 +144,57 @@ def create_app() -> Flask:
             return jsonify({"error": f"枠の値が不足しています: {e}"}), 400
         roi_store.save(state.rois, _rois_path(state.out_dir))
         return jsonify({"ok": True})
+
+    @app.post("/api/detect")
+    def api_run_detect():
+        if not state.main_path:
+            return jsonify({"error": "メイン映像が設定されていません"}), 400
+        if not state.wide_path:
+            return jsonify({"error": "ワイド映像が設定されていません(検出にはワイド映像が必要です)"}), 400
+        if not state.out_dir:
+            return jsonify({"error": "出力先ディレクトリが設定されていません"}), 400
+
+        if not detect_lock.acquire(blocking=False):
+            return jsonify({"error": "既に検出処理を実行中です"}), 409
+
+        state.detect = DetectStatus(state="running", message="検出処理を実行中です…(映像の長さによって数分かかります)")
+        main_path, wide_path, out_dir = state.main_path, state.wide_path, state.out_dir
+        wide_offset_sec, rois = state.wide_offset_sec, state.rois
+
+        def _run() -> None:
+            try:
+                config = PipelineConfig()
+                config.detection.main_rois = rois
+                timeline = pipeline.detect(main_path, wide_path, config=config, wide_offset_sec=wide_offset_sec)
+                timeline_path = str(Path(out_dir) / "events" / "game.json")
+                timeline_io.save_json(timeline, timeline_path)
+                state.detect = DetectStatus(
+                    state="done",
+                    message="検出が完了しました。あくまで暫定結果なので必ず確認してください。",
+                    timeline_path=timeline_path,
+                    pitch_count=len(timeline.pitches),
+                    pickoff_count=len(timeline.pickoffs),
+                )
+            except Exception as e:
+                state.detect = DetectStatus(state="error", message=str(e))
+            finally:
+                detect_lock.release()
+
+        threading.Thread(target=_run, daemon=True).start()
+        return jsonify({"ok": True})
+
+    @app.get("/api/detect-status")
+    def api_detect_status():
+        d = state.detect
+        return jsonify(
+            {
+                "state": d.state,
+                "message": d.message,
+                "timeline_path": d.timeline_path,
+                "pitch_count": d.pitch_count,
+                "pickoff_count": d.pickoff_count,
+            }
+        )
 
     # テスト等から状態を直接差し込めるようにしておく。
     app.config["STATE"] = state
