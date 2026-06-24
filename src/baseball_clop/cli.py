@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import pipeline, roi_preview
+from . import pipeline, roi_preview, roi_store
 from .config import PipelineConfig
 from .scoring import count_state, timeline_io
 
@@ -31,8 +31,19 @@ def _cmd_check_rois(args: argparse.Namespace) -> None:
     print("ズレている場合は config.py の MainCameraROIs を調整してから detect を実行してください。")
 
 
-def _cmd_detect(args: argparse.Namespace) -> None:
+def _build_config(rois_path: str | None) -> PipelineConfig:
     config = PipelineConfig()
+    if rois_path:
+        rois = roi_store.load(rois_path)
+        if rois is None:
+            print(f"ROI設定ファイルが見つかりません: {rois_path}")
+            sys.exit(1)
+        config.detection.main_rois = rois
+    return config
+
+
+def _cmd_detect(args: argparse.Namespace) -> None:
+    config = _build_config(args.rois)
     timeline = pipeline.detect(
         args.main,
         args.wide,
@@ -91,7 +102,7 @@ def _cmd_ui(args: argparse.Namespace) -> None:
 
 
 def _cmd_all(args: argparse.Namespace) -> None:
-    config = PipelineConfig()
+    config = _build_config(args.rois)
     timeline = pipeline.detect(
         args.main, args.wide, config=config, wide_offset_sec=args.wide_offset_sec
     )
@@ -132,6 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wide-offset-sec", type=float, default=0.0, help="main開始時点でのwide映像内の再生位置(秒)")
     p.add_argument("--start-sec", type=float, default=0.0)
     p.add_argument("--end-sec", type=float, default=None)
+    p.add_argument("--rois", help="Web UI(baseball-clop ui)で保存したrois.jsonのパス。未指定時はconfig.pyのデフォルト値を使用")
     p.set_defaults(func=_cmd_detect)
 
     p = sub.add_parser("export-csv", help="タイムラインJSONを編集用CSVへ書き出す")
@@ -160,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wide", required=True)
     p.add_argument("--out-dir", required=True)
     p.add_argument("--wide-offset-sec", type=float, default=0.0)
+    p.add_argument("--rois", help="Web UI(baseball-clop ui)で保存したrois.jsonのパス。未指定時はconfig.pyのデフォルト値を使用")
     p.set_defaults(func=_cmd_all)
 
     return parser
