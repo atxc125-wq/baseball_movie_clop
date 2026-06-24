@@ -59,3 +59,69 @@ body {
 .roi-handle-ne { top: -5px; right: -5px; cursor: nesw-resize; }
 .roi-handle-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
 .roi-handle-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+#review-layout {
+  display: flex;
+  gap: 1.5em;
+  align-items: flex-start;
+}
+
+#pitch-sidebar {
+  width: 18em;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+}
+
+#pitch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#pitch-list li {
+  padding: 0.4em 0.6em;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+#pitch-list li:hover {
+  background: #f0f0f0;
+}
+
+#pitch-list li.active {
+  background: #d6e8ff;
+  font-weight: bold;
+}
+
+#review-main {
+  flex: 1;
+  min-width: 0;
+}
+
+#current-pitch-label {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+#player {
+  width: 100%;
+  max-width: 960px;
+  display: block;
+  background: #000;
+}
+
+.control-row {
+  margin: 0.5em 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6em;
+}
+
+fieldset {
+  margin: 1em 0;
+}

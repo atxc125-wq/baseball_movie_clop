@@ -18,7 +18,8 @@ from flask import Flask, jsonify, redirect, render_template, request, send_file,
 
 from .. import audio_sync, pipeline, roi_store
 from ..config import MainCameraROIs, PipelineConfig
-from ..scoring import timeline_io
+from ..scoring import count_state, timeline_io
+from ..scoring.models import GameTimeline, InPlayInfo, PitchCall, PitchOutcome, PlayResult, Runners
 from ..video_io import iter_frames
 
 
@@ -39,16 +40,47 @@ class AppState:
     wide_offset_sec: float = 0.0
     rois: MainCameraROIs = field(default_factory=MainCameraROIs)
     detect: DetectStatus = field(default_factory=DetectStatus)
+    timeline: GameTimeline | None = None
 
 
 def _rois_path(out_dir: str) -> Path:
     return Path(out_dir) / "rois.json"
 
 
+def _timeline_path(out_dir: str) -> Path:
+    return Path(out_dir) / "events" / "game.json"
+
+
+def _sorted_pitches(timeline: GameTimeline) -> list:
+    return sorted(timeline.pitches, key=lambda p: p.clip_start_sec)
+
+
+def _pitch_summary(p) -> dict:
+    return {
+        "id": p.id,
+        "inning": p.inning,
+        "half": p.half,
+        "clip_start_sec": p.clip_start_sec,
+        "clip_end_sec": p.clip_end_sec,
+        "outcome": p.outcome.value,
+        "pitch_call": p.pitch_call.value,
+        "needs_review": p.needs_review,
+        "count_after": p.count_after.to_dict(),
+        "runners_after": p.runners_after.to_dict(),
+    }
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     state = AppState()
     detect_lock = threading.Lock()
+
+    def _load_timeline_if_needed() -> GameTimeline | None:
+        if state.timeline is None and state.out_dir:
+            path = _timeline_path(state.out_dir)
+            if path.exists():
+                state.timeline = timeline_io.load_json(path)
+        return state.timeline
 
     @app.get("/")
     def setup_page():
@@ -166,8 +198,9 @@ def create_app() -> Flask:
                 config = PipelineConfig()
                 config.detection.main_rois = rois
                 timeline = pipeline.detect(main_path, wide_path, config=config, wide_offset_sec=wide_offset_sec)
-                timeline_path = str(Path(out_dir) / "events" / "game.json")
+                timeline_path = str(_timeline_path(out_dir))
                 timeline_io.save_json(timeline, timeline_path)
+                state.timeline = None  # game.jsonが上書きされたため、メモリ上の古いタイムラインは破棄する
                 state.detect = DetectStatus(
                     state="done",
                     message="検出が完了しました。あくまで暫定結果なので必ず確認してください。",
@@ -195,6 +228,133 @@ def create_app() -> Flask:
                 "pickoff_count": d.pickoff_count,
             }
         )
+
+    @app.get("/review")
+    def review_page():
+        if not state.out_dir or not state.main_path:
+            return redirect(url_for("setup_page"))
+        timeline = _load_timeline_if_needed()
+        if timeline is None:
+            return redirect(url_for("roi_page"))
+        pitches = [_pitch_summary(p) for p in _sorted_pitches(timeline)]
+        return render_template("review.html", pitches=pitches)
+
+    @app.get("/api/pitches")
+    def api_list_pitches():
+        timeline = _load_timeline_if_needed()
+        if timeline is None:
+            return jsonify({"error": "タイムラインがまだありません(検出を実行してください)"}), 400
+        return jsonify([_pitch_summary(p) for p in _sorted_pitches(timeline)])
+
+    @app.get("/api/pitches/<pitch_id>")
+    def api_get_pitch(pitch_id):
+        timeline = _load_timeline_if_needed()
+        if timeline is None:
+            return jsonify({"error": "タイムラインがまだありません(検出を実行してください)"}), 400
+        for p in timeline.pitches:
+            if p.id == pitch_id:
+                return jsonify(p.to_dict())
+        return jsonify({"error": f"投球が見つかりません: {pitch_id}"}), 404
+
+    @app.post("/api/pitches/<pitch_id>")
+    def api_update_pitch(pitch_id):
+        timeline = _load_timeline_if_needed()
+        if timeline is None:
+            return jsonify({"error": "タイムラインがまだありません(検出を実行してください)"}), 400
+
+        pitch = next((p for p in timeline.pitches if p.id == pitch_id), None)
+        if pitch is None:
+            return jsonify({"error": f"投球が見つかりません: {pitch_id}"}), 404
+
+        data = request.get_json(force=True) or {}
+
+        try:
+            clip_start_sec = float(data["clip_start_sec"])
+            clip_end_sec = float(data["clip_end_sec"])
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "不正な値です: clip_start_sec/clip_end_sec"}), 400
+        if clip_start_sec >= clip_end_sec:
+            return jsonify({"error": "clip_start_secはclip_end_secより前である必要があります"}), 400
+
+        try:
+            outcome = PitchOutcome(data["outcome"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "不正な値です: outcome"}), 400
+        try:
+            pitch_call = PitchCall(data["pitch_call"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "不正な値です: pitch_call"}), 400
+
+        in_play_data = data.get("in_play") or {}
+        try:
+            in_play_result = PlayResult(in_play_data.get("result", "none"))
+        except ValueError:
+            return jsonify({"error": "不正な値です: in_play.result"}), 400
+
+        try:
+            outs_on_play = int(in_play_data.get("outs_on_play") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"error": "不正な値です: in_play.outs_on_play"}), 400
+
+        resolved_runners_data = in_play_data.get("resolved_runners")
+        resolved_runners = Runners.from_dict(resolved_runners_data) if resolved_runners_data else None
+
+        try:
+            inning = int(data.get("inning", pitch.inning))
+        except (TypeError, ValueError):
+            return jsonify({"error": "不正な値です: inning"}), 400
+
+        half = data.get("half", pitch.half)
+        if half not in ("top", "bottom"):
+            return jsonify({"error": "不正な値です: half"}), 400
+
+        needs_review = bool(data.get("needs_review", pitch.needs_review))
+        notes = data.get("notes", pitch.notes)
+        apply_forward = bool(data.get("apply_inning_half_forward", True))
+        inning_half_changed = inning != pitch.inning or half != pitch.half
+
+        pitch.clip_start_sec = clip_start_sec
+        pitch.clip_end_sec = clip_end_sec
+        pitch.outcome = outcome
+        pitch.pitch_call = pitch_call
+        pitch.in_play = InPlayInfo(
+            contact_sec=pitch.in_play.contact_sec,
+            play_end_sec=pitch.in_play.play_end_sec,
+            result=in_play_result,
+            outs_on_play=outs_on_play,
+            resolved_runners=resolved_runners,
+        )
+        pitch.inning = inning
+        pitch.half = half
+        pitch.needs_review = needs_review
+        pitch.notes = notes
+
+        forward_filled_count = 0
+        if inning_half_changed and apply_forward:
+            for other in timeline.pitches:
+                if other.id != pitch.id and other.clip_start_sec > pitch.clip_start_sec:
+                    other.inning = inning
+                    other.half = half
+                    forward_filled_count += 1
+
+        count_state.recompute(timeline)
+        timeline_io.save_json(timeline, _timeline_path(state.out_dir))
+
+        result = pitch.to_dict()
+        result["forward_filled_count"] = forward_filled_count
+        return jsonify(result)
+
+    @app.get("/api/video/<camera>")
+    def api_video(camera):
+        if camera == "main":
+            path = state.main_path
+        elif camera == "wide":
+            path = state.wide_path
+        else:
+            return jsonify({"error": f"不正なカメラ名です: {camera}"}), 404
+        if not path or not Path(path).exists():
+            return jsonify({"error": "映像が設定されていません"}), 404
+        return send_file(path, conditional=True)
 
     # テスト等から状態を直接差し込めるようにしておく。
     app.config["STATE"] = state

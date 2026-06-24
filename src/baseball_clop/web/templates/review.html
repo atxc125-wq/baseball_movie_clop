@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>投球レビュー - baseball-clop</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>投球レビュー(1球ずつ確認・修正)</h1>
+  <p class="hint-text">
+    動画は元映像をそのまま再生しています。シーク位置は映像のキーフレーム間隔によって
+    前後数百msずれることがありますが、トリムの最終確定は下の数値で行うため見た目のズレは
+    気にしなくてかまいません。
+  </p>
+
+  <div id="review-layout">
+    <div id="pitch-sidebar">
+      <ul id="pitch-list"></ul>
+    </div>
+
+    <div id="review-main">
+      <div id="current-pitch-label"></div>
+
+      <video id="player" src="/api/video/main" controls></video>
+
+      <div class="control-row">
+        <button id="skip-gap-btn">ギャップをスキップ(次の投球の開始位置へ即ジャンプ)</button>
+      </div>
+
+      <fieldset>
+        <legend>トリム(開始・終了)</legend>
+        <div class="control-row">
+          <label>開始(秒): <input id="clip-start" type="number" step="0.01" style="width: 7em;"></label>
+          <button data-trim="start" data-delta="-1">-1.0s</button>
+          <button data-trim="start" data-delta="-0.1">-0.1s</button>
+          <button data-trim="start" data-delta="0.1">+0.1s</button>
+          <button data-trim="start" data-delta="1">+1.0s</button>
+          <button id="set-start-btn">現在位置を開始に設定</button>
+        </div>
+        <div class="control-row">
+          <label>終了(秒): <input id="clip-end" type="number" step="0.01" style="width: 7em;"></label>
+          <button data-trim="end" data-delta="-1">-1.0s</button>
+          <button data-trim="end" data-delta="-0.1">-0.1s</button>
+          <button data-trim="end" data-delta="0.1">+0.1s</button>
+          <button data-trim="end" data-delta="1">+1.0s</button>
+          <button id="set-end-btn">現在位置を終了に設定</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>判定</legend>
+        <div class="control-row">
+          <select id="judgement">
+            <option value="take_ball">見逃しボール</option>
+            <option value="take_strike">見逃しストライク</option>
+            <option value="swing_miss">空振り</option>
+            <option value="foul">ファウル</option>
+            <option value="in_play">打球(インプレー)</option>
+            <option value="unknown">不明(要確認)</option>
+          </select>
+        </div>
+
+        <div id="inplay-panel" class="control-row" style="display: none;">
+          <label>結果:
+            <select id="inplay-result">
+              <option value="single">単打</option>
+              <option value="double">二塁打</option>
+              <option value="triple">三塁打</option>
+              <option value="home_run">本塁打</option>
+              <option value="sacrifice">犠打</option>
+              <option value="error">失策</option>
+              <option value="fielders_choice">野手選択</option>
+              <option value="out">アウト</option>
+              <option value="unknown">不明</option>
+            </select>
+          </label>
+          <label>アウト数: <input id="outs-on-play" type="number" min="0" max="3" style="width: 4em;"></label>
+          <label><input id="runners-override" type="checkbox"> ランナーを手動指定する</label>
+          <span id="runner-checks">
+            <label><input id="runner-1b" type="checkbox"> 1B</label>
+            <label><input id="runner-2b" type="checkbox"> 2B</label>
+            <label><input id="runner-3b" type="checkbox"> 3B</label>
+          </span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>回・表裏</legend>
+        <div class="control-row">
+          <label>回: <input id="inning" type="number" min="1" style="width: 4em;"></label>
+          <select id="half">
+            <option value="top">表</option>
+            <option value="bottom">裏</option>
+          </select>
+          <label><input id="apply-forward" type="checkbox" checked> 以降の投球にも適用する</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>カウント・ランナー(参考表示・自動計算)</legend>
+        <div class="control-row">
+          <span>カウント: <span id="count-before"></span> → <span id="count-after"></span></span>
+          <span>ランナー: <span id="runners-before"></span> → <span id="runners-after"></span></span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>その他</legend>
+        <div class="control-row">
+          <label><input id="needs-review" type="checkbox"> 要確認</label>
+        </div>
+        <div class="control-row">
+          <label>メモ: <textarea id="notes" rows="2" style="width: 100%;"></textarea></label>
+        </div>
+      </fieldset>
+
+      <div class="control-row">
+        <button id="save-next-btn">保存して次へ</button>
+        <button id="save-stay-btn">保存(留まる)</button>
+        <span id="save-status" class="hint-text"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.INITIAL_PITCHES = {{ pitches | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='review.js') }}"></script>
+</body>
+</html>

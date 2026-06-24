@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from .models import GameTimeline, InPlayInfo, PitchCall, PitchOutcome, PlayResult, Runners
@@ -43,9 +45,22 @@ CSV_FIELDS = [
 
 
 def save_json(timeline: GameTimeline, path: str | Path) -> None:
+    """正本JSONを書き出す。書き込み中のクラッシュでファイルが壊れないよう、
+    同一ディレクトリの一時ファイルに書いてから os.replace() で原子的に置き換える。
+    """
+
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(timeline.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    text = json.dumps(timeline.to_dict(), ensure_ascii=False, indent=2)
+
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
 
 
 def load_json(path: str | Path) -> GameTimeline:
