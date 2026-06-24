@@ -87,3 +87,47 @@ def test_frame_png_out_of_range_returns_404(tmp_path):
 
     res = client.get("/api/frame.png?t_sec=999")
     assert res.status_code == 404
+
+
+def test_api_setup_stores_wide_offset_sec(tmp_path):
+    video_path = tmp_path / "main.mp4"
+    _write_video(video_path)
+    out_dir = tmp_path / "out"
+
+    app = create_app()
+    client = app.test_client()
+    res = client.post(
+        "/api/setup",
+        json={
+            "main_path": str(video_path),
+            "wide_path": "",
+            "out_dir": str(out_dir),
+            "wide_offset_sec": "1.25",
+        },
+    )
+    assert res.status_code == 200
+    assert app.config["STATE"].wide_offset_sec == 1.25
+
+
+def test_api_sync_audio_rejects_missing_files(tmp_path):
+    client = create_app().test_client()
+    res = client.post(
+        "/api/sync-audio",
+        json={"main_path": str(tmp_path / "missing_main.mp4"), "wide_path": str(tmp_path / "missing_wide.mp4")},
+    )
+    assert res.status_code == 400
+
+
+def test_api_sync_audio_rejects_video_without_audio(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/sync-audio",
+        json={"main_path": str(main_path), "wide_path": str(wide_path)},
+    )
+    assert res.status_code == 400
+    assert "音声" in res.get_json()["error"]

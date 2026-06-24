@@ -14,6 +14,11 @@
     <label>ワイド映像のパス(無ければ空でも可)<br>
       <input type="text" name="wide_path" value="{{ wide_path }}" size="60">
     </label><br><br>
+    <label>ワイドの時刻オフセット(秒) — main映像の秒数 + オフセット = wide映像内の秒数<br>
+      <input type="number" name="wide_offset_sec" value="{{ wide_offset_sec }}" step="0.01" size="10">
+      <button type="button" id="sync-audio-btn">音声から自動検出</button>
+    </label><br>
+    <span id="sync-audio-result" class="hint-text"></span><br><br>
     <label>出力先ディレクトリ(タイムライン/クリップ/ROI設定を書き出す場所)<br>
       <input type="text" name="out_dir" value="{{ out_dir }}" size="60" required>
     </label><br><br>

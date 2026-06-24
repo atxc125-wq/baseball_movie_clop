@@ -8,13 +8,14 @@
 from __future__ import annotations
 
 import io
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
-from .. import roi_store
+from .. import audio_sync, roi_store
 from ..config import MainCameraROIs
 from ..video_io import iter_frames
 
@@ -24,6 +25,7 @@ class AppState:
     main_path: str = ""
     wide_path: str = ""
     out_dir: str = ""
+    wide_offset_sec: float = 0.0
     rois: MainCameraROIs = field(default_factory=MainCameraROIs)
 
 
@@ -42,6 +44,7 @@ def create_app() -> Flask:
             main_path=state.main_path,
             wide_path=state.wide_path,
             out_dir=state.out_dir,
+            wide_offset_sec=state.wide_offset_sec,
         )
 
     @app.post("/api/setup")
@@ -58,14 +61,40 @@ def create_app() -> Flask:
         if not out_dir:
             return jsonify({"error": "出力先ディレクトリを指定してください"}), 400
 
+        try:
+            wide_offset_sec = float(data.get("wide_offset_sec") or 0.0)
+        except (TypeError, ValueError):
+            return jsonify({"error": "ワイドの時刻オフセットは数値で指定してください"}), 400
+
         state.main_path = main_path
         state.wide_path = wide_path
         state.out_dir = out_dir
+        state.wide_offset_sec = wide_offset_sec
 
         loaded = roi_store.load(_rois_path(out_dir))
         state.rois = loaded if loaded is not None else MainCameraROIs()
 
         return jsonify({"ok": True})
+
+    @app.post("/api/sync-audio")
+    def api_sync_audio():
+        data = request.get_json(force=True) or {}
+        main_path = (data.get("main_path") or "").strip()
+        wide_path = (data.get("wide_path") or "").strip()
+
+        if not main_path or not Path(main_path).exists():
+            return jsonify({"error": f"メイン映像が見つかりません: {main_path}"}), 400
+        if not wide_path or not Path(wide_path).exists():
+            return jsonify({"error": f"ワイド映像が見つかりません: {wide_path}"}), 400
+
+        try:
+            result = audio_sync.estimate_offset(main_path, wide_path)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except subprocess.CalledProcessError:
+            return jsonify({"error": "音声の抽出に失敗しました(ffmpegエラー)"}), 500
+
+        return jsonify({"offset_sec": result.offset_sec, "confidence": result.confidence})
 
     @app.get("/roi")
     def roi_page():

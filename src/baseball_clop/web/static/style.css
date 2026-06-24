@@ -7,6 +7,11 @@ body {
   color: #c00;
 }
 
+.hint-text {
+  color: #555;
+  font-size: 0.9em;
+}
+
 #frame-wrap {
   position: relative;
   display: inline-block;
