@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>baseball-clop</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>映像ファイルの指定</h1>
+  <form id="setup-form">
+    <label>メイン映像(マウンド-ホーム)のパス<br>
+      <input type="text" name="main_path" value="{{ main_path }}" size="60" required>
+    </label><br><br>
+    <label>ワイド映像のパス(無ければ空でも可)<br>
+      <input type="text" name="wide_path" value="{{ wide_path }}" size="60">
+    </label><br><br>
+    <label>出力先ディレクトリ(タイムライン/クリップ/ROI設定を書き出す場所)<br>
+      <input type="text" name="out_dir" value="{{ out_dir }}" size="60" required>
+    </label><br><br>
+    <button type="submit">次へ(ROI調整)</button>
+  </form>
+  <p id="error" class="error-text"></p>
+
+  <script src="{{ url_for('static', filename='setup.js') }}"></script>
+</body>
+</html>

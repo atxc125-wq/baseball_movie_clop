@@ -31,6 +31,13 @@ class ROI:
             int(self.y1 * height),
         )
 
+    def to_dict(self) -> dict[str, float]:
+        return {"x0": self.x0, "y0": self.y0, "x1": self.x1, "y1": self.y1}
+
+    @staticmethod
+    def from_dict(d: dict[str, float]) -> "ROI":
+        return ROI(x0=d["x0"], y0=d["y0"], x1=d["x1"], y1=d["y1"])
+
 
 @dataclass
 class MainCameraROIs:
@@ -52,6 +59,27 @@ class MainCameraROIs:
     # サンプル映像に牽制シーンが無いため低確度の推定値。実際の牽制映像で要検証。
     base_first: ROI = field(default_factory=lambda: ROI(0.36, 0.35, 0.62, 0.58))
     base_third: ROI = field(default_factory=lambda: ROI(0.04, 0.45, 0.26, 0.70))
+
+    def to_dict(self) -> dict[str, dict[str, float]]:
+        return {
+            "pitcher": self.pitcher.to_dict(),
+            "batter_box": self.batter_box.to_dict(),
+            "catcher": self.catcher.to_dict(),
+            "strike_zone": self.strike_zone.to_dict(),
+            "base_first": self.base_first.to_dict(),
+            "base_third": self.base_third.to_dict(),
+        }
+
+    @staticmethod
+    def from_dict(d: dict[str, dict[str, float]]) -> "MainCameraROIs":
+        return MainCameraROIs(
+            pitcher=ROI.from_dict(d["pitcher"]),
+            batter_box=ROI.from_dict(d["batter_box"]),
+            catcher=ROI.from_dict(d["catcher"]),
+            strike_zone=ROI.from_dict(d["strike_zone"]),
+            base_first=ROI.from_dict(d["base_first"]),
+            base_third=ROI.from_dict(d["base_third"]),
+        )
 
 
 @dataclass

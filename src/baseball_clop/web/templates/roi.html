@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ROI調整 - baseball-clop</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>投手・捕手・バッターなどの枠を確認・調整してください</h1>
+  <p>
+    時刻(秒):
+    <input id="t-sec" type="number" value="5" step="0.5" style="width: 5em;">
+    <button id="reload-frame">この時刻で表示</button>
+  </p>
+  <div id="frame-wrap">
+    <img id="frame-img" src="/api/frame.png?t_sec=5" alt="frame">
+    <div id="boxes"></div>
+  </div>
+  <p>
+    <button id="save-btn">この枠で保存</button>
+    <span id="status"></span>
+  </p>
+  <p><small>枠の角をドラッグしてサイズ変更、枠の中をドラッグして移動できます。試合開始直後は投球練習中で
+  選手が定位置にいないことが多いので、時刻を変えて実際のプレー中の枠の合い方を確認してください。</small></p>
+
+  <script>
+    window.INITIAL_ROIS = {{ rois | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='roi.js') }}"></script>
+</body>
+</html>

@@ -76,6 +76,20 @@ def _cmd_render(args: argparse.Namespace) -> None:
         print(f"書き出し: {path}")
 
 
+def _cmd_ui(args: argparse.Namespace) -> None:
+    import threading
+    import webbrowser
+
+    from .web.app import create_app
+
+    url = f"http://127.0.0.1:{args.port}/"
+    print(f"ブラウザで {url} を開いてください(数秒後に自動で開きます)。")
+    print("終了するには Ctrl+C を押してください。")
+    if not args.no_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    create_app().run(host="127.0.0.1", port=args.port, debug=False)
+
+
 def _cmd_all(args: argparse.Namespace) -> None:
     config = PipelineConfig()
     timeline = pipeline.detect(
@@ -105,6 +119,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--out", required=True, help="出力する画像のパス(.png/.jpg)。複数時刻指定時は時刻が自動でファイル名に付く")
     p.set_defaults(func=_cmd_check_rois)
+
+    p = sub.add_parser("ui", help="ローカルWeb UI(映像パス設定/ROI調整)を起動する")
+    p.add_argument("--port", type=int, default=5000)
+    p.add_argument("--no-browser", action="store_true", help="ブラウザを自動で開かない")
+    p.set_defaults(func=_cmd_ui)
 
     p = sub.add_parser("detect", help="2カメラ映像からタイムラインJSONを自動検出する")
     p.add_argument("--main", required=True, help="マウンド-ホーム4K映像のパス")

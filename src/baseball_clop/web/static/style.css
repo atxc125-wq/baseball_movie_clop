@@ -1,0 +1,56 @@
+body {
+  font-family: sans-serif;
+  margin: 2em;
+}
+
+.error-text {
+  color: #c00;
+}
+
+#frame-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+#frame-img {
+  display: block;
+  width: 960px;
+  max-width: 100%;
+  user-select: none;
+}
+
+#boxes {
+  position: absolute;
+  inset: 0;
+}
+
+.roi-box {
+  position: absolute;
+  border: 2px solid red;
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.roi-label {
+  position: absolute;
+  top: -1.4em;
+  left: 0;
+  color: #fff;
+  font-size: 12px;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+.roi-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 1px solid #333;
+  box-sizing: border-box;
+}
+
+.roi-handle-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.roi-handle-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.roi-handle-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.roi-handle-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
