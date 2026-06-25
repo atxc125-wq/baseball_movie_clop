@@ -16,6 +16,7 @@ from .detection.pitcher_motion import detect_pitch_and_pickoff_candidates
 from .detection.swing_contact import analyze_pitch_result
 from .editor.clipper import cut_pitch_clip
 from .overlay.overlay_writer import write_overlay_for_pitch
+from .progress import ConsoleProgress
 from .scoring import count_state
 from .scoring.models import (
     CameraName,
@@ -54,7 +55,10 @@ def detect(
     )
 
     pitches: list[PitchEvent] = []
+    pitch_progress = ConsoleProgress("投球イベントの詳細を分析中", total=len(candidates)) if candidates else None
     for i, cand in enumerate(candidates, start=1):
+        if pitch_progress is not None:
+            pitch_progress.update(i)
         result = analyze_pitch_result(main_path, cand.release_sec, config.detection)
         # 見逃し/空振りは捕球、打球は打音(コンタクト)を基準点として、その手前から
         # 切り出す(motion_start基準だとセット/ワインドアップの途中からしか映らないことがある)。
@@ -84,6 +88,9 @@ def detect(
             ]
 
         pitches.append(pitch)
+
+    if pitch_progress is not None:
+        pitch_progress.finish()
 
     timeline = GameTimeline(video=video, pitches=pitches, pickoffs=pickoffs)
     count_state.recompute(timeline)

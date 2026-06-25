@@ -17,7 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..config import DetectionConfig
+from ..progress import ConsoleProgress
 from ..scoring.models import PickoffEvent
+from ..video_io import get_video_info
 from .ball_tracking import estimate_throw_target
 from .motion import find_local_peak, find_motion_rises, roi_motion_series
 
@@ -37,13 +39,17 @@ def detect_pitch_and_pickoff_candidates(
     end_sec: float | None = None,
 ) -> tuple[list[PitchCandidate], list[PickoffEvent]]:
     rois = config.main_rois
+    total_sec = (end_sec if end_sec is not None else get_video_info(main_video_path).duration_sec) - start_sec
+    scan_progress = ConsoleProgress("投手モーション検出(動画スキャン)", total=total_sec)
     samples = roi_motion_series(
         main_video_path,
         rois.pitcher,
         start_sec=start_sec,
         end_sec=end_sec,
         analysis_width=config.analysis_width,
+        progress=scan_progress,
     )
+    scan_progress.finish()
     rise_times = find_motion_rises(
         samples,
         config.pitcher_motion_threshold,
@@ -56,7 +62,10 @@ def detect_pitch_and_pickoff_candidates(
     pitches: list[PitchCandidate] = []
     pickoffs: list[PickoffEvent] = []
 
-    for motion_start in rise_times:
+    cand_progress = ConsoleProgress("投球/牽制候補を分析中", total=len(rise_times)) if rise_times else None
+    for cand_idx, motion_start in enumerate(rise_times, start=1):
+        if cand_progress is not None:
+            cand_progress.update(cand_idx)
         search_end = motion_start + config.pickoff_max_sec_after_motion
         peak = find_local_peak(samples, motion_start, search_end)
         release_sec = peak.t if peak else motion_start + 0.3
@@ -86,5 +95,8 @@ def detect_pitch_and_pickoff_candidates(
                 needs_review=(target == "unknown") or confidence < 0.5,
             )
         )
+
+    if cand_progress is not None:
+        cand_progress.finish()
 
     return pitches, pickoffs

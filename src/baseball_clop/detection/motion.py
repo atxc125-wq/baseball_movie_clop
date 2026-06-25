@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from ..config import ROI
+from ..progress import ConsoleProgress
 from ..video_io import iter_frames
 
 
@@ -31,6 +32,7 @@ def roi_motion_series(
     start_sec: float = 0.0,
     end_sec: float | None = None,
     analysis_width: int = 480,
+    progress: ConsoleProgress | None = None,
 ) -> list[MotionSample]:
     """ROI内の連続フレーム間の平均絶対輝度差分を時系列として返す。"""
 
@@ -38,6 +40,8 @@ def roi_motion_series(
     prev_gray: np.ndarray | None = None
 
     for t, frame in iter_frames(path, start_sec, end_sec, target_width=analysis_width):
+        if progress is not None:
+            progress.update(t - start_sec)
         h, w = frame.shape[:2]
         x0, y0, x1, y1 = roi.to_pixels(w, h)
         x0, y0 = max(0, x0), max(0, y0)
