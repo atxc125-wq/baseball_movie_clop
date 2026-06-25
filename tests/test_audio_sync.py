@@ -65,3 +65,10 @@ def test_estimate_offset_raises_without_audio_track(tmp_path):
 
     with pytest.raises(ValueError):
         audio_sync.estimate_offset(video_path, wav_path)
+
+
+def test_estimate_offset_raises_distinct_error_when_ffprobe_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(audio_sync.shutil, "which", lambda name: None)
+
+    with pytest.raises(ValueError, match="ffprobe"):
+        audio_sync.estimate_offset(tmp_path / "main.mp4", tmp_path / "wide.mp4")

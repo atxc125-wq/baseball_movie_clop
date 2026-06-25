@@ -11,6 +11,7 @@ ffmpegで低サンプルレートのモノラルPCMに変換してから比較�
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +40,10 @@ def estimate_offset(
     wide_offset_secの定義(scoring.models.VideoSources): wide_file_sec = main_game_sec
     + wide_offset_sec。両映像の音声波形が一致するラグからこれを直接計算する。
     """
+    if shutil.which("ffprobe") is None:
+        # _has_audio_streamはffprobe未インストール時にもFalseを返す(render側では音声無しとして
+        # 静かに縮退させたいため)。ここでは「音声トラックが無い」と誤解させないよう先に区別する。
+        raise ValueError("ffprobeが見つかりません。ffmpeg(ffprobeを含む)をインストールしてください。")
     if not _has_audio_stream(str(main_path)) or not _has_audio_stream(str(wide_path)):
         raise ValueError("メインまたはワイド映像に音声トラックがありません")
 
