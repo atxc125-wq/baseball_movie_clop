@@ -79,14 +79,22 @@ document.getElementById("sync-play-btn").addEventListener("click", () => {
   const statusEl = document.getElementById("preview-status");
   const offsetSec = parseFloat(form.wide_offset_sec.value) || 0;
 
-  const mainTime = mainVideo.currentTime;
-  const wideTime = mainTime + offsetSec;
+  let mainTime = mainVideo.currentTime;
+  let wideTime = mainTime + offsetSec;
 
-  wideVideo.currentTime = Math.max(0, wideTime);
-  statusEl.textContent =
-    wideTime < 0
-      ? "この位置より前はワイド映像が始まっていないため、ワイド側は0秒から再生します。"
-      : "";
+  if (wideTime < 0) {
+    // ワイド映像がまだ始まっていない位置だったので、ワイドの開始位置(0秒)に
+    // 合わせてメイン側を自動で進める(逆にワイド側を止めても見比べができないため)。
+    mainTime = Math.max(0, -offsetSec);
+    wideTime = 0;
+    mainVideo.currentTime = mainTime;
+    statusEl.textContent =
+      `この位置はワイド映像の録画開始前のため、メイン側を${mainTime.toFixed(1)}秒まで自動的に進めました。`;
+  } else {
+    statusEl.textContent = "";
+  }
+
+  wideVideo.currentTime = wideTime;
 
   mainVideo.play();
   wideVideo.play();
