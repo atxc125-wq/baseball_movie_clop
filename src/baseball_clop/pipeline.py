@@ -8,13 +8,19 @@ render() を再実行すれば、修正内容を反映したクリップ/オー�
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 from .config import PipelineConfig
 from .detection.camera_selector import decide_camera_for_play
 from .detection.pitcher_motion import detect_pitch_and_pickoff_candidates
 from .detection.swing_contact import analyze_pitch_result
-from .editor.clipper import cut_pitch_clip
+from .editor.clipper import _ffmpeg_bin, cut_pitch_clip
 from .overlay.overlay_writer import write_overlay_for_pitch
 from .progress import ConsoleProgress
 from .scoring import count_state
@@ -28,6 +34,39 @@ from .scoring.models import (
     VideoSources,
 )
 from .video_io import get_video_info
+
+
+@contextmanager
+def _analysis_video(main_path: str, width: int, analysis_width: int) -> Iterator[str]:
+    """解析専用の低解像度プロキシ動画を生成し、そのパスを返すコンテキストマネージャ。
+
+    検出処理はいずれもanalysis_widthまで縮小した上で解析するため、元動画がそれより
+    広い場合は事前にffmpegで縮小しておくことで、OpenCVの全フレームデコード(解像度に
+    比例して遅くなる)の負荷を下げられる。アスペクト比・fps・再生時間は変えないため、
+    プロキシ上で検出した秒数はそのまま元動画のgame_secとして使える(render()には常に
+    元のmain_path/wide_pathを使うため、最終的なクリップ画質には影響しない)。
+    """
+
+    if width <= analysis_width:
+        yield main_path
+        return
+
+    tmp_dir = tempfile.mkdtemp(prefix="baseball_clop_proxy_")
+    try:
+        proxy_path = str(Path(tmp_dir) / "analysis_proxy.mp4")
+        print("解析用の低解像度プロキシ動画を生成中...", file=sys.stderr)
+        cmd = [
+            _ffmpeg_bin(), "-y",
+            "-i", str(main_path),
+            "-vf", f"scale={analysis_width}:-2",
+            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            proxy_path,
+        ]
+        subprocess.run(cmd, check=True, capture_output=True)
+        print("プロキシ動画の生成が完了しました。", file=sys.stderr)
+        yield proxy_path
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def detect(
@@ -50,47 +89,48 @@ def detect(
         wide_offset_sec=wide_offset_sec,
     )
 
-    candidates, pickoffs = detect_pitch_and_pickoff_candidates(
-        main_path, config.detection, start_sec=start_sec, end_sec=end_sec
-    )
-
-    pitches: list[PitchEvent] = []
-    pitch_progress = ConsoleProgress("投球イベントの詳細を分析中", total=len(candidates)) if candidates else None
-    for i, cand in enumerate(candidates, start=1):
-        if pitch_progress is not None:
-            pitch_progress.update(i)
-        result = analyze_pitch_result(main_path, cand.release_sec, config.detection)
-        # 見逃し/空振りは捕球、打球は打音(コンタクト)を基準点として、その手前から
-        # 切り出す(motion_start基準だとセット/ワインドアップの途中からしか映らないことがある)。
-        anchor_sec = result.catch_reference_sec if result.catch_reference_sec is not None else result.contact_sec
-        if anchor_sec is not None:
-            clip_start = max(0.0, anchor_sec - config.detection.pre_roll_anchor_sec)
-        else:
-            clip_start = max(0.0, cand.motion_start_sec - config.detection.pre_roll_sec)
-
-        pitch = PitchEvent(
-            id=f"p{i:04d}",
-            pitcher_motion_start_sec=cand.motion_start_sec,
-            pitch_release_sec=cand.release_sec,
-            clip_start_sec=clip_start,
-            outcome=result.outcome,
-            pitch_call=result.pitch_call,
-            detection_confidence=min(cand.confidence, result.confidence),
-            needs_review=cand.needs_review or result.needs_review,
+    with _analysis_video(main_path, main_info.width, config.detection.analysis_width) as analysis_path:
+        candidates, pickoffs = detect_pitch_and_pickoff_candidates(
+            analysis_path, config.detection, start_sec=start_sec, end_sec=end_sec
         )
 
-        if result.outcome == PitchOutcome.IN_PLAY:
-            _fill_in_play(pitch, main_path, result.contact_sec or cand.release_sec, config)
-        else:
-            pitch.clip_end_sec = result.clip_end_sec
-            pitch.segments = [
-                CameraSegment(camera=CameraName.MAIN, start_sec=clip_start, end_sec=pitch.clip_end_sec)
-            ]
+        pitches: list[PitchEvent] = []
+        pitch_progress = ConsoleProgress("投球イベントの詳細を分析中", total=len(candidates)) if candidates else None
+        for i, cand in enumerate(candidates, start=1):
+            if pitch_progress is not None:
+                pitch_progress.update(i)
+            result = analyze_pitch_result(analysis_path, cand.release_sec, config.detection)
+            # 見逃し/空振りは捕球、打球は打音(コンタクト)を基準点として、その手前から
+            # 切り出す(motion_start基準だとセット/ワインドアップの途中からしか映らないことがある)。
+            anchor_sec = result.catch_reference_sec if result.catch_reference_sec is not None else result.contact_sec
+            if anchor_sec is not None:
+                clip_start = max(0.0, anchor_sec - config.detection.pre_roll_anchor_sec)
+            else:
+                clip_start = max(0.0, cand.motion_start_sec - config.detection.pre_roll_sec)
 
-        pitches.append(pitch)
+            pitch = PitchEvent(
+                id=f"p{i:04d}",
+                pitcher_motion_start_sec=cand.motion_start_sec,
+                pitch_release_sec=cand.release_sec,
+                clip_start_sec=clip_start,
+                outcome=result.outcome,
+                pitch_call=result.pitch_call,
+                detection_confidence=min(cand.confidence, result.confidence),
+                needs_review=cand.needs_review or result.needs_review,
+            )
 
-    if pitch_progress is not None:
-        pitch_progress.finish()
+            if result.outcome == PitchOutcome.IN_PLAY:
+                _fill_in_play(pitch, analysis_path, result.contact_sec or cand.release_sec, config)
+            else:
+                pitch.clip_end_sec = result.clip_end_sec
+                pitch.segments = [
+                    CameraSegment(camera=CameraName.MAIN, start_sec=clip_start, end_sec=pitch.clip_end_sec)
+                ]
+
+            pitches.append(pitch)
+
+        if pitch_progress is not None:
+            pitch_progress.finish()
 
     timeline = GameTimeline(video=video, pitches=pitches, pickoffs=pickoffs)
     count_state.recompute(timeline)
@@ -99,7 +139,7 @@ def detect(
 
 def _fill_in_play(
     pitch: PitchEvent,
-    main_path: str,
+    video_path: str,
     contact_sec: float,
     config: PipelineConfig,
 ) -> None:
@@ -110,7 +150,7 @@ def _fill_in_play(
     (in_play_clip_duration_sec)を採用する。実際の試合映像で精度を確認しながら再検討する。
     """
 
-    decision = decide_camera_for_play(main_path, contact_sec, config.detection)
+    decision = decide_camera_for_play(video_path, contact_sec, config.detection)
     play_end_sec = contact_sec + config.detection.in_play_clip_duration_sec
 
     pitch.in_play = InPlayInfo(contact_sec=contact_sec, play_end_sec=play_end_sec)
