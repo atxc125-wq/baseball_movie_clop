@@ -133,13 +133,40 @@ def create_app() -> Flask:
             return jsonify({"error": f"ワイド映像が見つかりません: {wide_path}"}), 400
 
         try:
-            result = audio_sync.estimate_offset(main_path, wide_path)
+            max_offset_sec = float(data.get("max_offset_sec") or 20.0)
+        except (TypeError, ValueError):
+            return jsonify({"error": "探索範囲は数値で指定してください"}), 400
+        if max_offset_sec <= 0:
+            return jsonify({"error": "探索範囲は0より大きい値で指定してください"}), 400
+
+        # 比較対象の音声がmax_offset_sec分のラグでも実際に重なるよう、抽出区間を
+        # 探索範囲より十分長く取る(重なりが無いと相互相関が意味を持たない)。
+        duration_sec = max_offset_sec + 30.0
+
+        try:
+            result = audio_sync.estimate_offset(main_path, wide_path, duration_sec=duration_sec, max_offset_sec=max_offset_sec)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         except subprocess.CalledProcessError:
             return jsonify({"error": "音声の抽出に失敗しました(ffmpegエラー)"}), 500
 
         return jsonify({"offset_sec": result.offset_sec, "confidence": result.confidence})
+
+    @app.post("/api/preview-paths")
+    def api_preview_paths():
+        """セットアップ画面のプレビュー再生用に、/api/setupより前にmain/wideのパスだけを反映する。"""
+        data = request.get_json(force=True) or {}
+        main_path = (data.get("main_path") or "").strip()
+        wide_path = (data.get("wide_path") or "").strip()
+
+        if not main_path or not Path(main_path).exists():
+            return jsonify({"error": f"メイン映像が見つかりません: {main_path}"}), 400
+        if not wide_path or not Path(wide_path).exists():
+            return jsonify({"error": f"ワイド映像が見つかりません: {wide_path}"}), 400
+
+        state.main_path = main_path
+        state.wide_path = wide_path
+        return jsonify({"ok": True})
 
     @app.get("/roi")
     def roi_page():

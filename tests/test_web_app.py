@@ -136,6 +136,72 @@ def test_api_sync_audio_rejects_video_without_audio(tmp_path):
     assert "音声" in res.get_json()["error"]
 
 
+def test_api_sync_audio_rejects_non_numeric_max_offset_sec(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/sync-audio",
+        json={"main_path": str(main_path), "wide_path": str(wide_path), "max_offset_sec": "abc"},
+    )
+    assert res.status_code == 400
+
+
+def test_api_sync_audio_rejects_non_positive_max_offset_sec(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/sync-audio",
+        json={"main_path": str(main_path), "wide_path": str(wide_path), "max_offset_sec": 0},
+    )
+    assert res.status_code == 400
+
+
+def test_api_preview_paths_rejects_missing_files(tmp_path):
+    client = create_app().test_client()
+    res = client.post(
+        "/api/preview-paths",
+        json={"main_path": str(tmp_path / "missing_main.mp4"), "wide_path": str(tmp_path / "missing_wide.mp4")},
+    )
+    assert res.status_code == 400
+
+
+def test_api_preview_paths_rejects_missing_wide_path(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    _write_video(main_path)
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/preview-paths",
+        json={"main_path": str(main_path), "wide_path": str(tmp_path / "missing_wide.mp4")},
+    )
+    assert res.status_code == 400
+
+
+def test_api_preview_paths_success_unlocks_video_routes(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+
+    client = create_app().test_client()
+    res = client.post(
+        "/api/preview-paths",
+        json={"main_path": str(main_path), "wide_path": str(wide_path)},
+    )
+    assert res.status_code == 200
+
+    assert client.get("/api/video/main").status_code == 200
+    assert client.get("/api/video/wide").status_code == 200
+
+
 def test_api_detect_rejects_before_setup():
     client = create_app().test_client()
     res = client.post("/api/detect")

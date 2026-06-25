@@ -125,3 +125,18 @@ body {
 fieldset {
   margin: 1em 0;
 }
+
+#preview-videos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+#preview-main,
+#preview-wide {
+  flex: 1;
+  min-width: 280px;
+  max-width: 480px;
+  display: block;
+  background: #000;
+}

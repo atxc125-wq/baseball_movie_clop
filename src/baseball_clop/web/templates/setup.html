@@ -16,6 +16,9 @@
     </label><br><br>
     <label>ワイドの時刻オフセット(秒) — main映像の秒数 + オフセット = wide映像内の秒数<br>
       <input type="number" name="wide_offset_sec" value="{{ wide_offset_sec }}" step="0.01" size="10">
+    </label><br>
+    <label>音声同期の探索範囲(秒) — 実際のズレがこれより大きいと自動検出できません<br>
+      <input type="number" id="max-offset-sec" value="20" step="1" min="1" size="6">
       <button type="button" id="sync-audio-btn">音声から自動検出</button>
     </label><br>
     <span id="sync-audio-result" class="hint-text"></span><br><br>
@@ -25,6 +28,24 @@
     <button type="submit">次へ(ROI調整)</button>
   </form>
   <p id="error" class="error-text"></p>
+
+  <fieldset>
+    <legend>プレビュー(メイン/ワイドを同時再生して同期を目で確認)</legend>
+    <p class="hint-text">
+      上のメイン/ワイドのパスを指定した状態で「プレビューを読み込む」を押してください。
+      メイン映像を確認したい場面までシークしてから「同時再生」を押すと、ワイド側が
+      現在のオフセット秒を加味した位置から一緒に再生されます。
+    </p>
+    <div class="control-row">
+      <button type="button" id="load-preview-btn">プレビューを読み込む</button>
+      <button type="button" id="sync-play-btn">この位置から同時再生</button>
+      <span id="preview-status" class="hint-text"></span>
+    </div>
+    <div id="preview-videos">
+      <video id="preview-main" controls></video>
+      <video id="preview-wide" controls></video>
+    </div>
+  </fieldset>
 
   <script src="{{ url_for('static', filename='setup.js') }}"></script>
 </body>
