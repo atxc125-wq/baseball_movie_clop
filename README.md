@@ -96,6 +96,17 @@ baseball-clop all --main data/raw/main/game1_main.mp4 --wide data/raw/wide/game1
 2台のカメラの録画開始タイミングがズレている場合は `--wide-offset-sec` で
 「mainの再生開始時点でwide映像の何秒目にあたるか」を指定する。
 
+## Web UI
+
+```
+baseball-clop ui
+```
+
+映像パスの指定・音声同期・ROI調整・1球ずつのレビューをブラウザ上で行える(127.0.0.1限定)。
+Windowsでコマンド入力が面倒な場合は、リポジトリ直下の `start_ui.bat` をダブルクリックすれば
+同じコマンドを実行できる(`baseball-clop` コマンドがPATHに無い環境でも `python -m
+baseball_clop.cli ui` 経由で起動するため動く)。
+
 ## 検出ロジックの設計と既知の限界
 
 - **投球動作の検出**: マウンドROI内のモーションが「一定時間静止→動き出す」瞬間を
