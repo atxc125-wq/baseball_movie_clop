@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import subprocess
 import threading
 from dataclasses import dataclass, field
@@ -41,6 +43,48 @@ class AppState:
     rois: MainCameraROIs = field(default_factory=MainCameraROIs)
     detect: DetectStatus = field(default_factory=DetectStatus)
     timeline: GameTimeline | None = None
+
+
+def _last_setup_path() -> Path:
+    """直前に使用したmain/wide/out_dirを記憶しておくファイル。
+
+    サーバープロセスを再起動するたびにセットアップ画面の入力をやり直す手間を
+    省くためのもので、AppState自体(検証済みの状態)とは別に持つ。
+    テストからはBASEBALL_CLOP_CONFIG_DIR環境変数で保存先を上書きできる。
+    """
+    base = os.environ.get("BASEBALL_CLOP_CONFIG_DIR")
+    if base:
+        return Path(base) / "last_setup.json"
+    return Path.home() / ".baseball_clop" / "last_setup.json"
+
+
+def _load_last_setup() -> dict:
+    path = _last_setup_path()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_last_setup(main_path: str, wide_path: str, out_dir: str, wide_offset_sec: float) -> None:
+    path = _last_setup_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(
+        json.dumps(
+            {
+                "main_path": main_path,
+                "wide_path": wide_path,
+                "out_dir": out_dir,
+                "wide_offset_sec": wide_offset_sec,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    os.replace(tmp_path, path)
 
 
 def _rois_path(out_dir: str) -> Path:
@@ -84,12 +128,16 @@ def create_app() -> Flask:
 
     @app.get("/")
     def setup_page():
+        # state.*はサーバー再起動でリセットされるため、再起動直後でも前回入力した
+        # パスをフォームに復元できるよう、検証前の値として最後に保存した設定を補完する
+        # (state.*が既にあればそちらを優先し、このプロセス内で入力済みの値は上書きしない)。
+        last = _load_last_setup()
         return render_template(
             "setup.html",
-            main_path=state.main_path,
-            wide_path=state.wide_path,
-            out_dir=state.out_dir,
-            wide_offset_sec=state.wide_offset_sec,
+            main_path=state.main_path or last.get("main_path", ""),
+            wide_path=state.wide_path or last.get("wide_path", ""),
+            out_dir=state.out_dir or last.get("out_dir", ""),
+            wide_offset_sec=state.wide_offset_sec or last.get("wide_offset_sec", 0.0),
         )
 
     @app.post("/api/setup")
@@ -118,6 +166,8 @@ def create_app() -> Flask:
 
         loaded = roi_store.load(_rois_path(out_dir))
         state.rois = loaded if loaded is not None else MainCameraROIs()
+
+        _save_last_setup(main_path, wide_path, out_dir, wide_offset_sec)
 
         return jsonify({"ok": True})
 

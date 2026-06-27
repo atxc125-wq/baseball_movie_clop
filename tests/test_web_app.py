@@ -3,6 +3,7 @@ import time
 
 import cv2
 import numpy as np
+import pytest
 
 from baseball_clop import roi_store
 from baseball_clop.scoring import timeline_io
@@ -11,6 +12,12 @@ from baseball_clop.web.app import create_app
 
 FPS = 10
 SIZE = (160, 120)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_last_setup_config(tmp_path, monkeypatch):
+    """前回設定の記憶先を実ホームディレクトリから隔離し、テスト間で漏れないようにする。"""
+    monkeypatch.setenv("BASEBALL_CLOP_CONFIG_DIR", str(tmp_path / "config"))
 
 
 def _write_video(path, n_frames=10):
@@ -110,6 +117,33 @@ def test_api_setup_stores_wide_offset_sec(tmp_path):
     )
     assert res.status_code == 200
     assert app.config["STATE"].wide_offset_sec == 1.25
+
+
+def test_setup_page_prefills_from_last_setup_after_restart(tmp_path):
+    video_path = tmp_path / "main.mp4"
+    _write_video(video_path)
+    out_dir = tmp_path / "out"
+
+    first_app = create_app()
+    first_client = first_app.test_client()
+    res = first_client.post(
+        "/api/setup",
+        json={
+            "main_path": str(video_path),
+            "wide_path": "",
+            "out_dir": str(out_dir),
+            "wide_offset_sec": "2.5",
+        },
+    )
+    assert res.status_code == 200
+
+    # サーバープロセスを再起動した状況を模す(新しいAppStateは空で始まる)。
+    second_app = create_app()
+    assert second_app.config["STATE"].main_path == ""
+
+    res = second_app.test_client().get("/")
+    assert res.status_code == 200
+    assert str(video_path).encode() in res.data
 
 
 def test_api_sync_audio_rejects_missing_files(tmp_path):
