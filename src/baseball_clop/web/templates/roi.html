@@ -31,6 +31,9 @@
   </p>
   <p><small>映像の長さによって数分かかります。完了するとタイムラインJSONが出力先ディレクトリの
   events/game.jsonに保存されます。自動検出はあくまで暫定結果なので、後で人の目で確認・修正してください。</small></p>
+  <p id="review-link-wrap" style="display: none;">
+    <a href="/review">→ レビュー画面で1球ずつ映像を確認・修正する</a>
+  </p>
 
   <script>
     window.INITIAL_ROIS = {{ rois | tojson }};

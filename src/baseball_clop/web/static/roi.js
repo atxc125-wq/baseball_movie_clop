@@ -137,20 +137,24 @@ render();
 
 const detectBtn = document.getElementById("detect-btn");
 const detectStatusEl = document.getElementById("detect-status");
+const reviewLinkWrap = document.getElementById("review-link-wrap");
 let detectPollTimer = null;
 
 function renderDetectStatus(data) {
   if (data.state === "running") {
     detectStatusEl.textContent = data.message || "実行中...";
     detectStatusEl.style.color = "#555";
+    reviewLinkWrap.style.display = "none";
   } else if (data.state === "done") {
     detectStatusEl.textContent =
       `検出完了: 投球${data.pitch_count}件・牽制候補${data.pickoff_count}件` +
       `(${data.timeline_path})。${data.message}`;
     detectStatusEl.style.color = "green";
+    reviewLinkWrap.style.display = "block";
   } else if (data.state === "error") {
     detectStatusEl.textContent = "エラー: " + data.message;
     detectStatusEl.style.color = "#c00";
+    reviewLinkWrap.style.display = "none";
   }
 }
 
