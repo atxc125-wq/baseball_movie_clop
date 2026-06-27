@@ -17,7 +17,8 @@ document.getElementById("setup-form").addEventListener("submit", async (e) => {
     document.getElementById("error").textContent = data.error || "エラーが発生しました";
     return;
   }
-  window.location.href = "/roi";
+  // 既に検出済みのプロジェクトなら、毎回ROI調整画面を経由せずレビュー画面へ進む。
+  window.location.href = data.has_timeline ? "/review" : "/roi";
 });
 
 document.getElementById("sync-audio-btn").addEventListener("click", async () => {

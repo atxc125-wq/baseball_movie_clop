@@ -169,7 +169,10 @@ def create_app() -> Flask:
 
         _save_last_setup(main_path, wide_path, out_dir, wide_offset_sec)
 
-        return jsonify({"ok": True})
+        # 既に検出済み(events/game.json がある)プロジェクトを読み込んだ場合は、
+        # 毎回ROI調整画面を経由させずレビュー画面へ直接進めるようにする。
+        has_timeline = _timeline_path(out_dir).exists()
+        return jsonify({"ok": True, "has_timeline": has_timeline})
 
     @app.post("/api/sync-audio")
     def api_sync_audio():

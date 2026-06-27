@@ -292,6 +292,27 @@ def test_api_detect_runs_and_reports_done(tmp_path):
     json.loads(timeline_path.read_text())
 
 
+def test_api_setup_reports_has_timeline_for_already_detected_project(tmp_path):
+    main_path = tmp_path / "main.mp4"
+    wide_path = tmp_path / "wide.mp4"
+    _write_video(main_path)
+    _write_video(wide_path)
+    out_dir = tmp_path / "out"
+
+    client = create_app().test_client()
+    setup_body = {"main_path": str(main_path), "wide_path": str(wide_path), "out_dir": str(out_dir)}
+
+    res = client.post("/api/setup", json=setup_body)
+    assert res.get_json()["has_timeline"] is False
+
+    client.post("/api/detect")
+    _wait_for_detect_done(client)
+
+    res = client.post("/api/setup", json=setup_body)
+    assert res.status_code == 200
+    assert res.get_json()["has_timeline"] is True
+
+
 def test_api_detect_rejects_concurrent_run(tmp_path):
     main_path = tmp_path / "main.mp4"
     wide_path = tmp_path / "wide.mp4"
