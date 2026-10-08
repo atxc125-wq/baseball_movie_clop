@@ -23,6 +23,22 @@ SharePoint に置くだけで動く、Redmine 連携の軽量カンバン。現�
 
 ステータス ID は `CONFIG.statuses` で実環境に合わせる。
 
+## 名前のルール（画面はこれを読んで動く）
+
+- **対象バージョン名の先頭の数字 = 優先度**（`01_不具合対応` → 1）。カードはこの番号の小さい順、
+  同じ番号の中では締切の近い順に並ぶ。`CONFIG.urgentPriority` 以下（初期値 01）は赤いタグになる。
+- **件名の先頭の【M/D】 = 本来の締切**。期限の強調はこの日付で判定する。
+  Redmine の期日は「作業完了予定」として小さく表示し、締切より後なら「締切超え」と出す。
+  【M/D】がない場合は Redmine の期日で代わりに判定する。
+- タグの色は名前から自動で決まる（毎回同じ色）。固定したい場合は `CONFIG.versionColors`。
+
+## 未整理タブ（新規タスクの振り分け）
+
+Power Automate がメールから作った、担当またはバージョンが未設定のチケットを一覧にする。
+選んで「締切」「件名」「対象バージョン」「担当」「作業完了予定」「説明」を入れて登録すると、
+件名の先頭に【M/D】を付けて Redmine を更新し、担当者のボードの「未着手」に入る。
+対象を特定のプロジェクトに絞る場合は `CONFIG.projectId` を設定する。
+
 ## 本番接続の前に確認すること
 
 1. **CORS**: ブラウザから社外の Redmine を直接呼ぶため、Redmine 側が
@@ -38,4 +54,4 @@ SharePoint に置くだけで動く、Redmine 連携の軽量カンバン。現�
 ## 社内 AI に引き継ぐときの範囲
 
 差し替えが必要なのは `CONFIG` と `createRedmineApi()` だけ。
-画面側は `currentUser / issuesFor / issuesByIds / updateIssue` の 4 関数にしか依存しない。
+画面側は `currentUser / issuesFor / issuesByIds / inboxIssues / versions / updateIssue` の 6 関数にしか依存しない。

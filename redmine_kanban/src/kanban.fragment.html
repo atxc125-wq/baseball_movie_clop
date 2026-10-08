@@ -251,9 +251,60 @@ button { cursor: pointer; }
 
 .loading { display: grid; place-items: center; color: var(--ink-3); font-size: 13px; }
 
+/* タグ: 先頭の優先番号 + 名前 */
+.tag .code { font-family: var(--font-num); font-weight: 500; margin-right: 4px; opacity: .85; }
+.tag.urgent { background: var(--late); color: var(--surface); }
+.plan { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.plan.over { color: var(--soon); font-weight: 700; }
+
+/* タブ: 未整理 */
+.tab.inbox-tab { color: var(--ink); }
+.tab .badge { margin-left: 5px; font-family: var(--font-num); font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--late); color: var(--surface); }
+.tab .badge.zero { background: var(--line); color: var(--ink-2); }
+.tab-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+
+/* ---------- 未整理の振り分け画面 ---------- */
+.inbox {
+  height: 100%; min-height: 0;
+  display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.7fr); gap: 12px;
+}
+.mail-list { list-style: none; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.mail {
+  width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
+}
+.mail:hover { border-color: var(--ink-3); }
+.mail[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mail .meta { display: flex; gap: 8px; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mail .meta .missing { margin-left: auto; color: var(--soon); font-weight: 700; }
+.mail .title { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.triage {
+  min-height: 0; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+}
+.triage h2 { margin: 0; font-size: 15px; }
+.triage .from { margin: 0; font-size: 12px; color: var(--ink-3); }
+.triage .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.triage input[type="text"], .triage input[type="date"], .triage select, .triage textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 7px 9px; font-size: 13px;
+}
+.triage textarea { min-height: 140px; resize: vertical; line-height: 1.6; }
+.triage .row { display: flex; gap: 8px; align-items: center; }
+.triage .row input { flex: 1 1 auto; min-width: 0; }
+.triage .req { color: var(--late); margin-left: 3px; }
+.preview { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
+.preview .lbl { display: block; font-size: 11px; font-weight: 400; color: var(--ink-2); }
+.triage .error-msg { margin: 0; color: var(--late); font-size: 12px; }
+.triage .actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.triage .actions .hint { margin-right: auto; }
+.btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
+
 @media (max-width: 860px) {
   body { overflow: auto; }
   .board { grid-template-columns: repeat(4, minmax(250px, 80%)); }
+  .inbox { grid-template-columns: 1fr; height: auto; }
+  .triage .grid2 { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -282,6 +333,17 @@ button { cursor: pointer; }
 
   <div class="board-wrap">
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
+    <div class="inbox" id="inbox" hidden>
+      <section class="col" aria-label="未整理のチケット">
+        <header class="col-head">
+          <h2>未整理</h2>
+          <span class="sub">担当またはバージョンが未設定</span>
+          <span class="count" id="inboxCount">0</span>
+        </header>
+        <div class="col-body" style="padding:0"><ul class="mail-list" id="mailList"></ul></div>
+      </section>
+      <form class="triage" id="triage" novalidate></form>
+    </div>
   </div>
 </div>
 
@@ -345,7 +407,7 @@ const CONFIG = {
   cancelStatus: 9,
   // 「上司確認済」に動かせるユーザー（Redmine 側のワークフローでも制限されている前提）
   managerUserIds: [1],
-  // 表示切替タブに並べるメンバー（Redmine のユーザー ID）
+  // 表示切替タブと担当者の選択肢に並べるメンバー（Redmine のユーザー ID）
   members: [
     { id: 2, name: '高橋' },
     { id: 3, name: '伊藤' },
@@ -354,102 +416,156 @@ const CONFIG = {
     { id: 6, name: '小林' },
     { id: 1, name: '山本（課長）' },
   ],
+  // 対象バージョンの一覧を取るプロジェクト（識別子または ID）。
+  // 未整理チケットもこのプロジェクトに絞る。null なら見える範囲すべて
+  projectId: null,
   approvedDays: 14,     // 上司完了列に出す期間
-  dueSoonDays: 3,       // この日数以内の期日を黄色で強調
+  dueSoonDays: 3,       // この日数以内の締切を黄色で強調
+  urgentPriority: 1,    // バージョン名の先頭番号がこの値以下なら「緊急」扱い（01 = 不具合など）
   syncDoneRatio: true,  // ステータス変更時に進捗率(done_ratio)も合わせて更新する
-  // 対象バージョン名 → タグ色(1〜6)。未登録の名前は自動で色を割り当てる
-  versionColors: {
-    '次期SUV車体': 1,
-    'EV電池ケース': 2,
-    '原価低減VA': 3,
-    '法規対応': 4,
-    '部内改善': 5,
-  },
+  // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
+  versionColors: {},
 };
 
 /* =====================================================================
- * 2. 日付ユーティリティ
+ * 2. 日付・名前の解釈
  * ===================================================================== */
 const DAY = 86400000;
 function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 function parseDate(s) { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); }
 function isoDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function daysFromToday(s) { const d = parseDate(s); return d ? Math.round((d - startOfToday()) / DAY) : null; }
+function diffDays(d) { return Math.round((d - startOfToday()) / DAY); }
 function jpDate(d) { return `${d.getMonth() + 1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`; }
+function hhmm(iso) { const d = new Date(iso); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function toHalfWidth(s) { return s.replace(/[０-９／]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
+
+// 件名の先頭の【10/15】を「本来の締切」として読む。年は今日に一番近い年とみなす
+const TITLE_DATE = /^\s*【\s*([0-9０-９]{1,2})\s*[\/／]\s*([0-9０-９]{1,2})\s*】\s*/;
+function parseTitle(subject) {
+  const m = TITLE_DATE.exec(subject || '');
+  if (!m) return { deadline: null, text: subject || '' };
+  const mo = Number(toHalfWidth(m[1])), d = Number(toHalfWidth(m[2]));
+  const t = startOfToday();
+  let best = null;
+  for (const y of [t.getFullYear() - 1, t.getFullYear(), t.getFullYear() + 1]) {
+    const c = new Date(y, mo - 1, d);
+    if (!best || Math.abs(c - t) < Math.abs(best - t)) best = c;
+  }
+  return { deadline: best, text: subject.slice(m[0].length) };
+}
+function buildTitle(text, deadline) { return deadline ? `【${deadline.getMonth() + 1}/${deadline.getDate()}】${text}` : text; }
+
+// バージョン名の先頭の数字を優先度として読む（01_不具合対応 → 1）
+function parseVersion(name) {
+  if (!name) return { prio: null, code: null, label: '未分類' };
+  const m = /^([0-9０-９]{1,3})[\s_.\-:：・、]*(.*)$/.exec(name);
+  if (!m || !m[2]) return { prio: null, code: null, label: name };
+  return { prio: Number(toHalfWidth(m[1])), code: toHalfWidth(m[1]), label: m[2] };
+}
 
 /* =====================================================================
  * 3. API 層 — MockApi と RedmineApi は同じ関数を持つ。画面側はこの差を知らない
- *    currentUser()            → { id, name }
- *    issuesFor(userId)        → Redmine の issue 配列（未完了 + 直近に閉じたもの）
- *    issuesByIds(ids)         → 親チケット名の解決用
- *    updateIssue(id, fields)  → PUT /issues/:id.json
+ *    currentUser()              → { id, name }
+ *    issuesFor(userId)          → その人の issue 配列（未完了 + 直近に閉じたもの）
+ *    issuesByIds(ids)           → 親チケット名の解決用
+ *    inboxIssues()              → 担当またはバージョンが未設定の未完了チケット
+ *    versions(projectId)        → 選べる対象バージョン [{ id, name }]
+ *    updateIssue(id, fields)    → PUT /issues/:id.json
  * ===================================================================== */
 function createMockApi(getMockUserId) {
   const t = startOfToday();
   const d = n => (n === null ? null : isoDate(addDays(t, n)));
-  const ts = n => addDays(t, n).toISOString();
   const users = { 1: '山本 一郎', 2: '高橋 健', 3: '伊藤 さくら', 4: '渡辺 大輔', 5: '中村 美咲', 6: '小林 翔' };
-  // [id, 担当, 件名, 親ID, 対象バージョン, ステータスID, 期日(今日からの日数), 更新日(今日からの日数)]
+  const versionList = ['01_不具合対応', '02_次期SUV車体', '03_EV電池ケース', '04_法規対応', '05_原価低減VA', '09_部内改善']
+    .map((name, i) => ({ id: 100 + i, name }));
+  const V = Object.fromEntries(versionList.map(v => [v.name.slice(0, 2), v]));
+  // [id, 担当, 件名, 親ID, バージョン番号, ステータスID, 件名の締切(日), Redmineの期日=作業完了予定(日), 更新日(日)]
   const rows = [
-    [4100, 1, 'フロントバンパー設計', null, '次期SUV車体', 3, 40, -1],
-    [4200, 1, '電池ケース締結構造の検討', null, 'EV電池ケース', 3, 55, -2],
-    [4300, 1, 'ブラケット部品のVA検討', null, '原価低減VA', 2, 30, -3],
-    [4400, 1, '歩行者保護 法規対応', null, '法規対応', 4, 20, -1],
-    [4500, 1, 'CAD標準テンプレートの整備', null, '部内改善', 3, 60, -5],
-    [4600, 1, 'リアドア ヒンジ設計', null, '次期SUV車体', 2, 70, -4],
+    [4100, 1, 'フロントバンパー設計', null, '02', 3, 45, 40, -1],
+    [4200, 1, '電池ケース締結構造の検討', null, '03', 3, 60, 55, -2],
+    [4300, 1, 'ブラケット部品のVA検討', null, '05', 2, 30, 30, -3],
+    [4400, 1, '歩行者保護 法規対応', null, '04', 4, 20, 20, -1],
+    [4500, 1, 'CAD標準テンプレートの整備', null, '09', 3, 60, 60, -5],
+    [4600, 1, 'リアドア ヒンジ設計', null, '02', 2, 70, 70, -4],
 
-    [4521, 2, 'バンパービーム断面の強度解析', 4100, '次期SUV車体', 4, -2, -1],
-    [4522, 2, 'バンパー取付ブラケットの図面作成', 4100, '次期SUV車体', 3, 2, 0],
-    [4523, 2, '樹脂バンパーの型抜き方向を確認', 4100, '次期SUV車体', 1, 9, -3],
-    [4531, 2, '電池ケースのボルト締結トルク計算', 4200, 'EV電池ケース', 5, 1, 0],
-    [4532, 2, 'シール材メーカーへ仕様を問い合わせ', 4200, 'EV電池ケース', 1, 3, -2],
-    [4533, 2, '締結部 FEMメッシュ作成', 4200, 'EV電池ケース', 2, 12, -1],
-    [4541, 2, '歩行者頭部衝撃の試験条件を整理', 4400, '法規対応', 7, -1, -1],
-    [4542, 2, 'フードヒンジ部の変位量確認', 4400, '法規対応', 6, 0, 0],
-    [4551, 2, 'ブラケット板厚変更の原価試算', 4300, '原価低減VA', 7, 5, 0],
-    [4561, 2, 'CADテンプレート 図枠の改訂案', 4500, '部内改善', 8, -6, -4],
-    [4562, 2, '設計変更通知の書式見直し', 4500, '部内改善', 8, -12, -10],
-    [4563, 2, '旧図面のPDF化', 4500, '部内改善', 8, -40, -30],
-    [4571, 2, '【割込】量産部品の寸法問い合わせに回答', null, null, 3, -1, 0],
-    [4572, 2, '試作車の取付確認に立会い', 4600, '次期SUV車体', 1, null, -6],
-    [4573, 2, '社内レビュー資料の誤記修正', 4100, '次期SUV車体', 9, 4, -1],
+    [4521, 2, 'バンパービーム断面の強度解析', 4100, '02', 4, 3, -2, -1],
+    [4522, 2, 'バンパー取付ブラケットの図面作成', 4100, '02', 3, 6, 2, 0],
+    [4523, 2, '樹脂バンパーの型抜き方向を確認', 4100, '02', 1, 12, 9, -3],
+    [4531, 2, '電池ケースのボルト締結トルク計算', 4200, '03', 5, 1, 1, 0],
+    [4532, 2, 'シール材メーカーへ仕様を問い合わせ', 4200, '03', 1, 2, 3, -2],
+    [4533, 2, '締結部 FEMメッシュ作成', 4200, '03', 2, 14, 12, -1],
+    [4541, 2, '歩行者頭部衝撃の試験条件を整理', 4400, '04', 7, 0, -1, -1],
+    [4542, 2, 'フードヒンジ部の変位量確認', 4400, '04', 6, 2, 0, 0],
+    [4551, 2, 'ブラケット板厚変更の原価試算', 4300, '05', 7, 7, 5, 0],
+    [4561, 2, 'CADテンプレート 図枠の改訂案', 4500, '09', 8, -4, -6, -4],
+    [4562, 2, '設計変更通知の書式見直し', 4500, '09', 8, -10, -12, -10],
+    [4563, 2, '旧図面のPDF化', 4500, '09', 8, -30, -40, -30],
+    [4571, 2, '量産部品の寸法問い合わせに回答', null, '01', 3, -1, -1, 0],
+    [4572, 2, '試作車の取付確認に立会い', 4600, '02', 1, null, null, -6],
+    [4573, 2, '社内レビュー資料の誤記修正', 4100, '02', 9, 4, 4, -1],
+    [4574, 2, '試作3号車 フード建付け不具合の原因調査', null, '01', 2, 4, 6, 0],
 
-    [4610, 3, 'ヒンジ取付部の板金形状検討', 4600, '次期SUV車体', 4, 6, -1],
-    [4611, 3, 'ドア開閉耐久の試験計画書', 4600, '次期SUV車体', 1, 14, -2],
-    [4612, 3, '【割込】仕入先の図面差異を確認', null, null, 2, -3, 0],
-    [4613, 3, 'ヒンジ部品の重量見積り', 4600, '次期SUV車体', 7, 1, 0],
-    [4614, 3, 'ストライカー位置の公差計算', 4600, '次期SUV車体', 8, -5, -3],
+    [4610, 3, 'ヒンジ取付部の板金形状検討', 4600, '02', 4, 8, 6, -1],
+    [4611, 3, 'ドア開閉耐久の試験計画書', 4600, '02', 1, 14, 14, -2],
+    [4612, 3, '仕入先の図面差異を確認', null, '01', 2, -3, -3, 0],
+    [4613, 3, 'ヒンジ部品の重量見積り', 4600, '02', 7, 1, 1, 0],
+    [4614, 3, 'ストライカー位置の公差計算', 4600, '02', 8, -5, -5, -3],
+    [4615, 3, '仕入先打合せ議事録の展開', null, null, 1, 12, null, -1],
 
-    [4410, 4, '頭部インパクタ試験の結果整理', 4400, '法規対応', 5, -4, -1],
-    [4411, 4, 'フード裏 補強材の配置見直し', 4400, '法規対応', 3, 7, -2],
-    [4412, 4, '認証機関への提出資料ドラフト', 4400, '法規対応', 1, 18, -5],
-    [4413, 4, '衝撃吸収材メーカーとの打合せ', 4400, '法規対応', 7, -2, -1],
+    [4410, 4, '頭部インパクタ試験の結果整理', 4400, '04', 5, -4, -4, -1],
+    [4411, 4, 'フード裏 補強材の配置見直し', 4400, '04', 3, 7, 9, -2],
+    [4412, 4, '認証機関への提出資料ドラフト', 4400, '04', 1, 18, 18, -5],
+    [4413, 4, '衝撃吸収材メーカーとの打合せ', 4400, '04', 7, -2, -2, -1],
 
-    [4310, 5, 'ブラケット材質変更の強度確認', 4300, '原価低減VA', 6, 2, 0],
-    [4311, 5, '溶接点数削減案の作成', 4300, '原価低減VA', 3, 10, -1],
-    [4312, 5, 'VA提案書のとりまとめ', 4300, '原価低減VA', 1, 25, -7],
-    [4313, 5, '競合車の分解調査メモ', 4300, '原価低減VA', 8, -9, -8],
-    [4314, 5, '【割込】生産技術からの成形性質問', null, null, 1, 1, 0],
+    [4310, 5, 'ブラケット材質変更の強度確認', 4300, '05', 6, 2, 2, 0],
+    [4311, 5, '溶接点数削減案の作成', 4300, '05', 3, 10, 10, -1],
+    [4312, 5, 'VA提案書のとりまとめ', 4300, '05', 1, 25, 25, -7],
+    [4313, 5, '競合車の分解調査メモ', 4300, '05', 8, -9, -9, -8],
+    [4314, 5, '生産技術からの成形性質問に回答', null, '01', 1, 1, 1, 0],
 
-    [4210, 6, '電池ケース 冷却水路の取り回し', 4200, 'EV電池ケース', 4, 8, -1],
-    [4211, 6, '底面プロテクタの石はね解析', 4200, 'EV電池ケース', 2, 4, -1],
-    [4212, 6, 'ケース締結ボルトの部品手配', 4200, 'EV電池ケース', 7, -1, 0],
-    [4213, 6, 'CADテンプレート 部品表の項目整理', 4500, '部内改善', 1, 21, -9],
-    [4214, 6, '防水コネクタの配置案', 4200, 'EV電池ケース', 3, -1, -2],
+    [4210, 6, '電池ケース 冷却水路の取り回し', 4200, '03', 4, 8, 8, -1],
+    [4211, 6, '底面プロテクタの石はね解析', 4200, '03', 2, 4, 4, -1],
+    [4212, 6, 'ケース締結ボルトの部品手配', 4200, '03', 7, -1, -1, 0],
+    [4213, 6, 'CADテンプレート 部品表の項目整理', 4500, '09', 1, 21, 21, -9],
+    [4214, 6, '防水コネクタの配置案', 4200, '03', 3, 2, -1, -2],
+  ];
+  // Power Automate がメールから作った、担当もバージョンもないチケット
+  const mails = [
+    [4701, 'RE: 試作3号車 バンパーとフェンダーの干渉について', 0, 8 * 60 + 12,
+      '試作課 佐々木です。\n\n試作3号車の組付けで、フロントバンパー端部とフェンダーが約2mm干渉しています。\n写真を共有フォルダに置きました。\n対策案のご検討をお願いします。来週の試作会議で報告が必要です。'],
+    [4702, 'FW: 【至急】量産部品 ブラケット寸法不一致の連絡', -1, 16 * 60 + 40,
+      '品質保証 森です。\n\n仕入先A社より、ブラケット(品番 51234-XX)の穴位置が図面と1.5mmずれているとの連絡がありました。\n図面側の誤りか、製造側の問題か判断をお願いします。'],
+    [4703, '設計変更依頼 DCN-2318 ブラケット取付穴位置の変更', -1, 10 * 60 + 5,
+      '生産技術 岡田です。\n\n組立ラインの工具干渉を避けるため、取付穴位置を前方に3mm移動したいです。\n設計変更通知(DCN-2318)の発行をお願いします。'],
+    [4704, 'Re: EV電池ケース 締結トルク値の確認依頼', -2, 13 * 60 + 30,
+      '実験課 村井です。\n\n締結試験で使うトルク値を確認させてください。\n現状の図面指示は 25N·m ですが、前回の試作では 22N·m でした。どちらが正でしょうか。'],
   ];
   const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
-  const db = new Map(rows.map(([id, uid, subject, parent, ver, st, due, upd]) => [id, {
-    id, subject,
-    project: { id: 1, name: '設計課' },
-    assigned_to: { id: uid, name: users[uid] },
-    parent: parent ? { id: parent } : undefined,
-    fixed_version: ver ? { id: ver.length, name: ver } : undefined,
-    status: { id: st, name: statusById[st].name },
-    done_ratio: statusById[st].ratio ?? 0,
-    due_date: d(due),
-    updated_on: ts(upd),
-  }]));
+  const db = new Map();
+  for (const [id, uid, subject, parent, ver, st, deadline, plan, upd] of rows) {
+    db.set(id, {
+      id, subject: buildTitle(subject, deadline === null ? null : addDays(t, deadline)),
+      project: { id: 1, name: '設計課' },
+      assigned_to: { id: uid, name: users[uid] },
+      parent: parent ? { id: parent } : undefined,
+      fixed_version: ver ? { ...V[ver] } : undefined,
+      status: { id: st, name: statusById[st].name },
+      done_ratio: statusById[st].ratio ?? 0,
+      description: '',
+      due_date: d(plan),
+      created_on: addDays(t, upd - 10).toISOString(),
+      updated_on: addDays(t, upd).toISOString(),
+    });
+  }
+  for (const [id, subject, day, minutes, body] of mails) {
+    const created = new Date(addDays(t, day).getTime() + minutes * 60000).toISOString();
+    db.set(id, {
+      id, subject, project: { id: 1, name: '設計課' },
+      status: { id: 1, name: '未着手' }, done_ratio: 0,
+      description: body, due_date: null, created_on: created, updated_on: created,
+    });
+  }
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
   const closedIds = new Set([8, 9]);
@@ -459,22 +575,34 @@ function createMockApi(getMockUserId) {
       await wait();
       const since = addDays(t, -CONFIG.approvedDays);
       return [...db.values()]
-        .filter(i => i.assigned_to.id === userId)
+        .filter(i => i.assigned_to && i.assigned_to.id === userId)
         .filter(i => !closedIds.has(i.status.id) || new Date(i.updated_on) >= since)
         .map(clone);
     },
     async issuesByIds(ids) { await wait(80); return ids.map(id => db.get(id)).filter(Boolean).map(clone); },
+    async inboxIssues() {
+      await wait(150);
+      return [...db.values()].filter(i => !closedIds.has(i.status.id) && (!i.assigned_to || !i.fixed_version)).map(clone);
+    },
+    async versions() { await wait(80); return clone(versionList); },
     async updateIssue(id, fields) {
       await wait(350);
       const issue = db.get(id);
       if (!issue) throw new Error(`#${id} が見つかりません (404)`);
       const me = getMockUserId();
-      const touchesApproved = fields.status_id === 8 || issue.status.id === 8;
-      if (touchesApproved && !CONFIG.managerUserIds.includes(me)) {
-        throw new Error('このステータスへの変更はワークフローで許可されていません (422)');
+      if ('status_id' in fields) {
+        const touchesApproved = fields.status_id === 8 || issue.status.id === 8;
+        if (touchesApproved && !CONFIG.managerUserIds.includes(me)) {
+          throw new Error('このステータスへの変更はワークフローで許可されていません (422)');
+        }
+        issue.status = { id: fields.status_id, name: statusById[fields.status_id].name };
       }
-      if (fields.status_id) issue.status = { id: fields.status_id, name: statusById[fields.status_id].name };
       if (fields.done_ratio != null) issue.done_ratio = fields.done_ratio;
+      if ('subject' in fields) issue.subject = fields.subject;
+      if ('description' in fields) issue.description = fields.description;
+      if ('due_date' in fields) issue.due_date = fields.due_date || null;
+      if ('assigned_to_id' in fields) issue.assigned_to = fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined;
+      if ('fixed_version_id' in fields) issue.fixed_version = fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined;
       issue.updated_on = new Date().toISOString();
     },
   };
@@ -504,14 +632,16 @@ function createRedmineApi(baseUrl, apiKey) {
     return text ? JSON.parse(text) : null;
   }
   async function allIssues(query) {
+    const scope = CONFIG.projectId ? `project_id=${encodeURIComponent(CONFIG.projectId)}&` : '';
     const out = [];
     for (let offset = 0; ; ) {
-      const j = await req(`/issues.json?${query}&limit=100&offset=${offset}`);
+      const j = await req(`/issues.json?${scope}${query}&limit=100&offset=${offset}`);
       out.push(...j.issues);
       offset += j.issues.length;
       if (!j.issues.length || offset >= j.total_count) return out;
     }
   }
+  const versionCache = new Map();
   return {
     async currentUser() {
       const j = await req('/users/current.json');
@@ -529,6 +659,23 @@ function createRedmineApi(baseUrl, apiKey) {
       if (!ids.length) return [];
       return allIssues(`issue_id=${ids.join(',')}&status_id=*`);
     },
+    async inboxIssues() {
+      // 「担当なし」と「バージョンなし」は API で OR 指定できないので 2 回取って合わせる
+      const [noAssignee, noVersion] = await Promise.all([
+        allIssues('assigned_to_id=%21*&status_id=open'),
+        allIssues('fixed_version_id=%21*&status_id=open'),
+      ]);
+      const merged = new Map([...noAssignee, ...noVersion].map(i => [i.id, i]));
+      return [...merged.values()];
+    },
+    async versions(projectId) {
+      const key = String(CONFIG.projectId || projectId);
+      if (!versionCache.has(key)) {
+        const j = await req(`/projects/${encodeURIComponent(key)}/versions.json`);
+        versionCache.set(key, j.versions.filter(v => v.status === 'open').map(v => ({ id: v.id, name: v.name })));
+      }
+      return versionCache.get(key);
+    },
     async updateIssue(id, fields) {
       await req(`/issues/${id}.json`, { method: 'PUT', body: JSON.stringify({ issue: fields }) });
     },
@@ -540,7 +687,7 @@ function createRedmineApi(baseUrl, apiKey) {
  * ===================================================================== */
 const STORE_KEY = 'designBoard.settings.v1';
 function loadSettings() {
-  const fallback = { mode: 'mock', url: '', key: '', mockUserId: 2, viewUserId: null };
+  const fallback = { mode: 'mock', url: '', key: '', mockUserId: 2 };
   try { return { ...fallback, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; } catch (_) { return fallback; }
 }
 function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (_) { /* 保存できなくても動作は続ける */ } }
@@ -550,7 +697,12 @@ function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(s
  * ===================================================================== */
 let settings = loadSettings();
 let api = null;
-const state = { me: null, viewUserId: null, issues: new Map(), parents: new Map(), saving: new Set() };
+const INBOX = 'inbox';
+const state = {
+  me: null, view: null,               // view = メンバーの ID または 'inbox'
+  issues: new Map(), parents: new Map(), saving: new Set(),
+  inbox: [], inboxSel: null, versions: [],
+};
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
 const isManager = () => state.me && CONFIG.managerUserIds.includes(state.me.id);
@@ -562,7 +714,7 @@ function buildApi() {
 }
 
 /* =====================================================================
- * 6. 描画
+ * 6. 描画（ボード）
  * ===================================================================== */
 const $ = id => document.getElementById(id);
 function h(tag, attrs = {}, ...children) {
@@ -583,25 +735,42 @@ function tagClass(name) {
   return 't' + ((n % 6) + 1);
 }
 
-function dueInfo(issue) {
+function renderTag(versionName) {
+  const v = parseVersion(versionName);
+  const urgent = v.prio !== null && v.prio <= CONFIG.urgentPriority;
+  return h('span', { class: `tag ${urgent ? 'urgent' : tagClass(v.label)}`, title: `対象バージョン: ${versionName || '未設定'}` },
+    v.code ? h('span', { class: 'code' }, v.code) : null, v.label);
+}
+
+// 締切 = 件名の【M/D】。なければ Redmine の期日（作業完了予定）で代用する
+function deadlineInfo(issue) {
   const col = colOf(issue);
-  const n = daysFromToday(issue.due_date);
-  if (n === null) return { cls: 'none', text: '期日なし', level: 0 };
-  const date = jpDate(parseDate(issue.due_date));
-  if (col === 'done' || col === 'approved') return { cls: '', text: date, level: 0 };
-  if (n < 0) return { cls: 'late', text: `${-n}日超過 ${date}`, level: 2 };
-  if (n === 0) return { cls: 'soon', text: `今日まで ${date}`, level: 1 };
-  if (n <= CONFIG.dueSoonDays) return { cls: 'soon', text: `あと${n}日 ${date}`, level: 1 };
-  return { cls: '', text: date, level: 0 };
+  const { deadline } = parseTitle(issue.subject);
+  const plan = parseDate(issue.due_date);
+  const target = deadline || plan;
+  const label = deadline ? '締切' : '予定';
+  const info = { cls: '', text: '', level: 0, plan: null, over: false, hasDeadline: !!deadline };
+  if (!target) return { ...info, cls: 'none', text: '締切未設定' };
+  const n = diffDays(target);
+  const date = jpDate(target);
+  if (col === 'done' || col === 'approved') info.text = `${label} ${date}`;
+  else if (n < 0) Object.assign(info, { cls: 'late', text: `${label} ${-n}日超過 ${date}`, level: 2 });
+  else if (n === 0) Object.assign(info, { cls: 'soon', text: `${label} 今日 ${date}`, level: 1 });
+  else if (n <= CONFIG.dueSoonDays) Object.assign(info, { cls: 'soon', text: `${label} あと${n}日 ${date}`, level: 1 });
+  else info.text = `${label} ${date}`;
+  if (deadline && plan) {
+    info.plan = `予定 ${jpDate(plan)}`;
+    info.over = plan > deadline && col !== 'done' && col !== 'approved';
+  }
+  return info;
 }
 
 function issueUrl(id) { return settings.mode === 'live' && settings.url ? `${settings.url.replace(/\/+$/, '')}/issues/${id}` : null; }
 
 function renderCard(issue) {
   const col = colOf(issue);
-  const due = dueInfo(issue);
+  const due = deadlineInfo(issue);
   const parentName = issue.parent ? (state.parents.get(issue.parent.id) || `#${issue.parent.id}`) : null;
-  const version = issue.fixed_version ? issue.fixed_version.name : '未分類';
   const url = issueUrl(issue.id);
 
   let progress = null;
@@ -624,18 +793,27 @@ function renderCard(issue) {
     'aria-label': `#${issue.id} ${issue.subject}`,
   },
     h('div', { class: 'card-top' },
-      h('span', { class: 'parent', title: parentName || '' }, parentName ? `親: ${parentName}` : ''),
-      h('span', { class: `tag ${tagClass(version)}`, title: `対象バージョン: ${version}` }, version)),
-    h('h3', { class: 'subject' }, issue.subject),
+      h('span', { class: 'parent', title: parentName || '' }, parentName ? `親: ${parseTitle(parentName).text}` : ''),
+      renderTag(issue.fixed_version && issue.fixed_version.name)),
+    h('h3', { class: 'subject' }, parseTitle(issue.subject).text),
     h('div', { class: 'card-foot' },
       h('span', { class: 'num' }, url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, `#${issue.id}`) : `#${issue.id}`),
+      due.plan ? h('span', { class: 'plan' + (due.over ? ' over' : ''), title: 'Redmine の期日（作業完了予定）' }, due.over ? `${due.plan} 締切超え` : due.plan) : null,
       h('span', { class: `due ${due.cls}` }, due.text)),
     progress);
 }
 
-function sortIssues(a, b) {
-  const da = a.due_date || '9999', db = b.due_date || '9999';
-  return da < db ? -1 : da > db ? 1 : a.id - b.id;
+// 並び順: バージョン先頭の優先番号 → 締切 → チケット番号
+function sortKey(issue) {
+  const v = parseVersion(issue.fixed_version && issue.fixed_version.name);
+  const { deadline } = parseTitle(issue.subject);
+  const target = deadline || parseDate(issue.due_date);
+  return [v.prio === null ? 999 : v.prio, target ? target.getTime() : Infinity, issue.id];
+}
+function byPriority(a, b) {
+  const ka = sortKey(a), kb = sortKey(b);
+  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i] < kb[i] ? -1 : 1;
+  return 0;
 }
 
 function renderBoard() {
@@ -644,20 +822,19 @@ function renderBoard() {
   board.querySelectorAll('.col').forEach(c => { scroll[c.dataset.col] = c.querySelector('.col-body').scrollTop; });
   const focusedId = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id : null;
 
-  const visible = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === state.viewUserId);
+  const visible = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === state.view);
   board.replaceChildren(...CONFIG.columns.map(col => {
-    const items = visible.filter(i => colOf(i) === col.key).sort(col.key === 'approved' ? (a, b) => b.updated_on.localeCompare(a.updated_on) : sortIssues);
+    const items = visible.filter(i => colOf(i) === col.key)
+      .sort(col.key === 'approved' ? (a, b) => b.updated_on.localeCompare(a.updated_on) : byPriority);
     const locked = col.managerOnly && !isManager();
-    const body = h('div', { class: 'col-body' },
-      items.length ? items.map(renderCard) : h('p', { class: 'empty' }, 'カードはありません'));
-    const section = h('section', { class: 'col', 'data-col': col.key, 'aria-label': col.title },
+    return h('section', { class: 'col', 'data-col': col.key, 'aria-label': col.title },
       h('header', { class: 'col-head' },
         h('h2', {}, col.title),
         h('span', { class: 'sub' }, col.sub),
         locked ? h('span', { class: 'lock', title: '上司だけが移動できます' }, '上司のみ') : null,
         h('span', { class: 'count' }, items.length)),
-      body);
-    return section;
+      h('div', { class: 'col-body' },
+        items.length ? items.map(renderCard) : h('p', { class: 'empty' }, 'カードはありません')));
   }));
   board.querySelectorAll('.col').forEach(c => { c.querySelector('.col-body').scrollTop = scroll[c.dataset.col] || 0; });
   if (focusedId) { const el = board.querySelector(`.card[data-id="${focusedId}"]`); if (el) el.focus(); }
@@ -665,24 +842,45 @@ function renderBoard() {
 }
 
 function renderSummary(visible) {
+  if (state.view === INBOX) {
+    const noDeadline = state.inbox.filter(i => !parseTitle(i.subject).deadline).length;
+    $('summary').replaceChildren(
+      h('span', { class: 'chip' + (state.inbox.length ? ' soon' : '') }, '未整理', h('b', {}, state.inbox.length)),
+      h('span', { class: 'chip' }, '締切未記入', h('b', {}, noDeadline)));
+    return;
+  }
   const active = visible.filter(i => ['todo', 'doing'].includes(colOf(i)));
-  const late = active.filter(i => dueInfo(i).level === 2).length;
-  const soon = active.filter(i => dueInfo(i).level === 1).length;
+  const infos = active.map(deadlineInfo);
+  const late = infos.filter(x => x.level === 2).length;
+  const soon = infos.filter(x => x.level === 1).length;
+  const over = infos.filter(x => x.over).length;
   const waiting = visible.filter(i => colOf(i) === 'done').length;
   $('summary').replaceChildren(
-    h('span', { class: 'chip' + (late ? ' late' : '') }, '期限切れ', h('b', {}, late)),
+    h('span', { class: 'chip' + (late ? ' late' : '') }, '締切超過', h('b', {}, late)),
     h('span', { class: 'chip' + (soon ? ' soon' : '') }, `${CONFIG.dueSoonDays}日以内`, h('b', {}, soon)),
+    h('span', { class: 'chip' + (over ? ' soon' : ''), title: '作業完了予定が締切より後になっているチケット' }, '予定が締切超え', h('b', {}, over)),
     h('span', { class: 'chip' }, '手持ち', h('b', {}, active.length)),
     h('span', { class: 'chip' }, '確認待ち', h('b', {}, waiting)));
 }
 
+function memberList() {
+  return CONFIG.members.some(m => m.id === state.me.id) ? CONFIG.members : [{ id: state.me.id, name: state.me.name }, ...CONFIG.members];
+}
+
 function renderTabs() {
-  const members = CONFIG.members.some(m => m.id === state.me.id) ? CONFIG.members : [{ id: state.me.id, name: state.me.name }, ...CONFIG.members];
-  $('tabs').replaceChildren(...members.map(m => h('button', {
-    type: 'button', role: 'tab', class: 'tab',
-    'aria-selected': String(m.id === state.viewUserId),
-    onclick: () => switchView(m.id),
-  }, m.name, m.id === state.me.id ? h('span', { class: 'me' }, '自分') : null)));
+  const n = state.inbox.length;
+  $('tabs').replaceChildren(
+    ...memberList().map(m => h('button', {
+      type: 'button', role: 'tab', class: 'tab',
+      'aria-selected': String(m.id === state.view),
+      onclick: () => switchView(m.id),
+    }, m.name, m.id === state.me.id ? h('span', { class: 'me' }, '自分') : null)),
+    h('span', { class: 'tab-sep', 'aria-hidden': 'true' }),
+    h('button', {
+      type: 'button', role: 'tab', class: 'tab inbox-tab',
+      'aria-selected': String(state.view === INBOX),
+      onclick: () => switchView(INBOX),
+    }, '未整理', h('span', { class: 'badge' + (n ? '' : ' zero') }, n)));
 }
 
 function renderChrome() {
@@ -695,8 +893,119 @@ function renderChrome() {
   $('mockUser').replaceChildren(...CONFIG.members.map(m => h('option', { value: m.id, selected: m.id === settings.mockUserId }, m.name)));
 }
 
+function render() {
+  const inbox = state.view === INBOX;
+  $('board').hidden = inbox;
+  $('inbox').hidden = !inbox;
+  renderTabs();
+  if (inbox) { renderInbox(); renderSummary([]); } else renderBoard();
+}
+
 /* =====================================================================
- * 7. データ読み込み
+ * 7. 描画（未整理の振り分け）
+ * ===================================================================== */
+function renderInbox() {
+  const list = [...state.inbox].sort((a, b) => b.created_on.localeCompare(a.created_on));
+  if (!list.some(i => i.id === state.inboxSel)) state.inboxSel = list.length ? list[0].id : null;
+  $('inboxCount').textContent = list.length;
+  $('mailList').replaceChildren(...(list.length ? list.map(i => {
+    const missing = [!i.assigned_to && '担当', !i.fixed_version && 'バージョン'].filter(Boolean).join('・');
+    return h('li', {}, h('button', {
+      type: 'button', class: 'mail', 'aria-current': String(i.id === state.inboxSel),
+      onclick: () => { state.inboxSel = i.id; renderInbox(); },
+    },
+      h('span', { class: 'meta' },
+        h('span', {}, `#${i.id}`),
+        h('span', {}, `${jpDate(new Date(i.created_on))} ${hhmm(i.created_on)} 受信`),
+        h('span', { class: 'missing' }, `${missing}なし`)),
+      h('span', { class: 'title' }, i.subject)));
+  }) : [h('li', { class: 'empty' }, '未整理のチケットはありません')]));
+  renderTriageForm(state.inbox.find(i => i.id === state.inboxSel));
+}
+
+function stripMailPrefix(s) { return s.replace(/^\s*((RE|Re|re|FW|Fw|fw|FWD|Fwd)\s*[:：]\s*)+/, ''); }
+
+function renderTriageForm(issue) {
+  const form = $('triage');
+  if (!issue) { form.replaceChildren(h('p', { class: 'hint' }, '左の一覧から整理するチケットを選んでください。')); return; }
+
+  const parsed = parseTitle(issue.subject);
+  const versionOpts = [...state.versions].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const field = (label, control, required) => h('div', { class: 'field' },
+    h('label', { for: control.id || control.querySelector('input,select,textarea').id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
+
+  const deadline = h('input', { type: 'date', id: 'tDeadline', value: parsed.deadline ? isoDate(parsed.deadline) : '' });
+  const subject = h('input', { type: 'text', id: 'tSubject', value: parsed.text });
+  const version = h('select', { id: 'tVersion' },
+    h('option', { value: '' }, '選んでください'),
+    versionOpts.map(v => h('option', { value: v.id, selected: issue.fixed_version && issue.fixed_version.id === v.id }, v.name)));
+  const assignee = h('select', { id: 'tAssignee' },
+    h('option', { value: '' }, '選んでください'),
+    CONFIG.members.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name)));
+  const plan = h('input', { type: 'date', id: 'tPlan', value: issue.due_date || '' });
+  const desc = h('textarea', { id: 'tDesc' });
+  desc.value = issue.description || '';
+  const preview = h('p', { class: 'preview' });
+  const error = h('p', { class: 'error-msg', role: 'alert' });
+  const submit = h('button', { type: 'submit', class: 'btn primary' });
+
+  const update = () => {
+    const dl = deadline.value ? parseDate(deadline.value) : null;
+    preview.replaceChildren(h('span', { class: 'lbl' }, 'Redmine に登録される件名'), buildTitle(subject.value.trim(), dl));
+    submit.textContent = dl ? '整理して登録' : '締切なしで登録';
+  };
+  [deadline, subject].forEach(el => el.addEventListener('input', update));
+  update();
+
+  form.replaceChildren(
+    h('div', {},
+      h('h2', {}, `#${issue.id} を整理する`),
+      h('p', { class: 'from' }, `${jpDate(new Date(issue.created_on))} ${hhmm(issue.created_on)} 受信　元の件名: ${issue.subject}`)),
+    h('div', { class: 'grid2' },
+      field('本来の締切（件名の先頭に【M/D】で入ります）', deadline),
+      field('作業完了予定（Redmine の期日）', plan)),
+    field('件名', h('div', { class: 'row' }, subject,
+      h('button', { type: 'button', class: 'btn-mini', onclick: () => { subject.value = stripMailPrefix(subject.value); update(); } }, 'RE:/FW: を消す')), true),
+    preview,
+    h('div', { class: 'grid2' },
+      field('対象バージョン', version, true),
+      field('担当', assignee, true)),
+    field('説明（メール本文。指示を追記できます）', desc),
+    error,
+    h('div', { class: 'actions' },
+      h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。'),
+      submit));
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    error.textContent = '';
+    if (!subject.value.trim()) { error.textContent = '件名を入力してください。'; subject.focus(); return; }
+    if (!version.value) { error.textContent = '対象バージョンを選んでください。'; version.focus(); return; }
+    if (!assignee.value) { error.textContent = '担当を選んでください。'; assignee.focus(); return; }
+    const dl = deadline.value ? parseDate(deadline.value) : null;
+    const fields = {
+      subject: buildTitle(subject.value.trim(), dl),
+      fixed_version_id: Number(version.value),
+      assigned_to_id: Number(assignee.value),
+      description: desc.value,
+      due_date: plan.value || null,
+    };
+    submit.disabled = true; submit.textContent = '登録中…';
+    try {
+      await api.updateIssue(issue.id, fields);
+      state.inbox = state.inbox.filter(i => i.id !== issue.id);
+      const who = CONFIG.members.find(m => m.id === fields.assigned_to_id);
+      toast(`#${issue.id} を${who ? who.name : ''}さんの「未着手」に登録しました`);
+      render();
+    } catch (err) {
+      error.textContent = `登録できませんでした。${err.message}`;
+      submit.disabled = false; update();
+    }
+  };
+}
+
+/* =====================================================================
+ * 8. データ読み込み
  * ===================================================================== */
 async function loadUser(userId) {
   const issues = await api.issuesFor(userId);
@@ -709,32 +1018,42 @@ async function loadUser(userId) {
   }
 }
 
+async function loadInbox() {
+  state.inbox = await api.inboxIssues();
+  if (!state.versions.length && state.inbox.length) state.versions = await api.versions(state.inbox[0].project.id);
+}
+
+async function loadView() {
+  if (state.view === INBOX) await loadInbox();
+  else await Promise.all([loadUser(state.view), loadInbox()]);
+}
+
 async function boot() {
   buildApi();
   renderChrome();
+  $('board').hidden = false; $('inbox').hidden = true;
   $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
   try {
     state.me = await api.currentUser();
-    state.issues.clear();
-    state.viewUserId = state.me.id;
-    renderTabs();
-    await loadUser(state.viewUserId);
-    renderBoard();
+    state.issues.clear(); state.versions = [];
+    state.view = state.me.id;
+    await loadView();
+    render();
   } catch (e) {
     $('board').replaceChildren(h('div', { class: 'loading' }, e.message));
     toast(e.message, { error: true });
   }
 }
 
-async function switchView(userId) {
-  state.viewUserId = userId;
+async function switchView(view) {
+  state.view = view;
   renderTabs();
-  try { await loadUser(userId); } catch (e) { toast(e.message, { error: true }); }
-  renderBoard();
+  try { await loadView(); } catch (e) { toast(e.message, { error: true }); }
+  render();
 }
 
 /* =====================================================================
- * 8. 更新操作（先に画面を変え、失敗したら元に戻す）
+ * 9. 更新操作（先に画面を変え、失敗したら元に戻す）
  * ===================================================================== */
 async function changeStatus(id, statusId, { undoable = false } = {}) {
   const issue = state.issues.get(id);
@@ -782,7 +1101,7 @@ function moveToColumn(id, targetCol) {
 }
 
 /* =====================================================================
- * 9. ドラッグ＆ドロップ / キーボード
+ * 10. ドラッグ＆ドロップ / キーボード
  * ===================================================================== */
 let dragId = null;
 const board = $('board');
@@ -842,7 +1161,7 @@ board.addEventListener('keydown', e => {
 });
 
 /* =====================================================================
- * 10. トースト / 設定ダイアログ
+ * 11. トースト / 設定ダイアログ
  * ===================================================================== */
 function toast(message, { error = false, action = null } = {}) {
   const el = h('div', { class: 'toast' + (error ? ' error' : ''), role: error ? 'alert' : 'status' }, h('span', {}, message));
@@ -903,7 +1222,7 @@ $('mockUser').addEventListener('change', e => {
 });
 
 $('reloadBtn').addEventListener('click', async () => {
-  try { await loadUser(state.viewUserId); renderBoard(); toast('最新の状態を読み込みました'); }
+  try { await loadView(); render(); toast('最新の状態を読み込みました'); }
   catch (e) { toast(e.message, { error: true }); }
 });
 
