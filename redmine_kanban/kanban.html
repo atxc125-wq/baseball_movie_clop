@@ -400,8 +400,8 @@ const CONFIG = {
     { id: 4, name: '40%',        col: 'doing',     ratio: 40 },
     { id: 5, name: '60%',        col: 'doing',     ratio: 60 },
     { id: 6, name: '80%',        col: 'doing',     ratio: 80 },
-    { id: 7, name: '完了',       col: 'done',      ratio: 100 },
-    { id: 8, name: '上司確認済', col: 'approved',  ratio: 100 },
+    { id: 7, name: '完了（実務者）', col: 'done',     ratio: 100 },
+    { id: 8, name: '完了（確認済）', col: 'approved', ratio: 100 },
     { id: 9, name: '中止',       col: 'cancelled', ratio: null },
   ],
   // 列の定義。dropStatus = その列にドロップしたときに設定するステータス ID
@@ -409,10 +409,11 @@ const CONFIG = {
     { key: 'todo',     title: '未着手',   sub: 'これから着手',  dropStatus: 1 },
     { key: 'doing',    title: '進行中',   sub: '0〜80%',        dropStatus: 2 },
     { key: 'done',     title: '担当完了', sub: '上司の確認待ち', dropStatus: 7 },
-    { key: 'approved', title: '上司完了', sub: '直近14日',       dropStatus: 8, managerOnly: true },
+    { key: 'approved', title: '上司完了', sub: '直近14日',       dropStatus: 8, managerOnly: true, managerView: true },
   ],
   cancelStatus: 9,
-  // 「上司確認済」に動かせるユーザー（Redmine 側のワークフローでも制限されている前提）
+  // managerView の列（上司完了）は上司が開いたときだけ表示する。メンバーの画面は 3 列
+  // 「完了（確認済）」に動かせるユーザー（Redmine 側のワークフローでも制限されている前提）
   managerUserIds: [1],
   // 表示切替タブと担当者の選択肢に並べるメンバー（Redmine のユーザー ID）
   members: [
@@ -490,13 +491,14 @@ function createMockApi(getMockUserId) {
   // [id, 担当, 件名, 親ID, バージョン番号, ステータスID, 件名の締切(日), Redmineの期日=作業完了予定(日), 更新日(日)]
   const rows = [
     [4100, 1, 'フロントバンパー設計', null, '02', 3, 45, 40, -1],
+    [4120, 1, 'バンパー補強構造の検討', 4100, '02', 3, 30, 30, -1],
     [4200, 1, '電池ケース締結構造の検討', null, '03', 3, 60, 55, -2],
     [4300, 1, 'ブラケット部品のVA検討', null, '05', 2, 30, 30, -3],
     [4400, 1, '歩行者保護 法規対応', null, '04', 4, 20, 20, -1],
     [4500, 1, 'CAD標準テンプレートの整備', null, '09', 3, 60, 60, -5],
     [4600, 1, 'リアドア ヒンジ設計', null, '02', 2, 70, 70, -4],
 
-    [4521, 2, 'バンパービーム断面の強度解析', 4100, '02', 4, 3, -2, -1],
+    [4521, 2, 'バンパービーム断面の強度解析', 4120, '02', 4, 3, -2, -1],
     [4522, 2, 'バンパー取付ブラケットの図面作成', 4100, '02', 3, 6, 2, 0],
     [4523, 2, '樹脂バンパーの型抜き方向を確認', 4100, '02', 1, 12, 9, -3],
     [4531, 2, '電池ケースのボルト締結トルク計算', 4200, '03', 5, 1, 1, 0],
@@ -539,14 +541,18 @@ function createMockApi(getMockUserId) {
   ];
   // Power Automate がメールから作った、担当もバージョンもないチケット
   const mails = [
-    [4701, 'RE: 試作3号車 バンパーとフェンダーの干渉について', 0, 8 * 60 + 12,
+    [4701, '試作3号車 バンパーとフェンダーの干渉について', 0, 8 * 60 + 12,
       '試作課 佐々木です。\n\n試作3号車の組付けで、フロントバンパー端部とフェンダーが約2mm干渉しています。\n写真を共有フォルダに置きました。\n対策案のご検討をお願いします。来週の試作会議で報告が必要です。'],
-    [4702, 'FW: 【至急】量産部品 ブラケット寸法不一致の連絡', -1, 16 * 60 + 40,
+    [4702, '【至急】量産部品 ブラケット寸法不一致の連絡', -1, 16 * 60 + 40,
       '品質保証 森です。\n\n仕入先A社より、ブラケット(品番 51234-XX)の穴位置が図面と1.5mmずれているとの連絡がありました。\n図面側の誤りか、製造側の問題か判断をお願いします。'],
     [4703, '設計変更依頼 DCN-2318 ブラケット取付穴位置の変更', -1, 10 * 60 + 5,
       '生産技術 岡田です。\n\n組立ラインの工具干渉を避けるため、取付穴位置を前方に3mm移動したいです。\n設計変更通知(DCN-2318)の発行をお願いします。'],
-    [4704, 'Re: EV電池ケース 締結トルク値の確認依頼', -2, 13 * 60 + 30,
+    [4704, 'EV電池ケース 締結トルク値の確認依頼', -2, 13 * 60 + 30,
       '実験課 村井です。\n\n締結試験で使うトルク値を確認させてください。\n現状の図面指示は 25N·m ですが、前回の試作では 22N·m でした。どちらが正でしょうか。'],
+    [4705, '教えてください', 0, 9 * 60 + 47,
+      '総務 田中です。\n\n来週の部内懇親会の出欠を教えてください。'],
+    [4706, '【展開】10月度 安全衛生委員会の議事録', -1, 17 * 60 + 2,
+      '各位\n\n10月度の安全衛生委員会の議事録を共有フォルダに格納しました。ご一読ください。'],
   ];
   const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
   const db = new Map();
@@ -713,6 +719,7 @@ const state = {
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
 const isManager = () => state.me && CONFIG.managerUserIds.includes(state.me.id);
+const visibleColumns = () => CONFIG.columns.filter(c => !c.managerView || isManager());
 
 function buildApi() {
   api = settings.mode === 'live' && settings.url && settings.key
@@ -772,12 +779,23 @@ function deadlineInfo(issue) {
   return info;
 }
 
+// 親 → 親の親 … とたどった件名の配列（ルート側が先頭）
+function ancestors(issue) {
+  const out = [];
+  for (let id = issue.parent && issue.parent.id, guard = 0; id && guard < 10; guard++) {
+    const p = state.parents.get(id);
+    out.unshift(p ? parseTitle(p.subject).text : `#${id}`);
+    id = p && p.parentId;
+  }
+  return out;
+}
+
 function issueUrl(id) { return settings.mode === 'live' && settings.url ? `${settings.url.replace(/\/+$/, '')}/issues/${id}` : null; }
 
 function renderCard(issue) {
   const col = colOf(issue);
   const due = deadlineInfo(issue);
-  const parentName = issue.parent ? (state.parents.get(issue.parent.id) || `#${issue.parent.id}`) : null;
+  const chain = ancestors(issue);
   const url = issueUrl(issue.id);
 
   let progress = null;
@@ -800,7 +818,7 @@ function renderCard(issue) {
     'aria-label': `#${issue.id} ${issue.subject}`,
   },
     h('div', { class: 'card-top' },
-      h('span', { class: 'parent', title: parentName || '' }, parentName ? `親: ${parseTitle(parentName).text}` : ''),
+      h('span', { class: 'parent', title: chain.join(' › ') }, chain.length ? (chain.length > 2 ? '… › ' : '') + chain.slice(-2).join(' › ') : ''),
       renderTag(issue.fixed_version && issue.fixed_version.name)),
     h('h3', { class: 'subject' }, parseTitle(issue.subject).text),
     h('div', { class: 'card-foot' },
@@ -830,7 +848,8 @@ function renderBoard() {
   const focusedId = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id : null;
 
   const visible = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === state.view);
-  board.replaceChildren(...CONFIG.columns.map(col => {
+  board.style.gridTemplateColumns = `repeat(${visibleColumns().length}, minmax(0, 1fr))`;
+  board.replaceChildren(...visibleColumns().map(col => {
     const items = visible.filter(i => colOf(i) === col.key)
       .sort(col.key === 'approved' ? (a, b) => b.updated_on.localeCompare(a.updated_on) : byPriority);
     const locked = col.managerOnly && !isManager();
@@ -930,8 +949,6 @@ function renderInbox() {
   renderTriageForm(state.inbox.find(i => i.id === state.inboxSel));
 }
 
-function stripMailPrefix(s) { return s.replace(/^\s*((RE|Re|re|FW|Fw|fw|FWD|Fwd)\s*[:：]\s*)+/, ''); }
-
 function renderTriageForm(issue) {
   const form = $('triage');
   if (!issue) { form.replaceChildren(h('p', { class: 'hint' }, '左の一覧から整理するチケットを選んでください。')); return; }
@@ -971,8 +988,7 @@ function renderTriageForm(issue) {
     h('div', { class: 'grid2' },
       field('本来の締切（件名の先頭に【M/D】で入ります）', deadline),
       field('作業完了予定（Redmine の期日）', plan)),
-    field('件名', h('div', { class: 'row' }, subject,
-      h('button', { type: 'button', class: 'btn-mini', onclick: () => { subject.value = stripMailPrefix(subject.value); update(); } }, 'RE:/FW: を消す')), true),
+    field('件名', subject, true),
     preview,
     h('div', { class: 'grid2' },
       field('対象バージョン', version, true),
@@ -981,6 +997,7 @@ function renderTriageForm(issue) {
     error,
     h('div', { class: 'actions' },
       h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。'),
+      h('button', { type: 'button', class: 'btn', title: 'チケットは削除せず「中止」にします（Power Automate の重複判定に使うため）', onclick: () => dismissInbox(issue) }, 'タスクではない'),
       submit));
 
   form.onsubmit = async e => {
@@ -1011,6 +1028,22 @@ function renderTriageForm(issue) {
   };
 }
 
+// ノイズのメール（「教えてください」など）を中止にする。チケットは残す
+async function dismissInbox(issue) {
+  try {
+    await api.updateIssue(issue.id, { status_id: CONFIG.cancelStatus });
+  } catch (err) {
+    toast(`#${issue.id} を中止にできませんでした。${err.message}`, { error: true });
+    return;
+  }
+  state.inbox = state.inbox.filter(i => i.id !== issue.id);
+  render();
+  toast(`#${issue.id} を「中止」にしました`, { action: { label: '元に戻す', run: async () => {
+    try { await api.updateIssue(issue.id, { status_id: issue.status.id }); await loadInbox(); state.inboxSel = issue.id; render(); }
+    catch (err) { toast(`元に戻せませんでした。${err.message}`, { error: true }); }
+  } } });
+}
+
 /* =====================================================================
  * 8. データ読み込み
  * ===================================================================== */
@@ -1018,15 +1051,18 @@ async function loadUser(userId) {
   const issues = await api.issuesFor(userId);
   for (const [id, i] of state.issues) if (i.assigned_to && i.assigned_to.id === userId) state.issues.delete(id);
   for (const i of issues) if (statusById[i.status.id]) state.issues.set(i.id, i);
-  const missing = [...new Set(issues.filter(i => i.parent).map(i => i.parent.id))].filter(id => !state.parents.has(id));
-  if (missing.length) {
-    const parents = await api.issuesByIds(missing);
-    for (const p of parents) state.parents.set(p.id, p.subject);
+  // 親、親の親…と、つながる限り（最大5階層）取得する
+  let pending = issues;
+  for (let depth = 0; depth < 5; depth++) {
+    const missing = [...new Set(pending.filter(i => i.parent).map(i => i.parent.id))].filter(id => !state.parents.has(id));
+    if (!missing.length) break;
+    pending = await api.issuesByIds(missing);
+    for (const p of pending) state.parents.set(p.id, { subject: p.subject, parentId: p.parent && p.parent.id });
   }
 }
 
 async function loadInbox() {
-  state.inbox = await api.inboxIssues();
+  state.inbox = (await api.inboxIssues()).filter(i => ['todo', 'doing', 'done'].includes(colOf(i)));
   if (!state.versions.length && state.inbox.length) state.versions = await api.versions(state.inbox[0].project.id);
 }
 
@@ -1162,7 +1198,7 @@ board.addEventListener('keydown', e => {
   if (!card || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
   e.preventDefault();
   const id = Number(card.dataset.id);
-  const keys = CONFIG.columns.map(c => c.key);
+  const keys = visibleColumns().map(c => c.key);
   const idx = keys.indexOf(colOf(state.issues.get(id))) + (e.key === 'ArrowRight' ? 1 : -1);
   if (idx >= 0 && idx < keys.length) moveToColumn(id, keys[idx]);
 });
