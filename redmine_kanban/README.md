@@ -10,6 +10,7 @@ SharePoint に置くだけで動く、Redmine 連携の軽量カンバン。現�
 | `build.py` | 元ファイルから配置用ファイルを生成（`python build.py`） |
 | `kanban.aspx` | SharePoint に置くファイル（UTF-8 BOM + `<meta charset="utf-8">` 付き） |
 | `kanban.html` | ローカルでダブルクリックして確認する用 |
+| `tools/redmine_config_dump.py` | 実際の Redmine から CONFIG に貼る値を取り出す（読み取りのみ） |
 
 ## 列とステータスの対応
 
@@ -43,7 +44,21 @@ Power Automate の重複判定はそのまま使える。
 
 ## 親チケットの表示
 
+子チケットを持ち、担当も期日もないチケットは「まとめ用」とみなし、未整理にもボードにも出さない。
+
 親、親の親…とたどり、カード上部に `祖父 › 親` の形で直近 2 階層を表示する（全階層はマウスを乗せると出る）。
+
+## 設定値の取り出し（最初に 1 回）
+
+```
+set REDMINE_API_KEY=自分のAPIキー
+python tools\redmine_config_dump.py --url https://redmine.example.com
+python tools\redmine_config_dump.py --url https://redmine.example.com --project 識別子 --origin https://〇〇.sharepoint.com
+```
+
+1 回目でプロジェクトの識別子を確認し、2 回目で `CONFIG` に貼る値（ステータス、メンバー、
+上司の推定、projectId、childFilterSupported）と、SharePoint からの CORS が許可されているかを出力する。
+結果は `redmine_config_output.txt` にも保存される。標準ライブラリだけで動き、Redmine のデータは変更しない。
 
 ## 本番接続の前に確認すること
 

@@ -431,6 +431,9 @@ const CONFIG = {
   dueSoonDays: 3,       // この日数以内の締切を黄色で強調
   urgentPriority: 1,    // バージョン名の先頭番号がこの値以下なら「緊急」扱い（01 = 不具合など）
   syncDoneRatio: true,  // ステータス変更時に進捗率(done_ratio)も合わせて更新する
+  // Redmine の検索条件「子チケット(child_id)」が使えるか。tools/redmine_config_dump.py の結果で設定する。
+  // false の場合は候補のチケットを 1 件ずつ確認する（件数が多いと少し遅い）
+  childFilterSupported: true,
   // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
   versionColors: {},
 };
@@ -479,6 +482,7 @@ function parseVersion(name) {
  *    issuesByIds(ids)           → 親チケット名の解決用
  *    inboxIssues()              → 担当またはバージョンが未設定の未完了チケット
  *    versions(projectId)        → 選べる対象バージョン [{ id, name }]
+ *    withChildren(ids)          → ids のうち子チケットを持つものの Set
  *    updateIssue(id, fields)    → PUT /issues/:id.json
  * ===================================================================== */
 function createMockApi(getMockUserId) {
@@ -497,6 +501,7 @@ function createMockApi(getMockUserId) {
     [4400, 1, '歩行者保護 法規対応', null, '04', 4, 20, 20, -1],
     [4500, 1, 'CAD標準テンプレートの整備', null, '09', 3, 60, 60, -5],
     [4600, 1, 'リアドア ヒンジ設計', null, '02', 2, 70, 70, -4],
+    [4800, null, '試作3号車 不具合対応まとめ', null, '01', 1, null, null, -2],
 
     [4521, 2, 'バンパービーム断面の強度解析', 4120, '02', 4, 3, -2, -1],
     [4522, 2, 'バンパー取付ブラケットの図面作成', 4100, '02', 3, 6, 2, 0],
@@ -513,7 +518,7 @@ function createMockApi(getMockUserId) {
     [4571, 2, '量産部品の寸法問い合わせに回答', null, '01', 3, -1, -1, 0],
     [4572, 2, '試作車の取付確認に立会い', 4600, '02', 1, null, null, -6],
     [4573, 2, '社内レビュー資料の誤記修正', 4100, '02', 9, 4, 4, -1],
-    [4574, 2, '試作3号車 フード建付け不具合の原因調査', null, '01', 2, 4, 6, 0],
+    [4574, 2, '試作3号車 フード建付け不具合の原因調査', 4800, '01', 2, 4, 6, 0],
 
     [4610, 3, 'ヒンジ取付部の板金形状検討', 4600, '02', 4, 8, 6, -1],
     [4611, 3, 'ドア開閉耐久の試験計画書', 4600, '02', 1, 14, 14, -2],
@@ -560,7 +565,7 @@ function createMockApi(getMockUserId) {
     db.set(id, {
       id, subject: buildTitle(subject, deadline === null ? null : addDays(t, deadline)),
       project: { id: 1, name: '設計課' },
-      assigned_to: { id: uid, name: users[uid] },
+      assigned_to: uid ? { id: uid, name: users[uid] } : undefined,
       parent: parent ? { id: parent } : undefined,
       fixed_version: ver ? { ...V[ver] } : undefined,
       status: { id: st, name: statusById[st].name },
@@ -598,6 +603,11 @@ function createMockApi(getMockUserId) {
       return [...db.values()].filter(i => !closedIds.has(i.status.id) && (!i.assigned_to || !i.fixed_version)).map(clone);
     },
     async versions() { await wait(80); return clone(versionList); },
+    async withChildren(ids) {
+      await wait(80);
+      const parents = new Set([...db.values()].filter(i => i.parent).map(i => i.parent.id));
+      return new Set(ids.filter(id => parents.has(id)));
+    },
     async updateIssue(id, fields) {
       await wait(350);
       const issue = db.get(id);
@@ -680,6 +690,22 @@ function createRedmineApi(baseUrl, apiKey) {
       ]);
       const merged = new Map([...noAssignee, ...noVersion].map(i => [i.id, i]));
       return [...merged.values()];
+    },
+    async withChildren(ids) {
+      if (!ids.length) return new Set();
+      if (CONFIG.childFilterSupported) {
+        const hits = await allIssues(`issue_id=${ids.join(',')}&child_id=*&status_id=*`);
+        return new Set(hits.map(i => i.id));
+      }
+      // 子チケット条件が使えない Redmine 向け: 1 件ずつ children を確認（同時 4 件まで）
+      const found = new Set();
+      for (let i = 0; i < ids.length; i += 4) {
+        await Promise.all(ids.slice(i, i + 4).map(async id => {
+          const j = await req(`/issues/${id}.json?include=children`);
+          if (j.issue.children && j.issue.children.length) found.add(id);
+        }));
+      }
+      return found;
     },
     async versions(projectId) {
       const key = String(CONFIG.projectId || projectId);
@@ -1062,7 +1088,11 @@ async function loadUser(userId) {
 }
 
 async function loadInbox() {
-  state.inbox = (await api.inboxIssues()).filter(i => ['todo', 'doing', 'done'].includes(colOf(i)));
+  const open = (await api.inboxIssues()).filter(i => ['todo', 'doing', 'done'].includes(colOf(i)));
+  // 子チケットを持ち、担当も期日もないものは「まとめ用」なのでタスクとして扱わない
+  const candidates = open.filter(i => !i.assigned_to && !i.due_date).map(i => i.id);
+  const containers = await api.withChildren(candidates);
+  state.inbox = open.filter(i => !containers.has(i.id));
   if (!state.versions.length && state.inbox.length) state.versions = await api.versions(state.inbox[0].project.id);
 }
 
