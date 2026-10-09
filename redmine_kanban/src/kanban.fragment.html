@@ -427,14 +427,14 @@ const CONFIG = {
     { id: 8, name: '完了（確認済）', col: 'approved', ratio: 100 },
     { id: 9, name: '中止',       col: 'cancelled', ratio: null },
   ],
-  // 列の定義。dropStatus = その列にドロップしたときに設定するステータス ID
+  // 列の定義。ドロップしたときに設定するステータスは statuses から自動で決まる
+  // （その列の最初のステータス。進行中は進捗率がいちばん小さいもの）
   columns: [
-    { key: 'todo',     title: '未着手',   sub: 'これから着手',  dropStatus: 1 },
-    { key: 'doing',    title: '進行中',   sub: '0〜80%',        dropStatus: 2 },
-    { key: 'done',     title: '担当完了', sub: '上司の確認待ち', dropStatus: 7 },
-    { key: 'approved', title: '上司完了', sub: '直近14日',       dropStatus: 8, managerOnly: true, managerView: true },
+    { key: 'todo',     title: '未着手',   sub: 'これから着手' },
+    { key: 'doing',    title: '進行中',   sub: '0〜80%' },
+    { key: 'done',     title: '担当完了', sub: '上司の確認待ち' },
+    { key: 'approved', title: '上司完了', sub: '直近14日', managerOnly: true, managerView: true },
   ],
-  cancelStatus: 9,
   // managerView の列（上司完了）は上司が開いたときだけ表示する。メンバーの画面は 3 列
   // 「完了（確認済）」に動かせるユーザー（Redmine 側のワークフローでも制限されている前提）
   managerUserIds: [1],
@@ -746,6 +746,14 @@ function createRedmineApi(baseUrl, apiKey) {
     },
     async updateIssue(id, fields) {
       await req(`/issues/${id}.json`, { method: 'PUT', body: JSON.stringify({ issue: fields }) });
+      if (!('status_id' in fields)) return;
+      // Redmine はワークフローで許可されていないステータス変更をエラーにせず無視するので、結果を確かめる
+      const { issue } = await req(`/issues/${id}.json`);
+      if (issue.status.id !== fields.status_id) {
+        const to = (statusById[fields.status_id] || {}).name || `ID ${fields.status_id}`;
+        throw new Error(`Redmine がステータスの変更を受け付けませんでした（今は「${issue.status.name}」のまま）。` +
+          `ワークフローで「${issue.status.name}」→「${to}」が許可されているか確認してください。`);
+      }
     },
   };
 }
@@ -773,6 +781,13 @@ const state = {
 };
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
+// 列にドロップしたときに設定するステータス ID（statuses の col から決める）
+function statusForColumn(colKey) {
+  const list = CONFIG.statuses.filter(s => s.col === colKey);
+  if (colKey === 'doing') list.sort((a, b) => (a.ratio ?? 0) - (b.ratio ?? 0));
+  return list.length ? list[0].id : null;
+}
+const cancelStatusId = () => statusForColumn('cancelled');
 const isManager = () => state.me && CONFIG.managerUserIds.includes(state.me.id);
 const visibleColumns = () => CONFIG.columns.filter(c => !c.managerView || isManager());
 
@@ -1101,7 +1116,7 @@ function renderTriageForm(issue) {
 // ノイズのメール（「教えてください」など）を中止にする。チケットは残す
 async function dismissInbox(issue) {
   try {
-    await api.updateIssue(issue.id, { status_id: CONFIG.cancelStatus });
+    await api.updateIssue(issue.id, { status_id: cancelStatusId() });
   } catch (err) {
     toast(`#${issue.id} を中止にできませんでした。${err.message}`, { error: true });
     return;
@@ -1263,7 +1278,9 @@ function moveToColumn(id, targetCol) {
   const check = canMove(issue, targetCol);
   if (!check.ok) { if (!check.quiet) toast(check.reason, { error: true }); return; }
   const col = CONFIG.columns.find(c => c.key === targetCol);
-  changeStatus(id, col.dropStatus, { undoable: true });
+  const statusId = statusForColumn(col.key);
+  if (!statusId) { toast(`「${col.title}」に当たるステータスが CONFIG.statuses にありません`, { error: true }); return; }
+  changeStatus(id, statusId, { undoable: true });
 }
 
 /* =====================================================================
@@ -1312,7 +1329,7 @@ cancelZone.addEventListener('dragover', e => { e.preventDefault(); cancelZone.cl
 cancelZone.addEventListener('dragleave', () => cancelZone.classList.remove('drag-over'));
 cancelZone.addEventListener('drop', e => {
   e.preventDefault();
-  if (dragId != null) changeStatus(dragId, CONFIG.cancelStatus, { undoable: true });
+  if (dragId != null) changeStatus(dragId, cancelStatusId(), { undoable: true });
 });
 
 // キーボード: カードを選んで ← → で隣の列へ

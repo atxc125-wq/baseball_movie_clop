@@ -198,9 +198,6 @@ def main() -> int:
     for l in status_lines:
         say(l)
     say("  ],")
-    say("  // columns の dropStatus は次の ID に合わせる: "
-        + ", ".join(f"{c}={drop.get(c, '?')}" for c in ("todo", "doing", "done", "approved")))
-    say(f"  cancelStatus: {drop.get('cancelled', 'null /* TODO */')},")
     say(f"  managerUserIds: {js(manager_guess)},{'' if manager_guess else '  // TODO 上司の ID を入れる'}")
     say("  members: [")
     for uid, name, roles in members:
