@@ -329,6 +329,12 @@ a.btn { text-decoration: none; display: inline-block; }
 .triage .error-msg { margin: 0; color: var(--late); font-size: 12px; }
 .triage .actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .triage .actions .hint { margin-right: auto; }
+.dialog.editor { width: min(760px, 100%); }
+.editor .meta { margin: 0; font-size: 12px; color: var(--ink-3); display: flex; gap: 6px 14px; flex-wrap: wrap; }
+.editor .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.editor .head a { font-size: 12px; color: var(--accent); }
+.editor textarea#eNotes { min-height: 70px; }
+.card { cursor: pointer; }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -381,6 +387,10 @@ a.btn { text-decoration: none; display: inline-block; }
 
 <div class="cancel-zone" id="cancelZone" hidden>ここにドロップすると「中止」</div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="overlay" id="editor" hidden>
+  <form class="dialog triage editor" id="editorForm" novalidate aria-label="チケットの編集"></form>
+</div>
 
 <div class="overlay" id="settings" hidden>
   <form class="dialog" id="settingsForm" aria-labelledby="settingsTitle">
@@ -658,6 +668,7 @@ function createMockApi(getMockUserId) {
       if ('description' in fields) issue.description = fields.description;
       if ('due_date' in fields) issue.due_date = fields.due_date || null;
       if ('assigned_to_id' in fields) issue.assigned_to = fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined;
+      if (fields.notes) (issue.journals = issue.journals || []).push({ notes: fields.notes, created_on: new Date().toISOString() });
       if ('fixed_version_id' in fields) issue.fixed_version = fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined;
       issue.updated_on = new Date().toISOString();
     },
@@ -907,7 +918,7 @@ function renderCard(issue) {
   return h('article', {
     class: ['card', due.level === 2 ? 'is-late' : '', state.saving.has(issue.id) ? 'saving' : ''].join(' ').trim(),
     draggable: 'true', tabindex: '0', 'data-id': issue.id,
-    'aria-label': `#${issue.id} ${issue.subject}`,
+    'aria-label': `#${issue.id} ${issue.subject}`, title: 'クリックで編集 / ドラッグで移動',
   },
     h('div', { class: 'card-top' },
       h('span', { class: 'parent', title: chain.join(' › ') }, chain.length ? (chain.length > 2 ? '… › ' : '') + chain.slice(-2).join(' › ') : ''),
@@ -1041,52 +1052,99 @@ function renderInbox() {
   renderTriageForm(state.inbox.find(i => i.id === state.inboxSel));
 }
 
+// 未整理の振り分けとカード編集で共通の入力欄。prefix で id を分ける
+function issueFields(issue, prefix) {
+  const parsed = parseTitle(issue.subject);
+  const field = (label, control, required) => h('div', { class: 'field' },
+    h('label', { for: control.id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
+
+  // 終了したバージョンや、メンバー一覧にいない担当者が入っていても消えないよう選択肢に足す
+  const versionOpts = [...state.versions];
+  if (issue.fixed_version && !versionOpts.some(v => v.id === issue.fixed_version.id)) versionOpts.push(issue.fixed_version);
+  versionOpts.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const memberOpts = [...CONFIG.members];
+  if (issue.assigned_to && !memberOpts.some(m => m.id === issue.assigned_to.id)) memberOpts.push(issue.assigned_to);
+
+  const el = {
+    deadline: h('input', { type: 'date', id: prefix + 'Deadline', value: parsed.deadline ? isoDate(parsed.deadline) : '' }),
+    subject: h('input', { type: 'text', id: prefix + 'Subject', value: parsed.text }),
+    version: h('select', { id: prefix + 'Version' },
+      h('option', { value: '' }, '選んでください'),
+      versionOpts.map(v => h('option', { value: v.id, selected: issue.fixed_version && issue.fixed_version.id === v.id }, v.name))),
+    assignee: h('select', { id: prefix + 'Assignee' },
+      h('option', { value: '' }, '選んでください'),
+      memberOpts.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name))),
+    plan: h('input', { type: 'date', id: prefix + 'Plan', value: issue.due_date || '' }),
+    desc: h('textarea', { id: prefix + 'Desc' }),
+    preview: h('p', { class: 'preview' }),
+    error: h('p', { class: 'error-msg', role: 'alert' }),
+  };
+  el.desc.value = issue.description || '';
+
+  const deadlineDate = () => (el.deadline.value ? parseDate(el.deadline.value) : null);
+  const refresh = () => el.preview.replaceChildren(
+    h('span', { class: 'lbl' }, 'Redmine に登録される件名'), buildTitle(el.subject.value.trim(), deadlineDate()));
+  [el.deadline, el.subject].forEach(x => x.addEventListener('input', refresh));
+  refresh();
+
+  return {
+    el, deadlineDate,
+    onChange(fn) { [el.deadline, el.subject].forEach(x => x.addEventListener('input', fn)); fn(); },
+    // 画面に並べる部品（説明欄のラベルだけ呼び出し側で決める）
+    rows: descLabel => [
+      h('div', { class: 'grid2' },
+        field('本来の締切（件名の先頭に【M/D】で入ります）', el.deadline),
+        field('作業完了予定（Redmine の期日）', el.plan)),
+      field('件名', el.subject, true),
+      el.preview,
+      h('div', { class: 'grid2' },
+        field('対象バージョン', el.version, true),
+        field('担当', el.assignee, true)),
+      field(descLabel, el.desc),
+    ],
+    // 入力に問題があればメッセージを出して false
+    validate() {
+      el.error.textContent = '';
+      const fail = (msg, x) => { el.error.textContent = msg; x.focus(); return false; };
+      if (!el.subject.value.trim()) return fail('件名を入力してください。', el.subject);
+      if (!el.version.value) return fail('対象バージョンを選んでください。', el.version);
+      if (!el.assignee.value) return fail('担当を選んでください。', el.assignee);
+      return true;
+    },
+    collect: () => ({
+      subject: buildTitle(el.subject.value.trim(), deadlineDate()),
+      fixed_version_id: Number(el.version.value),
+      assigned_to_id: Number(el.assignee.value),
+      description: el.desc.value,
+      due_date: el.plan.value || null,
+    }),
+    // 保存できたら画面側のチケットにも反映する
+    applyTo(target, fields) {
+      target.subject = fields.subject;
+      target.description = fields.description;
+      target.due_date = fields.due_date;
+      const v = versionOpts.find(x => x.id === fields.fixed_version_id);
+      target.fixed_version = v ? { id: v.id, name: v.name } : target.fixed_version;
+      const m = memberOpts.find(x => x.id === fields.assigned_to_id);
+      target.assigned_to = m ? { id: m.id, name: m.name } : target.assigned_to;
+    },
+  };
+}
+
 function renderTriageForm(issue) {
   const form = $('triage');
   if (!issue) { form.replaceChildren(h('p', { class: 'hint' }, '左の一覧から整理するチケットを選んでください。')); return; }
 
-  const parsed = parseTitle(issue.subject);
-  const versionOpts = [...state.versions].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  const field = (label, control, required) => h('div', { class: 'field' },
-    h('label', { for: control.id || control.querySelector('input,select,textarea').id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
-
-  const deadline = h('input', { type: 'date', id: 'tDeadline', value: parsed.deadline ? isoDate(parsed.deadline) : '' });
-  const subject = h('input', { type: 'text', id: 'tSubject', value: parsed.text });
-  const version = h('select', { id: 'tVersion' },
-    h('option', { value: '' }, '選んでください'),
-    versionOpts.map(v => h('option', { value: v.id, selected: issue.fixed_version && issue.fixed_version.id === v.id }, v.name)));
-  const assignee = h('select', { id: 'tAssignee' },
-    h('option', { value: '' }, '選んでください'),
-    CONFIG.members.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name)));
-  const plan = h('input', { type: 'date', id: 'tPlan', value: issue.due_date || '' });
-  const desc = h('textarea', { id: 'tDesc' });
-  desc.value = issue.description || '';
-  const preview = h('p', { class: 'preview' });
-  const error = h('p', { class: 'error-msg', role: 'alert' });
+  const f = issueFields(issue, 't');
   const submit = h('button', { type: 'submit', class: 'btn primary' });
-
-  const update = () => {
-    const dl = deadline.value ? parseDate(deadline.value) : null;
-    preview.replaceChildren(h('span', { class: 'lbl' }, 'Redmine に登録される件名'), buildTitle(subject.value.trim(), dl));
-    submit.textContent = dl ? '整理して登録' : '締切なしで登録';
-  };
-  [deadline, subject].forEach(el => el.addEventListener('input', update));
-  update();
+  f.onChange(() => { submit.textContent = f.deadlineDate() ? '整理して登録' : '締切なしで登録'; });
 
   form.replaceChildren(
     h('div', {},
       h('h2', {}, `#${issue.id} を整理する`),
       h('p', { class: 'from' }, `${jpDate(new Date(issue.created_on))} ${hhmm(issue.created_on)} 受信　元の件名: ${issue.subject}`)),
-    h('div', { class: 'grid2' },
-      field('本来の締切（件名の先頭に【M/D】で入ります）', deadline),
-      field('作業完了予定（Redmine の期日）', plan)),
-    field('件名', subject, true),
-    preview,
-    h('div', { class: 'grid2' },
-      field('対象バージョン', version, true),
-      field('担当', assignee, true)),
-    field('説明（メール本文。指示を追記できます）', desc),
-    error,
+    ...f.rows('説明（メール本文。指示を追記できます）'),
+    f.el.error,
     h('div', { class: 'actions' },
       h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。'),
       h('button', { type: 'button', class: 'btn', title: 'チケットは削除せず「中止」にします（Power Automate の重複判定に使うため）', onclick: () => dismissInbox(issue) }, 'タスクではない'),
@@ -1094,18 +1152,8 @@ function renderTriageForm(issue) {
 
   form.onsubmit = async e => {
     e.preventDefault();
-    error.textContent = '';
-    if (!subject.value.trim()) { error.textContent = '件名を入力してください。'; subject.focus(); return; }
-    if (!version.value) { error.textContent = '対象バージョンを選んでください。'; version.focus(); return; }
-    if (!assignee.value) { error.textContent = '担当を選んでください。'; assignee.focus(); return; }
-    const dl = deadline.value ? parseDate(deadline.value) : null;
-    const fields = {
-      subject: buildTitle(subject.value.trim(), dl),
-      fixed_version_id: Number(version.value),
-      assigned_to_id: Number(assignee.value),
-      description: desc.value,
-      due_date: plan.value || null,
-    };
+    if (!f.validate()) return;
+    const fields = f.collect();
     submit.disabled = true; submit.textContent = '登録中…';
     try {
       await api.updateIssue(issue.id, fields);
@@ -1114,10 +1162,79 @@ function renderTriageForm(issue) {
       toast(`#${issue.id} を${who ? who.name : ''}さんの「未着手」に登録しました`);
       render();
     } catch (err) {
-      error.textContent = `登録できませんでした。${err.message}`;
-      submit.disabled = false; update();
+      f.el.error.textContent = `登録できませんでした。${err.message}`;
+      submit.disabled = false; submit.textContent = f.deadlineDate() ? '整理して登録' : '締切なしで登録';
     }
   };
+}
+
+/* ---------- カードの編集 ---------- */
+async function openEditor(id) {
+  const issue = state.issues.get(id);
+  if (!issue || state.saving.has(id)) return;
+  if (!state.versions.length) {
+    try { state.versions = await api.versions(issue.project.id); }
+    catch (e) { toast(`対象バージョンの一覧を読めませんでした。${e.message}`, { error: true }); return; }
+  }
+  const form = $('editorForm');
+  const f = issueFields(issue, 'e');
+  const notes = h('textarea', { id: 'eNotes', placeholder: '例: 試作課に確認中。回答待ち' });
+  const submit = h('button', { type: 'submit', class: 'btn primary' }, '保存');
+  const url = issueUrl(issue.id);
+  const chain = ancestors(issue);
+
+  form.replaceChildren(
+    h('div', { class: 'head' },
+      h('h2', {}, `#${issue.id} を編集`),
+      url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Redmine で開く') : null),
+    h('p', { class: 'meta' },
+      h('span', {}, `ステータス: ${issue.status.name}`),
+      chain.length ? h('span', {}, `親: ${chain.join(' › ')}`) : null),
+    ...f.rows('説明'),
+    h('div', { class: 'field' },
+      h('label', { for: 'eNotes' }, 'コメントを追加（Redmine の履歴に残ります）'), notes),
+    f.el.error,
+    h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn', onclick: closeEditor }, '閉じる'),
+      submit));
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    if (!f.validate()) return;
+    const fields = f.collect();
+    const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => {
+      const now = { subject: issue.subject, description: issue.description || '', due_date: issue.due_date || null,
+        fixed_version_id: issue.fixed_version && issue.fixed_version.id, assigned_to_id: issue.assigned_to && issue.assigned_to.id }[k];
+      return v !== now;
+    }));
+    if (notes.value.trim()) changed.notes = notes.value.trim();
+    if (!Object.keys(changed).length) { closeEditor(); toast('変更はありませんでした'); return; }
+
+    submit.disabled = true; submit.textContent = '保存中…';
+    try {
+      await api.updateIssue(issue.id, changed);
+      const before = issue.assigned_to && issue.assigned_to.id;
+      f.applyTo(issue, fields);
+      issue.updated_on = new Date().toISOString();
+      closeEditor();
+      renderBoard();
+      const moved = issue.assigned_to && issue.assigned_to.id !== before;
+      toast(moved ? `#${issue.id} を${issue.assigned_to.name}さんに渡しました` : `#${issue.id} を保存しました`);
+    } catch (err) {
+      f.el.error.textContent = `保存できませんでした。${err.message}`;
+      submit.disabled = false; submit.textContent = '保存';
+    }
+  };
+
+  form.dataset.id = issue.id;
+  $('editor').hidden = false;
+  f.el.subject.focus();
+}
+
+function closeEditor() {
+  $('editor').hidden = true;
+  const card = document.querySelector(`.card[data-id="${$('editorForm').dataset.id || ''}"]`);
+  if (card) card.focus();
 }
 
 // ノイズのメール（「教えてください」など）を中止にする。チケットは残す
@@ -1339,9 +1456,17 @@ cancelZone.addEventListener('drop', e => {
   if (dragId != null) changeStatus(dragId, cancelStatusId(), { undoable: true });
 });
 
-// キーボード: カードを選んで ← → で隣の列へ
+// クリック / Enter でカードを編集
+board.addEventListener('click', e => {
+  const card = e.target.closest && e.target.closest('.card');
+  if (!card || e.target.closest('button, a')) return;
+  openEditor(Number(card.dataset.id));
+});
+
+// キーボード: カードを選んで ← → で隣の列へ、Enter で編集
 board.addEventListener('keydown', e => {
   const card = e.target.closest && e.target.closest('.card');
+  if (card && e.key === 'Enter' && e.target === card) { e.preventDefault(); openEditor(Number(card.dataset.id)); return; }
   if (!card || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
   e.preventDefault();
   const id = Number(card.dataset.id);
@@ -1382,7 +1507,11 @@ function closeSettings() { $('settings').hidden = true; }
 $('settingsBtn').addEventListener('click', openSettings);
 $('cancelSettings').addEventListener('click', closeSettings);
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('editor').hidden) closeEditor();
+  else if (!$('settings').hidden) closeSettings();
+});
 
 $('testBtn').addEventListener('click', async () => {
   const out = $('testResult');
