@@ -251,6 +251,31 @@ button { cursor: pointer; }
 
 .loading { display: grid; place-items: center; color: var(--ink-3); font-size: 13px; }
 
+/* 中継プログラムにつながっていないときの案内 */
+.tabs:empty { display: none; }
+.connect { grid-column: 1 / -1; display: grid; place-items: center; padding: 16px; }
+.connect-card {
+  width: min(560px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow);
+}
+.connect-card h2 { margin: 0; font-size: 17px; }
+.connect-card p { margin: 0; color: var(--ink-2); }
+.steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; counter-reset: step; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; counter-increment: step; }
+.steps li::before {
+  content: counter(step); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); font-family: var(--font-num); font-size: 12px;
+}
+.steps li span { padding-top: 2px; }
+.connect-card .waiting { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+.connect-card .waiting::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--soon);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 50% { opacity: .25; } }
+.connect-card .links { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+a.btn { text-decoration: none; display: inline-block; }
+
 /* タグ: 先頭の優先番号 + 名前 */
 .tag .code { font-family: var(--font-num); font-weight: 500; margin-right: 4px; opacity: .85; }
 .tag.urgent { background: var(--late); color: var(--surface); }
@@ -356,18 +381,23 @@ button { cursor: pointer; }
     <div class="field">
       <span class="label">データの取得元</span>
       <div class="radios">
+        <label><input type="radio" name="mode" id="modeRelay" value="relay"> 中継プログラム経由（通常はこれ）</label>
         <label><input type="radio" name="mode" id="modeMock" value="mock"> モック（ダミーデータ）</label>
-        <label><input type="radio" name="mode" id="modeLive" value="live"> Redmine</label>
+        <label><input type="radio" name="mode" id="modeLive" value="live"> 直接接続</label>
       </div>
     </div>
-    <div class="field">
-      <label for="redmineUrl">Redmine の URL</label>
-      <input type="text" id="redmineUrl" placeholder="https://redmine.example.com" autocomplete="off">
-    </div>
-    <div class="field">
-      <label for="apiKey">自分の API キー</label>
-      <input type="password" id="apiKey" placeholder="Redmine の「個人設定」→「APIアクセスキー」" autocomplete="off">
-      <p class="hint">キーはこのブラウザの中だけに保存されます。他の人のキーは使わないでください（変更履歴がその人の名前で残ります）。</p>
+    <p class="hint" id="relayHint">このPCで動いている中継プログラムを通して Redmine を読み書きします。API キーは中継プログラムに保存されています。</p>
+    <div id="directFields" hidden>
+      <p class="hint">Redmine 側で CORS が許可されている場合だけ使えます。</p>
+      <div class="field">
+        <label for="redmineUrl">Redmine の URL</label>
+        <input type="text" id="redmineUrl" placeholder="https://redmine.example.com" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="apiKey">自分の API キー</label>
+        <input type="password" id="apiKey" placeholder="Redmine の「個人設定」→「APIアクセスキー」" autocomplete="off">
+        <p class="hint">キーはこのブラウザの中だけに保存されます。</p>
+      </div>
     </div>
     <p class="test-result" id="testResult" hidden></p>
     <div class="dialog-actions">
@@ -427,6 +457,9 @@ const CONFIG = {
   // Redmine の検索条件「子チケット(child_id)」が使えるか。tools/redmine_config_dump.py の結果で設定する。
   // false の場合は候補のチケットを 1 件ずつ確認する（件数が多いと少し遅い）
   childFilterSupported: true,
+  // 中継プログラム(kanban_relay.py)。download はこのページから見た相対パス（同じフォルダに置く）
+  relay: { port: 8765, download: 'kanban_relay.py' },
+  defaultMode: 'relay', // 'relay' | 'mock' | 'live'
   // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
   versionColors: {},
 };
@@ -624,6 +657,7 @@ function createMockApi(getMockUserId) {
   };
 }
 
+// apiKey を null にすると中継プログラム経由（キーは中継プログラムが付ける）
 function createRedmineApi(baseUrl, apiKey) {
   const base = baseUrl.replace(/\/+$/, '');
   async function req(path, options = {}) {
@@ -631,11 +665,13 @@ function createRedmineApi(baseUrl, apiKey) {
     try {
       res = await fetch(base + path, {
         ...options,
-        headers: { 'X-Redmine-API-Key': apiKey, 'Content-Type': 'application/json', ...(options.headers || {}) },
+        headers: { ...(apiKey ? { 'X-Redmine-API-Key': apiKey } : {}), 'Content-Type': 'application/json', ...(options.headers || {}) },
       });
     } catch (e) {
-      // fetch 自体が失敗するのは、ほぼ CORS 拒否かネットワーク遮断
-      throw new Error('Redmine に接続できませんでした。Redmine 側で CORS が許可されていないか、ネットワークで遮断されています。');
+      // fetch 自体が失敗するのは、ほぼ CORS 拒否かネットワーク遮断（中継なら中継が止まっている）
+      throw new Error(apiKey
+        ? 'Redmine に接続できませんでした。Redmine 側で CORS が許可されていないか、ネットワークで遮断されています。'
+        : '中継プログラムに接続できません。kanban_relay.py が起動しているか確認してください。');
     }
     if (!res.ok) {
       let detail = '';
@@ -717,9 +753,9 @@ function createRedmineApi(baseUrl, apiKey) {
 /* =====================================================================
  * 4. 設定の保存（このブラウザの中だけ）
  * ===================================================================== */
-const STORE_KEY = 'designBoard.settings.v1';
+const STORE_KEY = 'designBoard.settings.v2';
 function loadSettings() {
-  const fallback = { mode: 'mock', url: '', key: '', mockUserId: 2 };
+  const fallback = { mode: CONFIG.defaultMode, url: '', key: '', mockUserId: 2 };
   try { return { ...fallback, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; } catch (_) { return fallback; }
 }
 function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (_) { /* 保存できなくても動作は続ける */ } }
@@ -740,10 +776,19 @@ const colOf = issue => (statusById[issue.status.id] || {}).col;
 const isManager = () => state.me && CONFIG.managerUserIds.includes(state.me.id);
 const visibleColumns = () => CONFIG.columns.filter(c => !c.managerView || isManager());
 
+const relayBase = () => `http://127.0.0.1:${CONFIG.relay.port}`;
 function buildApi() {
-  api = settings.mode === 'live' && settings.url && settings.key
-    ? createRedmineApi(settings.url, settings.key)
-    : createMockApi(() => settings.mockUserId);
+  if (settings.mode === 'relay') api = createRedmineApi(relayBase() + '/api', null);
+  else if (settings.mode === 'live' && settings.url && settings.key) api = createRedmineApi(settings.url, settings.key);
+  else api = createMockApi(() => settings.mockUserId);
+}
+
+// 中継プログラムが動いていれば { redmine_url, user } を返す。止まっていれば null
+async function pingRelay() {
+  try {
+    const res = await fetch(relayBase() + '/ping', { cache: 'no-store' });
+    return res.ok ? await res.json() : null;
+  } catch (_) { return null; }
 }
 
 /* =====================================================================
@@ -809,7 +854,10 @@ function ancestors(issue) {
   return out;
 }
 
-function issueUrl(id) { return settings.mode === 'live' && settings.url ? `${settings.url.replace(/\/+$/, '')}/issues/${id}` : null; }
+function issueUrl(id) {
+  const base = settings.mode === 'relay' ? state.redmineUrl : settings.mode === 'live' ? settings.url : null;
+  return base ? `${base.replace(/\/+$/, '')}/issues/${id}` : null;
+}
 
 function renderCard(issue) {
   const col = colOf(issue);
@@ -929,8 +977,8 @@ function renderTabs() {
 }
 
 function renderChrome() {
-  const live = settings.mode === 'live';
-  $('modePill').textContent = live ? 'Redmine接続' : 'モック';
+  const live = settings.mode !== 'mock';
+  $('modePill').textContent = settings.mode === 'relay' ? 'リアルタイム接続' : live ? 'Redmine直接接続' : 'モック';
   $('modePill').classList.toggle('live', live);
   $('mockUserWrap').hidden = live;
   const now = startOfToday();
@@ -1094,11 +1142,54 @@ async function loadView() {
   else await Promise.all([loadUser(state.view), loadInbox()]);
 }
 
+let relayTimer = null;
+function renderRelayPanel() {
+  state.me = null;
+  $('modePill').textContent = '中継 未接続';
+  $('modePill').classList.remove('live');
+  $('tabs').replaceChildren();
+  $('summary').replaceChildren();
+  $('board').replaceChildren(h('div', { class: 'connect' }, h('div', { class: 'connect-card' },
+    h('h2', {}, 'Redmine につなぐ準備をします'),
+    h('p', {}, 'このボードは、あなたのPCで動く小さな中継プログラムを通して Redmine を読み書きします。'),
+    h('ol', { class: 'steps' },
+      h('li', {}, h('span', {}, '下のボタンで kanban_relay.py をダウンロードします。')),
+      h('li', {}, h('span', {}, 'ダウンロードしたファイルをダブルクリックします。初回だけ API キーの入力と、自動起動するかの確認があります。')),
+      h('li', {}, h('span', {}, 'このページに戻ると自動でつながります。ブラウザが「ローカルネットワークへのアクセス」を求めたら「許可」を押してください。'))),
+    h('div', { class: 'links' },
+      h('a', { class: 'btn primary', href: CONFIG.relay.download, download: 'kanban_relay.py' }, 'kanban_relay.py をダウンロード'),
+      h('button', { type: 'button', class: 'btn', onclick: () => { settings.mode = 'mock'; saveSettings(); boot(); } }, 'モックで試す')),
+    h('p', { class: 'waiting' }, '中継プログラムの起動を待っています…'))));
+}
+
+async function waitForRelay() {
+  const info = await pingRelay();
+  if (info) return info;
+  renderRelayPanel();
+  return new Promise(resolve => {
+    clearInterval(relayTimer);
+    relayTimer = setInterval(async () => {
+      if (settings.mode !== 'relay') { clearInterval(relayTimer); return; }
+      const ok = await pingRelay();
+      if (ok) { clearInterval(relayTimer); resolve(ok); }
+    }, 3000);
+  });
+}
+
 async function boot() {
+  clearInterval(relayTimer);
   buildApi();
   renderChrome();
   $('board').hidden = false; $('inbox').hidden = true;
+  $('board').style.gridTemplateColumns = '';
   $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
+  if (settings.mode === 'relay') {
+    const info = await waitForRelay();
+    if (settings.mode !== 'relay') return;
+    state.redmineUrl = info.redmine_url;
+    renderChrome();
+    $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
+  }
   try {
     state.me = await api.currentUser();
     state.issues.clear(); state.versions = [];
@@ -1236,13 +1327,22 @@ function toast(message, { error = false, action = null } = {}) {
   setTimeout(() => el.remove(), error ? 7000 : 5000);
 }
 
+function selectedMode() { return $('modeRelay').checked ? 'relay' : $('modeLive').checked ? 'live' : 'mock'; }
+function syncModeFields() {
+  $('directFields').hidden = selectedMode() !== 'live';
+  $('relayHint').hidden = selectedMode() !== 'relay';
+  $('testBtn').hidden = selectedMode() === 'mock';
+}
+['modeRelay', 'modeMock', 'modeLive'].forEach(id => $(id).addEventListener('change', () => { $('testResult').hidden = true; syncModeFields(); }));
+
 function openSettings() {
-  $(settings.mode === 'live' ? 'modeLive' : 'modeMock').checked = true;
+  $({ relay: 'modeRelay', live: 'modeLive', mock: 'modeMock' }[settings.mode] || 'modeMock').checked = true;
+  syncModeFields();
   $('redmineUrl').value = settings.url;
   $('apiKey').value = settings.key;
   $('testResult').hidden = true;
   $('settings').hidden = false;
-  $('redmineUrl').focus();
+  $({ relay: 'modeRelay', live: 'modeLive', mock: 'modeMock' }[settings.mode] || 'modeMock').focus();
 }
 function closeSettings() { $('settings').hidden = true; }
 
@@ -1254,6 +1354,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settin
 $('testBtn').addEventListener('click', async () => {
   const out = $('testResult');
   out.hidden = false; out.className = 'test-result'; out.textContent = '接続を確認しています…';
+  if (selectedMode() === 'relay') {
+    const info = await pingRelay();
+    out.className = 'test-result ' + (info ? 'ok' : 'ng');
+    out.textContent = info
+      ? `中継プログラムにつながりました。${info.user.name} さんとして ${info.redmine_url} に接続しています。`
+      : '中継プログラムに接続できません。kanban_relay.py が起動しているか確認してください。';
+    return;
+  }
   const url = $('redmineUrl').value.trim(), key = $('apiKey').value.trim();
   if (!url || !key) { out.className = 'test-result ng'; out.textContent = 'URL と API キーを入力してください。'; return; }
   try {
@@ -1268,7 +1376,7 @@ $('testBtn').addEventListener('click', async () => {
 
 $('settingsForm').addEventListener('submit', e => {
   e.preventDefault();
-  const mode = $('modeLive').checked ? 'live' : 'mock';
+  const mode = selectedMode();
   const url = $('redmineUrl').value.trim(), key = $('apiKey').value.trim();
   if (mode === 'live' && (!url || !key)) {
     const out = $('testResult'); out.hidden = false; out.className = 'test-result ng';
@@ -1288,6 +1396,7 @@ $('mockUser').addEventListener('change', e => {
 });
 
 $('reloadBtn').addEventListener('click', async () => {
+  if (!state.me) return boot();
   try { await loadView(); render(); toast('最新の状態を読み込みました'); }
   catch (e) { toast(e.message, { error: true }); }
 });

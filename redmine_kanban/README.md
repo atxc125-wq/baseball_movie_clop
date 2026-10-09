@@ -10,6 +10,7 @@ SharePoint に置くだけで動く、Redmine 連携の軽量カンバン。現�
 | `build.py` | 元ファイルから配置用ファイルを生成（`python build.py`） |
 | `kanban.aspx` | SharePoint に置くファイル（UTF-8 BOM + `<meta charset="utf-8">` 付き） |
 | `kanban.html` | ローカルでダブルクリックして確認する用 |
+| `kanban_relay.py` | 各自のPCで動かす中継プログラム。`kanban.aspx` と同じフォルダに置く |
 | `tools/redmine_config_dump.py` | 実際の Redmine から CONFIG に貼る値を取り出す（読み取りのみ） |
 
 ## 列とステータスの対応
@@ -59,6 +60,25 @@ python tools\redmine_config_dump.py --url https://redmine.example.com --project 
 1 回目でプロジェクトの識別子を確認し、2 回目で `CONFIG` に貼る値（ステータス、メンバー、
 上司の推定、projectId、childFilterSupported）と、SharePoint からの CORS が許可されているかを出力する。
 結果は `redmine_config_output.txt` にも保存される。標準ライブラリだけで動き、Redmine のデータは変更しない。
+
+## 中継プログラム（Redmine が CORS を許可しない場合の接続方法）
+
+ブラウザは社外の Redmine に直接アクセスできないため、各自のPCで `kanban_relay.py` を動かし、
+ボードはそれを通して Redmine を読み書きする。
+
+```
+kanban.aspx（SharePoint） ⇄ kanban_relay.py（各自のPC 127.0.0.1:8765） ⇄ Redmine
+```
+
+- 配布前に `kanban_relay.py` 冒頭の `REDMINE_URL` と `ALLOWED_ORIGINS`（SharePoint の URL）を書き換え、
+  `kanban.aspx` と同じフォルダに置く。
+- ボードを開いて中継が動いていなければ、ダウンロードボタン付きの案内が出る。
+  ダブルクリックで起動すると、ページが自動でつながる。
+- 初回だけ API キーを入力する。キーは Windows の DPAPI で暗号化して `%APPDATA%\DesignTaskBoard` に保存。
+  ログオン時の自動起動も選べる（`--uninstall` で解除、`--setup` で設定し直し）。
+- 中継は 127.0.0.1 からの接続だけを受け、呼び出し元を `ALLOWED_ORIGINS` に限定し、
+  ボードが使う API（チケットの参照・更新、バージョン、ユーザー情報）以外は中継しない。
+- ブラウザが「ローカルネットワークへのアクセス」を求めたら「許可」を押す。
 
 ## 本番接続の前に確認すること
 
