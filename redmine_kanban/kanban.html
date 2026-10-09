@@ -464,8 +464,8 @@ const CONFIG = {
   // Redmine の検索条件「子チケット(child_id)」が使えるか。tools/redmine_config_dump.py の結果で設定する。
   // false の場合は候補のチケットを 1 件ずつ確認する（件数が多いと少し遅い）
   childFilterSupported: true,
-  // 中継プログラム(kanban_relay.py)。download はこのページから見た相対パス（同じフォルダに置く）
-  relay: { port: 8765, download: 'kanban_relay.py' },
+  // 中継プログラム(kanban_relay.py)。ボードは中継プログラムが http://127.0.0.1:8765/ で出す
+  relay: { port: 8765 },
   defaultMode: 'relay', // 'relay' | 'mock' | 'live'
   // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
   versionColors: {},
@@ -784,8 +784,11 @@ const isManager = () => state.me && CONFIG.managerUserIds.includes(state.me.id);
 const visibleColumns = () => CONFIG.columns.filter(c => !c.managerView || isManager());
 
 const relayBase = () => `http://127.0.0.1:${CONFIG.relay.port}`;
+// 中継プログラムが出したページなら、同じ場所(相対パス)で API を呼べる
+const servedByRelay = [relayBase(), `http://localhost:${CONFIG.relay.port}`].includes(location.origin);
+const relayRoot = () => (servedByRelay ? '' : relayBase());
 function buildApi() {
-  if (settings.mode === 'relay') api = createRedmineApi(relayBase() + '/api', null);
+  if (settings.mode === 'relay') api = createRedmineApi(relayRoot() + '/api', null);
   else if (settings.mode === 'live' && settings.url && settings.key) api = createRedmineApi(settings.url, settings.key);
   else api = createMockApi(() => settings.mockUserId);
 }
@@ -793,7 +796,7 @@ function buildApi() {
 // 中継プログラムが動いていれば { redmine_url, user } を返す。止まっていれば null
 async function pingRelay() {
   try {
-    const res = await fetch(relayBase() + '/ping', { cache: 'no-store' });
+    const res = await fetch(relayRoot() + '/ping', { cache: 'no-store' });
     return res.ok ? await res.json() : null;
   } catch (_) { return null; }
 }
@@ -1156,23 +1159,29 @@ function renderRelayPanel() {
   $('modePill').classList.remove('live');
   $('tabs').replaceChildren();
   $('summary').replaceChildren();
-  $('board').replaceChildren(h('div', { class: 'connect' }, h('div', { class: 'connect-card' },
-    h('h2', {}, 'Redmine につなぐ準備をします'),
-    h('p', {}, 'このボードは、あなたのPCで動く小さな中継プログラムを通して Redmine を読み書きします。'),
-    h('ol', { class: 'steps' },
-      h('li', {}, h('span', {}, '下のボタンで kanban_relay.py をダウンロードします。')),
-      h('li', {}, h('span', {}, 'ダウンロードしたファイルをダブルクリックします。初回だけ API キーの入力と、自動起動するかの確認があります。')),
-      h('li', {}, h('span', {}, 'このページに戻ると自動でつながります。ブラウザが「ローカルネットワークへのアクセス」を求めたら「許可」を押してください。'))),
-    h('div', { class: 'links' },
-      h('a', { class: 'btn primary', href: CONFIG.relay.download, download: 'kanban_relay.py' }, 'kanban_relay.py をダウンロード'),
-      h('button', { type: 'button', class: 'btn', onclick: () => { settings.mode = 'mock'; saveSettings(); boot(); } }, 'モックで試す')),
-    h('p', { class: 'waiting' }, '中継プログラムの起動を待っています…'))));
+  const tryMock = h('button', { type: 'button', class: 'btn', onclick: () => { settings.mode = 'mock'; saveSettings(); boot(); } }, 'モックで試す');
+  const card = servedByRelay
+    ? [h('h2', {}, '中継プログラムが止まっています'),
+       h('p', {}, 'kanban_relay.py をダブルクリックして起動してください。起動すると、このページは自動でつながります。'),
+       h('div', { class: 'links' }, tryMock),
+       h('p', { class: 'waiting' }, '中継プログラムの起動を待っています…')]
+    : [h('h2', {}, 'このボードは中継プログラムから開きます'),
+       h('p', {}, 'あなたのPCで動く中継プログラムが、ボードの画面を出して Redmine とつなぎます。'),
+       h('ol', { class: 'steps' },
+         h('li', {}, h('span', {}, 'kanban_relay.py と kanban.html を同じフォルダに置きます。')),
+         h('li', {}, h('span', {}, 'kanban_relay.py をダブルクリックします。初回だけ API キーの入力と、自動起動するかの確認があります。')),
+         h('li', {}, h('span', {}, 'ボードがブラウザで自動的に開きます。次回からはデスクトップの「設計課タスクボード」から開けます。'))),
+       h('div', { class: 'links' },
+         h('a', { class: 'btn primary', href: relayBase() + '/', target: '_blank', rel: 'noopener' }, '起動済みならここから開く'),
+         tryMock)];
+  $('board').replaceChildren(h('div', { class: 'connect' }, h('div', { class: 'connect-card' }, card)));
 }
 
 async function waitForRelay() {
   const info = await pingRelay();
   if (info) return info;
   renderRelayPanel();
+  if (!servedByRelay) return new Promise(() => {}); // 別の場所で開かれたページは中継を使えないので待たない
   return new Promise(resolve => {
     clearInterval(relayTimer);
     relayTimer = setInterval(async () => {

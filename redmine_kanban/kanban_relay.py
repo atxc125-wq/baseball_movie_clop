@@ -1,16 +1,17 @@
 """設計課タスクボードの中継プログラム。
 
-SharePoint 上の kanban.aspx と社外の Redmine の間を、このPCの中でつなぐ。
+このPCの中でタスクボードの画面(kanban.html)を出し、社外の Redmine との間をつなぐ。
 ブラウザは Redmine に直接アクセスできない(CORS)ため、このプログラムが代わりに API を呼ぶ。
+kanban.html はこのファイルと同じフォルダに置く。
 
-    初回:   ダブルクリック → API キーを入力 → 自動起動を設定するか選ぶ
-    2回目〜: ダブルクリック（自動起動にした場合は何もしなくてよい）
+    初回:   ダブルクリック → API キーを入力 → 自動起動を設定するか選ぶ → ボードが開く
+    2回目〜: デスクトップの「設計課タスクボード」を開く（自動起動にしていない場合は先にダブルクリック）
     設定し直す:     python kanban_relay.py --setup
     自動起動をやめる: python kanban_relay.py --uninstall
 
 安全のため次の制限をかけている。
   - このPCの中(127.0.0.1)からの接続だけを受け付ける
-  - 呼び出し元は ALLOWED_ORIGINS のページだけ（他のWebサイトからは使えない）
+  - 呼び出し元はこのプログラムが出したボード（と ALLOWED_ORIGINS）だけ。他のWebサイトからは使えない
   - 中継する Redmine の API は、ボードが使うものだけ
   - API キーは Windows の機能(DPAPI)で暗号化し、このユーザーにしか読めない形で保存する
 標準ライブラリだけで動く。
@@ -28,6 +29,7 @@ import socket
 import sys
 import urllib.error
 import urllib.request
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -35,11 +37,16 @@ from pathlib import Path
 # 配布前にここだけ書き換える
 # ---------------------------------------------------------------------------
 REDMINE_URL = "https://redmine.example.com"
-ALLOWED_ORIGINS = ["https://contoso.sharepoint.com"]
+# このPC以外のページ（SharePoint など）からも使わせる場合だけ書く。通常は空でよい
+ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 # ---------------------------------------------------------------------------
 
-VERSION = "1"
+VERSION = "2"
+HERE = Path(__file__).resolve().parent
+BOARD_FILE = "kanban.html"
+BOARD_URL = f"http://127.0.0.1:{PORT}/"
+SELF_ORIGINS = (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}")
 APP_DIR = Path(os.environ.get("APPDATA") or Path.home() / ".config") / "DesignTaskBoard"
 CONFIG_FILE = APP_DIR / "relay.json"
 LOG_FILE = APP_DIR / "relay.log"
@@ -135,9 +142,17 @@ class Relay(BaseHTTPRequestHandler):
         log(f"{self.address_string()} {fmt % args}")
 
     # --- 共通チェック ---------------------------------------------------
-    def _origin_ok(self) -> str | None:
+    def _caller(self) -> tuple[bool, str | None]:
+        """(使ってよいか, 付ける CORS ヘッダーの値) を返す。"""
         origin = self.headers.get("Origin")
-        return origin if origin in ALLOWED_ORIGINS else None
+        if origin in SELF_ORIGINS:
+            return True, None
+        if origin in ALLOWED_ORIGINS:
+            return True, origin
+        # 同じページからの GET には Origin が付かない。ブラウザが付ける Sec-Fetch-Site で見分ける
+        if origin is None and self.headers.get("Sec-Fetch-Site") == "same-origin":
+            return True, None
+        return False, None
 
     def _host_ok(self) -> bool:
         # DNS リバインディング対策: Host が 127.0.0.1 / localhost 以外なら断る
@@ -160,8 +175,8 @@ class Relay(BaseHTTPRequestHandler):
 
     # --- ブラウザの事前確認 ---------------------------------------------
     def do_OPTIONS(self):  # noqa: N802
-        origin = self._origin_ok()
-        if not origin or not self._host_ok():
+        origin = self.headers.get("Origin")
+        if origin not in ALLOWED_ORIGINS or not self._host_ok():
             return self._error(403, "このページからは使えません")
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", origin)
@@ -179,10 +194,22 @@ class Relay(BaseHTTPRequestHandler):
         self._handle("PUT")
 
     def _handle(self, method: str):
-        origin = self._origin_ok()
-        if not origin or not self._host_ok():
+        if not self._host_ok():
             return self._error(403, "このページからは使えません")
         path, _, query = self.path.partition("?")
+
+        # ボードの画面そのもの（データは含まないので誰が開いてもよい）
+        if method == "GET" and path in ("/", "/" + BOARD_FILE):
+            try:
+                html = (HERE / BOARD_FILE).read_bytes()
+            except OSError:
+                msg = f"{BOARD_FILE} が見つかりません。kanban_relay.py と同じフォルダ（{HERE}）に置いてください。"
+                return self._send(500, msg.encode(), ctype="text/plain; charset=utf-8")
+            return self._send(200, html, ctype="text/html; charset=utf-8")
+
+        allowed, origin = self._caller()
+        if not allowed:
+            return self._error(403, "このページからは使えません")
 
         if path == "/ping":
             info = {"ok": True, "version": VERSION, "redmine_url": REDMINE_URL,
@@ -253,12 +280,38 @@ def startup_file() -> Path | None:
     return Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs/Startup/DesignTaskBoardRelay.cmd"
 
 
-def install_startup() -> None:
-    """自分を %APPDATA%\\DesignTaskBoard にコピーし、ログオン時に画面なしで起動するよう登録する。"""
+def copy_to_app_dir() -> Path:
+    """自分と kanban.html を %APPDATA%\\DesignTaskBoard にコピーする（ダウンロード先を消しても動くように）。"""
     target = APP_DIR / "kanban_relay.py"
     APP_DIR.mkdir(parents=True, exist_ok=True)
-    if Path(__file__).resolve() != target.resolve():
+    if HERE != APP_DIR.resolve():
         shutil.copy2(__file__, target)
+        if (HERE / BOARD_FILE).exists():
+            shutil.copy2(HERE / BOARD_FILE, APP_DIR / BOARD_FILE)
+    return target
+
+
+def desktop_dir() -> Path:
+    if os.name == "nt":
+        import ctypes
+        buf = ctypes.create_unicode_buffer(260)
+        if ctypes.windll.shell32.SHGetFolderPathW(None, 0x10, None, 0, buf) == 0:  # CSIDL_DESKTOPDIRECTORY
+            return Path(buf.value)
+    return Path.home() / "Desktop"
+
+
+def make_shortcut() -> None:
+    try:
+        f = desktop_dir() / "設計課タスクボード.url"
+        f.write_text(f"[InternetShortcut]\r\nURL={BOARD_URL}\r\n", encoding="utf-8")
+        print(f"デスクトップに「設計課タスクボード」を作りました。（{f}）")
+    except OSError as e:
+        print(f"デスクトップにショートカットを作れませんでした（{e}）。ブラウザで {BOARD_URL} を開いてください。")
+
+
+def install_startup() -> None:
+    """ログオン時に画面なしで起動するよう登録する。"""
+    target = copy_to_app_dir()
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     exe = pythonw if pythonw.exists() else Path(sys.executable)
     startup_file().write_text(f'@start "" "{exe}" "{target}"\r\n', encoding="utf-8")
@@ -291,6 +344,7 @@ def setup() -> str:
         print("API キーが正しくないようです。Redmine の「個人設定」→「APIアクセスキー」を確認してください。\n")
     save_key(key)
     print(f"\n{user['lastname']} {user['firstname']} さんとして接続します。")
+    make_shortcut()
     if os.name == "nt":
         ans = input("Windows にログオンしたとき自動で起動しますか？ [Y/n]: ").strip().lower()
         if ans in ("", "y", "yes"):
@@ -314,9 +368,15 @@ def main() -> int:
     if args.uninstall:
         uninstall()
         return 0
-    if already_running():
-        log(f"中継プログラムはすでに起動しています（ポート {PORT}）。ブラウザでボードを開いてください。")
+    if not (HERE / BOARD_FILE).exists():
+        log(f"{BOARD_FILE} が見つかりません。kanban_relay.py と同じフォルダ（{HERE}）に置いてください。")
         pause()
+        return 1
+    interactive = sys.stdin is not None and sys.stdin.isatty()
+    if already_running():
+        log(f"中継プログラムはすでに起動しています。ボードを開きます（{BOARD_URL}）。")
+        if interactive:
+            webbrowser.open(BOARD_URL)
         return 0
 
     key = setup() if args.setup else load_key()
@@ -343,8 +403,9 @@ def main() -> int:
         log(f"ポート {PORT} を使えません（{e}）。他のソフトが使っている可能性があります。")
         pause()
         return 1
-    log(f"中継を開始しました（http://127.0.0.1:{PORT}）。この画面を閉じると止まります。")
-    log("ブラウザでタスクボードを開くと、自動でつながります。")
+    log(f"タスクボードを開始しました（{BOARD_URL}）。この画面を閉じると止まります。")
+    if interactive:
+        webbrowser.open(BOARD_URL)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
