@@ -114,7 +114,7 @@ def redmine(method: str, path_qs: str, key: str, body: bytes | None = None) -> t
         REDMINE_URL.rstrip("/") + path_qs,
         data=body,
         method=method,
-        headers={"X-Redmine-API-Key": key, "Content-Type": "application/json"},
+        headers={"X-Redmine-API-Key": key, **({"Content-Type": "application/json"} if body is not None else {})},
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as res:
@@ -124,10 +124,52 @@ def redmine(method: str, path_qs: str, key: str, body: bytes | None = None) -> t
 
 
 def whoami(key: str) -> dict | None:
-    status, body = redmine("GET", "/users/current.json", key)
-    if status != 200:
-        return None
-    return json.loads(body)["user"]
+    user, _ = check_key(key)
+    return user
+
+
+def check_key(key: str) -> tuple[dict | None, str]:
+    """(ユーザー情報, うまくいかなかった理由) を返す。理由は画面に出して原因の切り分けに使う。"""
+    url = REDMINE_URL.rstrip("/") + "/users/current.json"
+    try:
+        status, body = redmine("GET", "/users/current.json", key)
+    except urllib.error.URLError as e:
+        return None, f"Redmine に接続できません（{e.reason}）。\n  接続先: {url}\n  REDMINE_URL とネットワーク（プロキシ）を確認してください。"
+    if status == 200:
+        try:
+            return json.loads(body)["user"], ""
+        except (ValueError, KeyError):
+            head = body[:80].decode("utf-8", "replace").replace("\n", " ")
+            return None, (f"Redmine 以外の画面が返ってきました（{head}…）。\n  接続先: {url}\n"
+                          "  REDMINE_URL が正しいか、プロキシのログイン画面になっていないか確認してください。")
+    reasons = {
+        401: "Redmine が API キーを受け付けませんでした (401)。\n"
+             "  キーが正しいか、Redmine の「管理 → 設定 → API」で「RESTによるWebサービスを有効にする」がオンか確認してください。",
+        403: "アクセスが拒否されました (403)。Redmine かプロキシで接続が制限されている可能性があります。",
+        404: "ページが見つかりません (404)。REDMINE_URL が正しいか確認してください（/redmine のような続きが必要な場合があります）。",
+        407: "プロキシの認証が必要です (407)。社内のプロキシ設定を確認してください。",
+    }
+    return None, reasons.get(status, f"Redmine がエラーを返しました ({status})。") + f"\n  接続先: {url}"
+
+
+def read_key() -> str:
+    """API キーを受け取る。貼り付けがうまくいかない環境のため、クリップボードからも読める。"""
+    raw = getpass.getpass("Redmine の API キーを貼り付けて Enter（何も入力せず Enter → クリップボードから読み取り）: ")
+    if not raw.strip():
+        try:
+            import tkinter
+            root = tkinter.Tk()
+            root.withdraw()
+            raw = root.clipboard_get()
+            root.destroy()
+        except Exception:  # noqa: BLE001 - クリップボードが空、または tkinter がない
+            print("クリップボードから読み取れませんでした。キーをコピーしてからもう一度試してください。")
+            return ""
+    # 貼り付けの失敗で混ざる制御文字(Ctrl+V の ^V など)や空白・改行を取り除く
+    key = re.sub(r"[\x00-\x20\x7f]", "", raw)
+    if key:
+        print(f"受け取ったキー: {key[:4]}…（{len(key)} 文字。Redmine の API キーは通常 40 文字です）")
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -331,17 +373,13 @@ def setup() -> str:
     print("設計課タスクボード 中継プログラムの初期設定")
     print(f"接続先: {REDMINE_URL}\n")
     while True:
-        key = getpass.getpass("Redmine の API キーを貼り付けて Enter（画面には表示されません）: ").strip()
+        key = read_key()
         if not key:
             continue
-        try:
-            user = whoami(key)
-        except urllib.error.URLError as e:
-            print(f"Redmine に接続できません: {e.reason}")
-            continue
+        user, reason = check_key(key)
         if user:
             break
-        print("API キーが正しくないようです。Redmine の「個人設定」→「APIアクセスキー」を確認してください。\n")
+        print(reason + "\n")
     save_key(key)
     print(f"\n{user['lastname']} {user['firstname']} さんとして接続します。")
     make_shortcut()
@@ -386,11 +424,9 @@ def main() -> int:
             return 1
         key = setup()
 
-    try:
-        user = whoami(key)
-    except urllib.error.URLError as e:
-        log(f"Redmine に接続できません: {e.reason}")
-        user = None
+    user, reason = check_key(key)
+    if user is None:
+        log(reason)
     if user is None and sys.stdin is not None:
         log("保存されている API キーで接続できませんでした。設定し直します。")
         key = setup()
