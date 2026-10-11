@@ -13,27 +13,51 @@ SharePoint に置く方式は、SharePoint Online がページ内のスクリプ
 
 | ファイル | 用途 |
 |---|---|
-| `kanban_relay.py` | 配布する中継プログラム。ボードの画面を出し、Redmine API を中継する |
-| `kanban.html` | 配布するボードの画面。`kanban_relay.py` と同じフォルダに置く |
-| `src/kanban.fragment.html` | ボードの元ファイル（CSS/JS 込み）。編集後に `python build.py` |
-| `build.py` | 元ファイルから `kanban.html` を作る |
-| `tools/redmine_config_dump.py` | 実際の Redmine から CONFIG に貼る値を取り出す（読み取りのみ） |
+| `kanban_relay.py` | 配布する中継プログラム。ボードの画面(HTML)も埋め込まれている |
+| `board_settings.example.json` | チームの設定の見本。`board_settings.json` にコピーして書き換える |
+| `setup.bat` | メンバーが初回だけ実行する（API キー入力・自動起動・デスクトップのショートカット） |
+| `src/kanban.fragment.html` | ボードの元ファイル。編集後に `python build.py` |
+| `build.py` | ボードの HTML を作り、`kanban_relay.py` に埋め込む（確認用の `kanban.html` も作る） |
+| `tools/redmine_config_dump.py` | Redmine の設定を一覧で確認する道具（通常は不要） |
 
 ## 配布と使い方
 
-1. `kanban_relay.py` 冒頭の `REDMINE_URL` を書き換える。
-2. `kanban.html` の `CONFIG` に `tools/redmine_config_dump.py` の出力を貼る（UTF-8 で保存）。
-3. 2 つのファイルを共有フォルダ（SharePoint / Teams など、置くだけ）に入れ、メンバーは同じフォルダにダウンロードする。
-4. `kanban_relay.py` をダブルクリック。初回だけ API キーを入力し、自動起動するかを選ぶ。
-   ボードがブラウザで開き、デスクトップに「設計課タスクボード」のショートカットができる。
-5. 次回からはショートカットを開くだけ（自動起動にしなかった場合は先に `kanban_relay.py` をダブルクリック）。
+共有フォルダ（ファイルサーバーや、OneDrive で同期した SharePoint のフォルダ）に 3 つを置く。
 
-- API キーは Windows の DPAPI で暗号化して `%APPDATA%\DesignTaskBoard` に保存。ブラウザには置かない。
-- 自動起動を選ぶと、2 つのファイルを `%APPDATA%\DesignTaskBoard` にコピーしてそこから動く。
-  更新版を配るときは、新しい 2 ファイルを同じフォルダに置いて `kanban_relay.py` をダブルクリックするだけでよい。
-  起動中の中継が読んでいる `kanban.html` を入れ替える（中継本体の更新は次回ログオンから有効）。
-- どの版が表示されているかは「接続設定」の下に出る（ボードの作成日時と中継のフォルダ）。
+```
+共有フォルダ/
+  kanban_relay.py
+  board_settings.json   ← マネージャーが 1 回書く（見本: board_settings.example.json）
+  setup.bat
+```
+
+`board_settings.json` に書くのは人が決めることだけ。
+
+- `redmine_url` / `project`: Redmine の URL とプロジェクトの識別子
+- `team`: タブに並べるメンバー（Redmine の表示名か ID）。プロジェクトの他のメンバーは出ない
+- `managers`: 「上司完了」を扱える人
+- `status_columns`: 名前から列を推定できないステータスだけ指定（例 `{"保留": "todo"}`）
+- `update_dir`: 更新を取りに行くフォルダ。空なら `setup.bat` を実行したフォルダ（`%USERPROFILE%` なども使える）
+- `options`: `urgentPriority` / `dueSoonDays` / `approvedDays` / `versionColors`
+
+ステータスの ID と列の対応、子チケット条件が使えるかは、起動時に Redmine から自動で読む。
+読めなかったときは前回の内容（`%APPDATA%\DesignTaskBoard\detected_config.json`）を使う。
+起動時の注意（推定できないステータス、見つからないメンバー）は「接続設定」の下にも出る。
+
+### メンバーの初回
+
+1. 共有フォルダの `setup.bat` をダブルクリック。
+2. API キーを入力し、自動起動を「Y」。ボードが開き、デスクトップに「設計課タスクボード」ができる。
+3. 以降はログオン時に画面なしで起動する。ボードは http://127.0.0.1:8765/ （ポータルにこのリンクを貼ってもよい）。
+
+### 更新
+
+- 共有フォルダの `kanban_relay.py` / `board_settings.json` を新しくしておくと、各メンバーの中継が
+  次の起動時に取り込み、自分を起動し直す。
+- すぐ反映したいときは、共有フォルダの `kanban_relay.py` をダブルクリック。動いている中継に新しい版を
+  入れて再起動し、ボードを開く。
 - `--uninstall` で自動起動を解除、`--setup` で API キーを設定し直す。
+- API キーは Windows の DPAPI で暗号化して `%APPDATA%\DesignTaskBoard` に保存する。ブラウザには置かない。
 
 ### 中継プログラムの安全対策
 
@@ -86,17 +110,7 @@ Power Automate の重複判定はそのまま使える。
 
 親、親の親…とたどり、カード上部に `祖父 › 親` の形で直近 2 階層を表示する（全階層はマウスを乗せると出る）。
 
-## 設定値の取り出し（最初に 1 回）
-
-```
-python tools\redmine_config_dump.py --url https://redmine.example.com --project 識別子
-```
-
-API キーは実行後に入力する（環境変数 `REDMINE_API_KEY` でも可）。`--project` を省くとプロジェクトの一覧を出す。
-`CONFIG` に貼る値（ステータス、メンバー、上司の推定、projectId、childFilterSupported）を出力し、
-`redmine_config_output.txt` にも保存する。標準ライブラリだけで動き、Redmine のデータは変更しない。
-
 ## 社内 AI に引き継ぐときの範囲
 
-差し替えが必要なのは `CONFIG` と `createRedmineApi()` だけ。
+画面の設定は中継が `/*__SERVER_CONFIG__*/` の位置で `CONFIG` に差し込む。Redmine との通信は `createRedmineApi()` だけ。
 画面側は `currentUser / issuesFor / issuesByIds / inboxIssues / versions / updateIssue` の 6 関数にしか依存しない。

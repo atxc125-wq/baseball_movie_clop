@@ -1,8 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>設計課タスクボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -253,6 +252,7 @@ button { cursor: pointer; }
 .test-result { font-size: 12px; margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); white-space: pre-wrap; }
 .test-result.ok { background: var(--ok-bg); color: var(--ok); }
 .test-result.ng { background: var(--late-bg); color: var(--late); }
+#versionInfo { white-space: pre-wrap; }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .loading { display: grid; place-items: center; color: var(--ink-3); font-size: 13px; }
@@ -431,7 +431,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-11 02:59'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-11 05:59'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -482,6 +482,7 @@ const CONFIG = {
   // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
   versionColors: {},
 };
+/*__SERVER_CONFIG__*/ // 中継プログラムがここで board_settings.json と Redmine から読んだ設定を差し込む
 
 /* =====================================================================
  * 2. 日付・名前の解釈
@@ -1294,7 +1295,11 @@ async function loadInbox() {
   const candidates = open.filter(i => !i.assigned_to && !i.due_date).map(i => i.id);
   const containers = await api.withChildren(candidates);
   state.inbox = open.filter(i => !containers.has(i.id));
-  if (!state.versions.length && state.inbox.length) state.versions = await api.versions(state.inbox[0].project.id);
+  if (!state.versions.length && state.inbox.length) {
+    // バージョン一覧は振り分けでしか使わないので、読めなくてもボードの表示は続ける
+    try { state.versions = await api.versions(state.inbox[0].project.id); }
+    catch (e) { toast(`対象バージョンの一覧を読めませんでした。${e.message}`, { error: true }); }
+  }
 }
 
 async function loadView() {
@@ -1514,7 +1519,8 @@ function syncModeFields() {
 async function showVersionInfo() {
   const relay = settings.mode === 'relay' ? await pingRelay() : null;
   $('versionInfo').textContent = `ボードの版: ${BOARD_BUILD}` +
-    (relay ? `　中継プログラム: v${relay.version}${relay.board_dir ? `（${relay.board_dir}）` : ''}` : '');
+    (relay ? `　中継プログラム: v${relay.version}${relay.board_dir ? `（${relay.board_dir}）` : ''}` : '') +
+    (relay && relay.warnings && relay.warnings.length ? '\n設定の注意: ' + relay.warnings.join(' / ') : '');
 }
 
 function openSettings() {

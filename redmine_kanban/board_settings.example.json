@@ -1,0 +1,15 @@
+{
+  "_説明": "board_settings.json という名前でコピーして使う。kanban_relay.py と同じフォルダに置く。名前は Redmine に表示される名前（空白の有無は区別しない）か、ユーザー ID の数字で書く。",
+  "redmine_url": "https://redmine.example.com",
+  "project": "design-tasks",
+  "team": ["高橋 健", "伊藤 さくら", "渡辺 大輔", "中村 美咲", "小林 翔"],
+  "managers": ["山本 一郎"],
+  "status_columns": {},
+  "update_dir": "",
+  "options": {
+    "urgentPriority": 1,
+    "dueSoonDays": 3,
+    "approvedDays": 14,
+    "versionColors": {}
+  }
+}
