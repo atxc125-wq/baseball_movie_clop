@@ -42,7 +42,7 @@ ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 # ---------------------------------------------------------------------------
 
-VERSION = "2"
+VERSION = "3"
 HERE = Path(__file__).resolve().parent
 BOARD_FILE = "kanban.html"
 BOARD_URL = f"http://127.0.0.1:{PORT}/"
@@ -254,7 +254,7 @@ class Relay(BaseHTTPRequestHandler):
             return self._error(403, "このページからは使えません")
 
         if path == "/ping":
-            info = {"ok": True, "version": VERSION, "redmine_url": REDMINE_URL,
+            info = {"ok": True, "version": VERSION, "redmine_url": REDMINE_URL, "board_dir": str(HERE),
                     "user": {"id": self.user.get("id"), "name": f"{self.user.get('lastname', '')} {self.user.get('firstname', '')}".strip()}}
             return self._send(200, json.dumps(info, ensure_ascii=False).encode(), origin)
 
@@ -320,6 +320,35 @@ def startup_file() -> Path | None:
     if os.name != "nt":
         return None
     return Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs/Startup/DesignTaskBoardRelay.cmd"
+
+
+def running_board_dir() -> Path | None:
+    """起動中の中継が kanban.html を読んでいるフォルダを聞く。"""
+    req = urllib.request.Request(f"{BOARD_URL}ping", headers={"Origin": SELF_ORIGINS[0]})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as res:
+            info = json.loads(res.read())
+    except (OSError, ValueError):
+        return None
+    return Path(info["board_dir"]) if info.get("board_dir") else APP_DIR
+
+
+def update_board_files(running_dir: Path | None) -> None:
+    """ダブルクリックした場所の kanban.html を、実際に使われているコピーに反映する。
+
+    自動起動にしていると %APPDATA%\\DesignTaskBoard のコピーが使われるため、
+    新しい版をダウンロードしてダブルクリックしただけでは反映されない、を防ぐ。
+    """
+    src = HERE / BOARD_FILE
+    targets = {d.resolve() for d in (running_dir, APP_DIR) if d and (d / BOARD_FILE).exists()}
+    for d in targets - {HERE}:
+        if (d / BOARD_FILE).read_bytes() != src.read_bytes():
+            shutil.copy2(src, d / BOARD_FILE)
+            log(f"ボードを新しい版に更新しました（{d / BOARD_FILE}）。")
+        if d == APP_DIR.resolve() and (d / "kanban_relay.py").exists() \
+                and (d / "kanban_relay.py").read_bytes() != Path(__file__).read_bytes():
+            shutil.copy2(__file__, d / "kanban_relay.py")
+            log("中継プログラム本体も更新しました。次にログオンしたときから新しい版で動きます。")
 
 
 def copy_to_app_dir() -> Path:
@@ -412,10 +441,14 @@ def main() -> int:
         return 1
     interactive = sys.stdin is not None and sys.stdin.isatty()
     if already_running():
+        if interactive:
+            update_board_files(running_board_dir())
         log(f"中継プログラムはすでに起動しています。ボードを開きます（{BOARD_URL}）。")
         if interactive:
             webbrowser.open(BOARD_URL)
         return 0
+    if interactive:
+        update_board_files(None)
 
     key = setup() if args.setup else load_key()
     if not key:

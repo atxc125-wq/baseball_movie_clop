@@ -3,10 +3,12 @@
 文字化け防止のため
 <meta charset="utf-8"> を head の先頭に必ず入れる。
 """
+from datetime import datetime
 from pathlib import Path
 
 here = Path(__file__).parent
 src = (here / "src" / "kanban.fragment.html").read_text(encoding="utf-8")
+src = src.replace("__BUILD__", datetime.now().strftime("%Y-%m-%d %H:%M"))
 head, body = src.split("<!--BODY-->", 1)
 html = (
     "<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n"

@@ -410,6 +410,7 @@ a.btn { text-decoration: none; display: inline-block; }
       </div>
     </div>
     <p class="test-result" id="testResult" hidden></p>
+    <p class="hint" id="versionInfo"></p>
     <div class="dialog-actions">
       <button class="btn" type="button" id="testBtn">接続テスト</button>
       <button class="btn" type="button" id="cancelSettings">閉じる</button>
@@ -423,6 +424,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
+const BOARD_BUILD = '__BUILD__'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -757,13 +759,28 @@ function createRedmineApi(baseUrl, apiKey) {
     },
     async updateIssue(id, fields) {
       await req(`/issues/${id}.json`, { method: 'PUT', body: JSON.stringify({ issue: fields }) });
-      if (!('status_id' in fields)) return;
-      // Redmine はワークフローで許可されていないステータス変更をエラーにせず無視するので、結果を確かめる
+      // Redmine は権限やワークフローで許可されていない変更をエラーにせず無視するので、結果を確かめる
       const { issue } = await req(`/issues/${id}.json`);
-      if (issue.status.id !== fields.status_id) {
+      if ('status_id' in fields && issue.status.id !== fields.status_id) {
         const to = (statusById[fields.status_id] || {}).name || `ID ${fields.status_id}`;
         throw new Error(`Redmine がステータスの変更を受け付けませんでした（今は「${issue.status.name}」のまま）。` +
           `ワークフローで「${issue.status.name}」→「${to}」が許可されているか確認してください。`);
+      }
+      const norm = v => (v == null ? '' : String(v).replace(/\r\n/g, '\n').trim());
+      const checks = [
+        ['subject', '件名', issue.subject],
+        ['assigned_to_id', '担当', issue.assigned_to && issue.assigned_to.id],
+        ['fixed_version_id', '対象バージョン', issue.fixed_version && issue.fixed_version.id],
+        ['due_date', '作業完了予定（期日）', issue.due_date],
+        ['description', '説明', issue.description],
+      ];
+      const ignored = checks.filter(([k, , now]) => k in fields && norm(fields[k]) !== norm(now)).map(([, label]) => label);
+      if (ignored.length) {
+        const err = new Error(`Redmine に反映されなかった項目があります: ${ignored.join('、')}。` +
+          'あなたの権限ではこの項目を変更できない可能性があります（Redmine の「ワークフロー → フィールドに対する権限」）。' +
+          'ほかの項目は保存されています。');
+        err.partial = true;
+        throw err;
       }
     },
   };
@@ -1214,8 +1231,9 @@ async function openEditor(id) {
       const moved = issue.assigned_to && issue.assigned_to.id !== before;
       toast(moved ? `#${issue.id} を${issue.assigned_to.name}さんに渡しました` : `#${issue.id} を保存しました`);
     } catch (err) {
-      f.el.error.textContent = `保存できませんでした。${err.message}`;
+      f.el.error.textContent = err.partial ? err.message : `保存できませんでした。${err.message}`;
       submit.disabled = false; submit.textContent = '保存';
+      if (err.partial) loadView().then(renderBoard).catch(() => {});
     }
   };
 
@@ -1486,7 +1504,14 @@ function syncModeFields() {
 }
 ['modeRelay', 'modeMock', 'modeLive'].forEach(id => $(id).addEventListener('change', () => { $('testResult').hidden = true; syncModeFields(); }));
 
+async function showVersionInfo() {
+  const relay = settings.mode === 'relay' ? await pingRelay() : null;
+  $('versionInfo').textContent = `ボードの版: ${BOARD_BUILD}` +
+    (relay ? `　中継プログラム: v${relay.version}${relay.board_dir ? `（${relay.board_dir}）` : ''}` : '');
+}
+
 function openSettings() {
+  showVersionInfo();
   $({ relay: 'modeRelay', live: 'modeLive', mock: 'modeMock' }[settings.mode] || 'modeMock').checked = true;
   syncModeFields();
   $('redmineUrl').value = settings.url;
