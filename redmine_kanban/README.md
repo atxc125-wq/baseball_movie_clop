@@ -15,7 +15,7 @@ SharePoint に置く方式は、SharePoint Online がページ内のスクリプ
 |---|---|
 | `kanban_relay.py` | 配布する中継プログラム。ボードの画面(HTML)も埋め込まれている |
 | `board_settings.example.json` | チームの設定の見本。`board_settings.json` にコピーして書き換える |
-| `setup.bat` | メンバーが初回だけ実行する（API キー入力・自動起動・デスクトップのショートカット） |
+| `setup.bat` | 初回設定用（`kanban_relay.py` のダブルクリックでも同じ。.py が Python に関連付けられていない PC 用） |
 | `src/kanban.fragment.html` | ボードの元ファイル。編集後に `python build.py` |
 | `build.py` | ボードの HTML を作り、`kanban_relay.py` に埋め込む（確認用の `kanban.html` も作る） |
 | `tools/redmine_config_dump.py` | Redmine の設定を一覧で確認する道具（通常は不要） |
@@ -34,7 +34,8 @@ SharePoint に置く方式は、SharePoint Online がページ内のスクリプ
 `board_settings.json` に書くのは人が決めることだけ。
 
 - `redmine_url` / `project`: Redmine の URL とプロジェクトの識別子
-- `team`: タブに並べるメンバー（Redmine の表示名か ID）。プロジェクトの他のメンバーは出ない
+- `team`: タブに並べるメンバー。`"auto"` なら未完了のチケットを担当している人だけ。名前（Redmine の表示名）か ID の一覧を書けばその人だけ。
+  どちらの場合も `team_exclude` に書いた人は出さない。プロジェクトの他のメンバーは出ない
 - `managers`: 「上司完了」を扱える人
 - `status_columns`: 名前から列を推定できないステータスだけ指定（例 `{"保留": "todo"}`）
 - `update_dir`: 更新を取りに行くフォルダ。空なら `setup.bat` を実行したフォルダ（`%USERPROFILE%` なども使える）
@@ -46,9 +47,10 @@ SharePoint に置く方式は、SharePoint Online がページ内のスクリプ
 
 ### メンバーの初回
 
-1. 共有フォルダの `setup.bat` をダブルクリック。
+1. 共有フォルダの `kanban_relay.py`（または `setup.bat`）をダブルクリック。
 2. API キーを入力し、自動起動を「Y」。ボードが開き、デスクトップに「設計課タスクボード」ができる。
-3. 以降はログオン時に画面なしで起動する。ボードは http://127.0.0.1:8765/ （ポータルにこのリンクを貼ってもよい）。
+3. 以降はログオン時に画面なしで起動する（このユーザーのレジストリ `HKCU\...\CurrentVersion\Run` に登録。
+   タスクマネージャーの「スタートアップ」で確認・無効化できる）。ボードは http://127.0.0.1:8765/ （ポータルにこのリンクを貼ってもよい）。
 
 ### 更新
 

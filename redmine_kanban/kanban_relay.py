@@ -4,7 +4,7 @@
 ボードの画面(HTML)はこのファイルに埋め込まれている。チームの設定は同じフォルダの
 board_settings.json に書き、ステータスなどそれ以外の設定は起動時に Redmine から自動で読む。
 
-    初回:   setup.bat（または kanban_relay.py --setup）→ API キーを入力 → ボードが開く
+    初回:   kanban_relay.py をダブルクリック（setup.bat でも同じ）→ API キーを入力 → ボードが開く
     2回目〜: ログオン時に自動で起動する。ブラウザで http://127.0.0.1:8765/ を開く
     更新:   共有フォルダの kanban_relay.py / board_settings.json を新しくしておけば、
             次の起動時に自動で入れ替わる。すぐ反映したいときは共有フォルダの kanban_relay.py をダブルクリック
@@ -212,8 +212,9 @@ def redmine_json(key: str, path_qs: str) -> dict:
 
 def redmine_all(key: str, path: str, item: str) -> list[dict]:
     out: list[dict] = []
+    sep = "&" if "?" in path else "?"
     while True:
-        j = redmine_json(key, f"{path}?limit=100&offset={len(out)}")
+        j = redmine_json(key, f"{path}{sep}limit=100&offset={len(out)}")
         out.extend(j.get(item, []))
         if not j.get(item) or len(out) >= j.get("total_count", 0):
             return out
@@ -282,13 +283,21 @@ def detect_config(key: str) -> tuple[dict, list[str]]:
     # メンバーは team に書いた人だけ。プロジェクトの全員は出さない
     people = [{"id": m["user"]["id"], "name": m["user"]["name"]}
               for m in redmine_all(key, f"/projects/{project['id']}/memberships.json", "memberships") if "user" in m]
-    if SETTINGS.get("team"):
-        members, missing = match_people(SETTINGS["team"], people)
+    team = SETTINGS.get("team")
+    if team == "auto":
+        # 未完了のチケットを担当している人だけ（担当がグループのものは除く）
+        open_issues = redmine_all(key, f"/issues.json?project_id={project['id']}&status_id=open", "issues")
+        assigned = {i["assigned_to"]["id"] for i in open_issues if i.get("assigned_to")}
+        members = sorted((p for p in people if p["id"] in assigned), key=lambda p: p["name"])
+    elif team:
+        members, missing = match_people(team, people)
         if missing:
             warnings.append("team に書いた人がプロジェクトのメンバーにいません: " + "、".join(missing))
     else:
         members = people
         warnings.append("team が空なので、プロジェクトのメンバー全員を表示しています")
+    hidden, _ = match_people(SETTINGS.get("team_exclude") or [], people)
+    members = [m for m in members if m not in hidden]
     managers, missing = match_people(SETTINGS.get("managers") or [], people)
     if missing:
         warnings.append("managers に書いた人がプロジェクトのメンバーにいません: " + "、".join(missing))
@@ -566,10 +575,29 @@ def ask_running_to_restart() -> bool:
     return False
 
 
-def startup_file() -> Path | None:
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME = "DesignTaskBoardRelay"
+
+
+def legacy_startup_file() -> Path | None:
+    """以前の版がスタートアップフォルダに置いていた起動用ファイル。"""
     if os.name != "nt":
         return None
     return Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs/Startup/DesignTaskBoardRelay.cmd"
+
+
+def set_autostart(command: str | None) -> bool:
+    """ログオン時に実行する一覧（このユーザーのレジストリ）に登録する。None なら削除。削除できたら True。"""
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+        if command:
+            winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, command)
+            return True
+        try:
+            winreg.DeleteValue(k, RUN_NAME)
+            return True
+        except FileNotFoundError:
+            return False
 
 
 def desktop_dir() -> Path:
@@ -595,8 +623,11 @@ def install_startup() -> None:
     copy_if_changed(HERE, APP_DIR)
     if HERE != APP_DIR.resolve():
         SOURCE_FILE.write_text(str(HERE), encoding="utf-8")  # 次からここを見て自動更新する
-    startup_file().write_text(f'@start "" "{pythonw()}" "{APP_DIR / "kanban_relay.py"}"\r\n', encoding="utf-8")
-    print(f"ログオン時に自動で起動するよう設定しました。（{startup_file()}）")
+    set_autostart(f'"{pythonw()}" "{APP_DIR / "kanban_relay.py"}"')
+    legacy = legacy_startup_file()
+    if legacy and legacy.exists():
+        legacy.unlink()
+    print("ログオン時に自動で起動するよう設定しました（タスクマネージャーの「スタートアップ」で確認・無効化できます）。")
     global INSTALLED
     INSTALLED = True
 
@@ -619,12 +650,15 @@ def start_in_background() -> bool:
 
 
 def uninstall() -> None:
-    f = startup_file()
-    if f and f.exists():
-        f.unlink()
-        print("自動起動の設定を削除しました。")
-    else:
-        print("自動起動は設定されていません。")
+    if os.name != "nt":
+        print("自動起動は Windows でだけ設定できます。")
+        return
+    removed = set_autostart(None)
+    legacy = legacy_startup_file()
+    if legacy and legacy.exists():
+        legacy.unlink()
+        removed = True
+    print("自動起動の設定を削除しました。" if removed else "自動起動は設定されていません。")
 
 
 def setup() -> str:
@@ -700,16 +734,6 @@ def main() -> int:
                 SETTINGS = load_settings(HERE)
 
     key = setup() if args.setup else load_key()
-    if INSTALLED and HERE != APP_DIR.resolve():
-        print("\nボードを起動しています…")
-        if start_in_background():
-            print("準備ができました。ボードを開きます。この画面は閉じて大丈夫です。")
-            webbrowser.open(BOARD_URL)
-        else:
-            print(f"起動に時間がかかっています。少し待ってからデスクトップの「設計課タスクボード」を開いてください。"
-                  f"（記録: {LOG_FILE}）")
-        pause()
-        return 0
     if not key:
         if not interactive:
             log("API キーが未設定です。setup.bat を実行して初期設定してください。")
@@ -723,6 +747,18 @@ def main() -> int:
             log("保存されている API キーで接続できませんでした。設定し直します。")
             key = setup()
             user, _ = check_key(key)
+
+    # 初回設定で自動起動にした → 画面なしの常駐に切り替える（この画面を閉じても止まらないように）
+    if INSTALLED and HERE != APP_DIR.resolve():
+        print("\nボードを起動しています…")
+        if start_in_background():
+            print("準備ができました。ボードを開きます。この画面は閉じて大丈夫です。")
+            webbrowser.open(BOARD_URL)
+        else:
+            print(f"起動に時間がかかっています。少し待ってからデスクトップの「設計課タスクボード」を開いてください。"
+                  f"（記録: {LOG_FILE}）")
+        pause()
+        return 0
 
     Relay.key, Relay.user = key, user or {}
     log("Redmine からボードの設定を読んでいます…")
