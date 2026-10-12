@@ -8,6 +8,7 @@ board_settings.json に書き、ステータスなどそれ以外の設定は起
     2回目〜: ログオン時に自動で起動する。ブラウザで http://127.0.0.1:8765/ を開く
     更新:   共有フォルダの kanban_relay.py / board_settings.json を新しくしておけば、
             次の起動時に自動で入れ替わる。すぐ反映したいときは共有フォルダの kanban_relay.py をダブルクリック
+            （動いている中継を入れ替えて再起動する。ファイルが同じでも設定を読み直す）
     自動起動をやめる: python kanban_relay.py --uninstall
 
 安全のため次の制限をかけている。
@@ -716,15 +717,18 @@ def main() -> int:
     if already_running() and not args.setup:
         if interactive:
             # 共有フォルダの新しい版をダブルクリックした → 動いている中継を入れ替えて再起動
+            # ファイルが同じでも再起動する（board_settings.json や Redmine のメンバーを読み直すため）
             current = running_dir()
             changed = copy_if_changed(HERE, current) if current else []
-            if changed and ask_running_to_restart():
-                log("新しい版（" + "、".join(changed) + "）に入れ替えて、中継を再起動しました。")
-            elif changed:
-                log("新しい版を置きましたが、中継を再起動できませんでした。サインインし直すと反映されます。")
-            log(f"ボードを開きます（{BOARD_URL}）。")
-            webbrowser.open(BOARD_URL)
-            if changed:
+            log("中継を再起動しています…")
+            if ask_running_to_restart():
+                log("新しい版（" + "、".join(changed) + "）に入れ替えて、再起動しました。" if changed
+                    else "再起動して、設定を読み直しました。")
+                log(f"ボードを開きます（{BOARD_URL}）。")
+                webbrowser.open(BOARD_URL)
+            else:
+                log("中継を再起動できませんでした。古い版が動いている可能性があります。\n"
+                    "タスクマネージャーの「詳細」タブで pythonw.exe を終了してから、もう一度ダブルクリックしてください。")
                 pause()
         return 0
 
