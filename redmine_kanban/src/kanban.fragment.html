@@ -330,6 +330,54 @@ a.btn { text-decoration: none; display: inline-block; }
 .editor .head a { font-size: 12px; color: var(--accent); }
 .editor textarea#eNotes { min-height: 70px; }
 .card { cursor: pointer; }
+.new-version { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; padding: 8px; border-radius: 6px; background: var(--surface-2); border: 1px dashed var(--line); }
+.new-version select { width: auto !important; }
+.new-version input { flex: 1 1 140px; min-width: 0; }
+.new-version .pv { font-size: 12px; color: var(--ink-2); width: 100%; }
+/* ---------- ダッシュボード（上司だけ） ---------- */
+.dash { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); gap: 12px; }
+.panel { min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.panel h2 { margin: 0; font-size: 14px; }
+.panel .note { margin: 0; font-size: 11px; color: var(--ink-3); }
+.team { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.team th { text-align: left; font-size: 11px; font-weight: 400; color: var(--ink-3); padding: 0 8px 6px; white-space: nowrap; vertical-align: bottom; }
+.team th small { display: block; font-size: 10px; }
+.team td { padding: 8px; border-top: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+.team tbody tr { cursor: pointer; }
+.team tbody tr:hover td { background: var(--surface-2); }
+.team .name { font-weight: 700; }
+.team .num { text-align: right; font-family: var(--font-num); }
+.team .zero { color: var(--ink-3); }
+.team .warn-late { color: var(--late); font-weight: 700; }
+.team .warn-soon { color: var(--soon); font-weight: 700; }
+.loadbar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.loadbar .track { flex: 1 1 auto; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.loadbar .fill { height: 100%; border-radius: 4px; background: var(--accent); }
+.loadbar span { font-family: var(--font-num); font-size: 12px; min-width: 2.5em; text-align: right; }
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
+.spark i { display: block; width: 6px; border-radius: 2px 2px 0 0; background: var(--accent); min-height: 1px; }
+.spark i.none { background: var(--line); }
+.cellrow { display: flex; align-items: center; gap: 8px; }
+.cellrow b { font-family: var(--font-num); font-weight: 500; font-size: 12px; min-width: 1.5em; text-align: right; }
+.heat { display: flex; gap: 2px; }
+.heat i { display: block; width: 9px; height: 16px; border-radius: 2px; background: var(--surface-2); border: 1px solid var(--line); }
+.heat i.l1 { background: var(--accent); opacity: .35; border-color: transparent; }
+.heat i.l2 { background: var(--accent); opacity: .65; border-color: transparent; }
+.heat i.l3 { background: var(--accent); border-color: transparent; }
+.heat i.wk { margin-left: 4px; }
+.fever svg { width: 100%; height: auto; max-height: 320px; }
+.fever .zone-g { fill: var(--ok-bg); } .fever .zone-y { fill: var(--soon-bg); } .fever .zone-r { fill: var(--late-bg); }
+.fever .axis { stroke: var(--line); } .fever .tick { fill: var(--ink-3); font-size: 10px; font-family: var(--font-num); }
+.fever .lbl { fill: var(--ink-2); font-size: 11px; }
+.fever .pt circle { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.fever .pt text { fill: var(--ink); font-size: 11px; font-family: var(--font-num); font-weight: 500; }
+.fever .pt:hover circle { fill: var(--accent); }
+.vlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.vlist li { display: flex; gap: 8px; align-items: baseline; }
+.vlist .st { font-weight: 700; min-width: 3.2em; }
+.vlist .st.r { color: var(--late); } .vlist .st.y { color: var(--soon); } .vlist .st.g { color: var(--ok); }
+.vlist .meta { color: var(--ink-3); margin-left: auto; font-family: var(--font-num); }
+@media (max-width: 860px) { .dash { grid-template-columns: 1fr; height: auto; } }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -353,6 +401,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <label class="mock-user" id="mockUserWrap" for="mockUser">モックの操作ユーザー
         <select id="mockUser"></select>
       </label>
+      <button class="btn primary" id="newTaskBtn" type="button">＋ 新規タスク</button>
       <button class="btn" id="reloadBtn" type="button">再読み込み</button>
       <button class="btn" id="settingsBtn" type="button">接続設定</button>
     </div>
@@ -365,6 +414,7 @@ a.btn { text-decoration: none; display: inline-block; }
 
   <div class="board-wrap">
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
+    <div class="dash" id="dash" hidden></div>
     <div class="inbox" id="inbox" hidden>
       <section class="col" aria-label="未整理のチケット">
         <header class="col-head">
@@ -638,11 +688,43 @@ function createMockApi(getMockUserId) {
         .map(clone);
     },
     async issuesByIds(ids) { await wait(80); return ids.map(id => db.get(id)).filter(Boolean).map(clone); },
+    async teamIssues() {
+      await wait(250);
+      const since = addDays(t, -CONFIG.approvedDays);
+      return [...db.values()].filter(i => i.assigned_to && (!closedIds.has(i.status.id) || new Date(i.updated_on) >= since)).map(clone);
+    },
+    async issueJournals(id) {
+      await wait(40);
+      const i = db.get(id);
+      // モック: 最後の更新でいまのステータスになったことにする
+      return [{ created_on: i.updated_on, details: [{ property: 'attr', name: 'status_id', old_value: '6', new_value: String(i.status.id) }] }];
+    },
     async inboxIssues() {
       await wait(150);
       return [...db.values()].filter(i => !closedIds.has(i.status.id) && (!i.assigned_to || !i.fixed_version)).map(clone);
     },
     async versions() { await wait(80); return clone(versionList); },
+    async createVersion(_projectId, name) {
+      await wait(200);
+      if (!CONFIG.managerUserIds.includes(getMockUserId())) throw new Error('この操作の権限がありません (403)');
+      const v = { id: 100 + versionList.length + 50, name };
+      versionList.push(v);
+      return clone(v);
+    },
+    async createIssue(_projectId, fields) {
+      await wait(300);
+      const id = Math.max(...db.keys()) + 1;
+      const now = new Date().toISOString();
+      const issue = {
+        id, subject: fields.subject, project: { id: 1, name: '設計課' },
+        assigned_to: fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined,
+        fixed_version: fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined,
+        status: { id: 1, name: '未着手' }, done_ratio: 0, description: fields.description || '',
+        due_date: fields.due_date || null, created_on: now, updated_on: now,
+      };
+      db.set(id, issue);
+      return clone(issue);
+    },
     async withChildren(ids) {
       await wait(80);
       const parents = new Set([...db.values()].filter(i => i.parent).map(i => i.parent.id));
@@ -722,6 +804,18 @@ function createRedmineApi(baseUrl, apiKey) {
       ]);
       return [...open, ...closed];
     },
+    async teamIssues() {
+      const since = isoDate(addDays(startOfToday(), -CONFIG.approvedDays));
+      const [open, closed] = await Promise.all([
+        allIssues('status_id=open'),
+        allIssues(`status_id=closed&updated_on=${encodeURIComponent('>=' + since)}`),
+      ]);
+      return [...open, ...closed];
+    },
+    async issueJournals(id) {
+      const { issue } = await req(`/issues/${id}.json?include=journals`);
+      return issue.journals || [];
+    },
     async issuesByIds(ids) {
       if (!ids.length) return [];
       return allIssues(`issue_id=${ids.join(',')}&status_id=*`);
@@ -750,6 +844,16 @@ function createRedmineApi(baseUrl, apiKey) {
         }));
       }
       return found;
+    },
+    async createVersion(projectId, name) {
+      const key = String(CONFIG.projectId || projectId);
+      const j = await req(`/projects/${encodeURIComponent(key)}/versions.json`, { method: 'POST', body: JSON.stringify({ version: { name } }) });
+      versionCache.delete(key);
+      return { id: j.version.id, name: j.version.name };
+    },
+    async createIssue(projectId, fields) {
+      const j = await req('/issues.json', { method: 'POST', body: JSON.stringify({ issue: { project_id: projectId, ...fields } }) });
+      return j.issue;
     },
     async versions(projectId) {
       const key = String(CONFIG.projectId || projectId);
@@ -804,10 +908,12 @@ function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(s
 let settings = loadSettings();
 let api = null;
 const INBOX = 'inbox';
+const DASH = 'dash';
 const state = {
   me: null, view: null,               // view = メンバーの ID または 'inbox'
   issues: new Map(), parents: new Map(), saving: new Set(),
   inbox: [], inboxSel: null, versions: [],
+  team: [], doneOn: new Map(),        // ダッシュボード用: チーム全員のチケット / 完了した日の控え
 };
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
@@ -1017,6 +1123,11 @@ function renderTabs() {
       onclick: () => switchView(m.id),
     }, m.name, m.id === state.me.id ? h('span', { class: 'me' }, '自分') : null)),
     h('span', { class: 'tab-sep', 'aria-hidden': 'true' }),
+    isManager() ? h('button', {
+      type: 'button', role: 'tab', class: 'tab inbox-tab',
+      'aria-selected': String(state.view === DASH),
+      onclick: () => switchView(DASH),
+    }, '全体') : null,
     h('button', {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === INBOX),
@@ -1035,11 +1146,207 @@ function renderChrome() {
 }
 
 function render() {
-  const inbox = state.view === INBOX;
-  $('board').hidden = inbox;
+  const inbox = state.view === INBOX, dash = state.view === DASH;
+  $('board').hidden = inbox || dash;
   $('inbox').hidden = !inbox;
+  $('dash').hidden = !dash;
   renderTabs();
-  if (inbox) { renderInbox(); renderSummary([]); } else renderBoard();
+  if (inbox) { renderInbox(); renderSummary([]); }
+  else if (dash) renderDashboard();
+  else renderBoard();
+}
+
+/* =====================================================================
+ * 6b. ダッシュボード（上司だけ）: 誰が忙しいか / 直近2週間の完了 / 業務カテゴリごとのバッファ
+ * ===================================================================== */
+const WINDOW_DAYS = 14;
+const isDoneCol = c => c === 'done' || c === 'approved';
+
+// 完了の列に入った日（変更履歴から、最後に「未完了 → 完了」になった日時）
+function completedAt(journals) {
+  let at = null;
+  for (const j of journals) for (const d of j.details || []) {
+    if (d.property !== 'attr' || d.name !== 'status_id') continue;
+    const to = statusById[Number(d.new_value)], from = statusById[Number(d.old_value)];
+    if (to && isDoneCol(to.col) && !(from && isDoneCol(from.col))) at = j.created_on;
+  }
+  return at;
+}
+
+async function loadTeam() {
+  const memberIds = new Set(CONFIG.members.map(m => m.id));
+  state.team = (await api.teamIssues()).filter(i => statusById[i.status.id] && i.assigned_to && memberIds.has(i.assigned_to.id));
+  // 直近に完了したものだけ、変更履歴を読んで完了日を確かめる（同時に 4 件まで、更新がなければ控えを使う）
+  const since = addDays(startOfToday(), -(WINDOW_DAYS - 1));
+  const targets = state.team.filter(i => isDoneCol(colOf(i)) && new Date(i.updated_on) >= since)
+    .filter(i => (state.doneOn.get(i.id) || {}).updated_on !== i.updated_on);
+  for (let k = 0; k < targets.length; k += 4) {
+    await Promise.all(targets.slice(k, k + 4).map(async i => {
+      try { state.doneOn.set(i.id, { updated_on: i.updated_on, at: completedAt(await api.issueJournals(i.id)) || i.updated_on }); }
+      catch (_) { state.doneOn.set(i.id, { updated_on: i.updated_on, at: i.updated_on }); }
+    }));
+  }
+}
+
+const dayIndex = (d, start) => Math.round((parseDate(isoDate(d)) - start) / DAY);
+const targetDate = i => parseTitle(i.subject).deadline || parseDate(i.due_date);
+
+function memberStats(member) {
+  const mine = state.team.filter(i => i.assigned_to.id === member.id);
+  const active = mine.filter(i => ['todo', 'doing'].includes(colOf(i)));
+  const today = startOfToday(), from = addDays(today, -(WINDOW_DAYS - 1));
+  const done = Array(WINDOW_DAYS).fill(0), doneItems = Array.from({ length: WINDOW_DAYS }, () => []);
+  for (const i of mine) {
+    if (!isDoneCol(colOf(i))) continue;
+    const at = (state.doneOn.get(i.id) || {}).at;
+    if (!at) continue;
+    const k = dayIndex(new Date(at), from);
+    if (k >= 0 && k < WINDOW_DAYS) { done[k]++; doneItems[k].push(i); }
+  }
+  const due = Array(WINDOW_DAYS).fill(0), dueItems = Array.from({ length: WINDOW_DAYS }, () => []);
+  for (const i of active) {
+    const d = targetDate(i);
+    if (!d) continue;
+    const k = Math.round((d - today) / DAY);
+    if (k >= 0 && k < WINDOW_DAYS) { due[k]++; dueItems[k].push(i); }
+  }
+  const infos = active.map(deadlineInfo);
+  return {
+    member, active: active.length,
+    load: active.reduce((sum, i) => sum + (colOf(i) === 'todo' ? 1 : 1 - (statusById[i.status.id].ratio || 0) / 100), 0),
+    late: infos.filter(x => x.level === 2).length,
+    over: infos.filter(x => x.over).length,
+    done, doneItems, doneTotal: done.reduce((a, b) => a + b, 0), due, dueItems,
+  };
+}
+
+// ---- バッファ（CCPM のフィーバーチャート） ----
+// バッファ = 本来の締切【M/D】 − 作業完了予定（Redmine の期日）。
+// 締切が「今日の前後 2 週間」にあるタスクだけで測る。後から増えたタスクで分母が増え続けて
+// 100% にならない、を避けるため（窓の中を片付ければ 100% に届く）。
+function bufferUse(i) {
+  const D = parseTitle(i.subject).deadline;
+  const P = parseDate(i.due_date);
+  const today = startOfToday();
+  const doneAt = isDoneCol(colOf(i)) ? parseDate(isoDate(new Date((state.doneOn.get(i.id) || {}).at || i.updated_on))) : null;
+  const F = doneAt || (P && P > today ? P : today);   // 終わった日 / 終わる見込みの日
+  if (!P) return F > D ? 1.2 : 0;                       // 予定なし: 締切を過ぎたら使い切り
+  const B = (D - P) / DAY;
+  if (B < 1) return (P > D || F > D) ? 1.2 : 0;         // バッファなし / 予定が締切を越えている
+  return Math.max(0, Math.min(1.5, (F - P) / DAY / B));
+}
+
+const FEVER_YELLOW = x => 0.1 + 0.6 * x;
+const FEVER_RED = x => 0.3 + 0.7 * x;
+
+function versionFever() {
+  const today = startOfToday(), lo = addDays(today, -WINDOW_DAYS), hi = addDays(today, WINDOW_DAYS);
+  const groups = new Map();
+  for (const i of state.team) {
+    if (colOf(i) === 'cancelled') continue;
+    const D = parseTitle(i.subject).deadline;
+    if (!D || D < lo || D > hi) continue;
+    const key = i.fixed_version ? i.fixed_version.name : '未分類';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i);
+  }
+  return [...groups].map(([name, items]) => {
+    const progress = items.reduce((s, i) => s + (isDoneCol(colOf(i)) ? 1 : colOf(i) === 'doing' ? (statusById[i.status.id].ratio || 0) / 100 : 0), 0) / items.length;
+    const uses = items.map(i => ({ i, u: bufferUse(i) }));
+    const use = uses.reduce((s, x) => s + x.u, 0) / uses.length;
+    const worst = uses.filter(x => !isDoneCol(colOf(x.i))).sort((a, b) => b.u - a.u)[0];
+    // 色の境界: 黄 = 0.1 + 0.6x、赤 = 0.3 + 0.7x（進捗が進むほど許されるバッファ消費が増える。
+    // 全部終わって消費 100% 以内 = 締切に間に合った、は赤にしない）
+    const zone = use > FEVER_RED(progress) ? 'r' : use > FEVER_YELLOW(progress) ? 'y' : 'g';
+    return { name, v: parseVersion(name), n: items.length, progress, use, worst, zone };
+  }).sort((a, b) => ({ r: 0, y: 1, g: 2 }[a.zone] - { r: 0, y: 1, g: 2 }[b.zone]) || (b.use - a.use));
+}
+
+function renderFever(rows) {
+  const W = 340, H = 260, L = 50, R = 14, T = 10, B = 34;
+  const x = v => L + v * (W - L - R), y = v => T + (1 - Math.min(v, 1.5) / 1.5) * (H - T - B);
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '業務カテゴリごとの進捗とバッファ消費' });
+  const band = (y0a, y0b, y1a, y1b, cls) => svg.append(el('polygon', { class: cls, points: `${x(0)},${y(y0a)} ${x(1)},${y(y1a)} ${x(1)},${y(y1b)} ${x(0)},${y(y0b)}` }));
+  band(0, FEVER_YELLOW(0), 0, FEVER_YELLOW(1), 'zone-g');                    // 下端 〜 黄の線
+  band(FEVER_YELLOW(0), FEVER_RED(0), FEVER_YELLOW(1), FEVER_RED(1), 'zone-y'); // 黄の線 〜 赤の線
+  band(FEVER_RED(0), 1.5, FEVER_RED(1), 1.5, 'zone-r');                      // 赤の線 〜 上端
+  for (const v of [0, 0.5, 1]) {
+    svg.append(el('line', { class: 'axis', x1: x(v), x2: x(v), y1: T, y2: H - B }));
+    svg.append(el('text', { class: 'tick', x: x(v), y: H - B + 14, 'text-anchor': 'middle' }, `${v * 100}%`));
+  }
+  for (const v of [0, 0.5, 1, 1.5]) svg.append(el('text', { class: 'tick', x: L - 6, y: y(v) + 3, 'text-anchor': 'end' }, `${v * 100}%`));
+  svg.append(el('text', { class: 'lbl', x: (L + W - R) / 2, y: H - 4, 'text-anchor': 'middle' }, '進捗（締切が前後2週間のタスク）'));
+  svg.append(el('text', { class: 'lbl', x: 10, y: (T + H - B) / 2, 'text-anchor': 'middle', transform: `rotate(-90 10 ${(T + H - B) / 2})` }, 'バッファ消費'));
+  for (const r of rows) {
+    const g = el('g', { class: 'pt' });
+    g.append(el('title', {}, `${r.name}\n対象 ${r.n} 件 / 進捗 ${Math.round(r.progress * 100)}% / バッファ消費 ${Math.round(r.use * 100)}%` +
+      (r.worst ? `\nいちばん遅れ: #${r.worst.i.id} ${parseTitle(r.worst.i.subject).text}` : '')));
+    g.append(el('circle', { cx: x(r.progress), cy: y(r.use), r: 6 }));
+    g.append(el('text', { x: x(r.progress) + 9, y: y(r.use) + 4 }, r.v.code || r.name.slice(0, 4)));
+    svg.append(g);
+  }
+  return svg;
+}
+
+function renderDashboard() {
+  const stats = CONFIG.members.map(memberStats);
+  const maxLoad = Math.max(1, ...stats.map(s => s.load));
+  const maxDone = Math.max(1, ...stats.flatMap(s => s.done));
+  const today = startOfToday();
+  const fromDay = addDays(today, -(WINDOW_DAYS - 1)), toDay = addDays(today, WINDOW_DAYS - 1);
+  const md = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  const count = (n, cls) => h('td', { class: 'num ' + (n ? cls : 'zero') }, n || '–');
+  const list = items => items.map(i => `#${i.id} ${parseTitle(i.subject).text}`).join('\n');
+
+  const rows = stats.map(s => h('tr', { onclick: () => switchView(s.member.id), title: `${s.member.name} のボードを開く` },
+    h('td', { class: 'name' }, s.member.name),
+    h('td', { class: 'num' }, s.active),
+    h('td', {}, h('div', { class: 'loadbar' },
+      h('div', { class: 'track' }, h('div', { class: 'fill', style: `width:${(s.load / maxLoad) * 100}%` })),
+      h('span', {}, s.load.toFixed(1)))),
+    count(s.late, 'warn-late'),
+    count(s.over, 'warn-soon'),
+    h('td', {}, h('div', { class: 'cellrow' },
+      h('div', { class: 'spark' }, s.done.map((n, k) => h('i', {
+        class: n ? '' : 'none',
+        style: `height:${n ? Math.max(4, (n / maxDone) * 22) : 2}px`,
+        title: `${jpDate(addDays(fromDay, k))} 完了 ${n} 件${n ? '\n' + list(s.doneItems[k]) : ''}`,
+      }))),
+      h('b', {}, s.doneTotal))),
+    h('td', {}, h('div', { class: 'heat' }, s.due.map((n, k) => h('i', {
+      class: `l${Math.min(n, 3)}` + (k && addDays(today, k).getDay() === 1 ? ' wk' : ''),
+      title: `${jpDate(addDays(today, k))} 締切 ${n} 件${n ? '\n' + list(s.dueItems[k]) : ''}`,
+    }))))));
+
+  const fever = versionFever();
+  const label = { r: '要対応', y: '注意', g: '順調' };
+  $('dash').replaceChildren(
+    h('section', { class: 'panel', 'aria-label': 'メンバーの状況' },
+      h('h2', {}, 'メンバーの状況'),
+      h('p', { class: 'note' }, '残作業量 = 未着手 1.0、進行中は残りの割合（40% なら 0.6）で数えた合計。行をクリックするとその人のボードを開きます。'),
+      h('table', { class: 'team' },
+        h('thead', {}, h('tr', {},
+          h('th', {}, 'メンバー'), h('th', { class: 'num' }, '手持ち'), h('th', {}, '残作業量'),
+          h('th', { class: 'num' }, '締切超過'), h('th', { class: 'num' }, '予定超え'),
+          h('th', {}, '直近2週間の完了', h('small', {}, `${md(fromDay)}〜${md(today)}・1日1本`)),
+          h('th', {}, '今後2週間の締切', h('small', {}, `${md(today)}〜${md(toDay)}・濃いほど多い`)))),
+        h('tbody', {}, rows))),
+    h('section', { class: 'panel fever', 'aria-label': '業務カテゴリごとのバッファ' },
+      h('h2', {}, '業務カテゴリごとのバッファ'),
+      h('p', { class: 'note' }, 'バッファ = 本来の締切 − 作業完了予定。締切が前後2週間のタスクだけで測るので、先のタスクが増えても進捗は下がりません。'),
+      fever.length ? renderFever(fever) : h('p', { class: 'empty' }, '締切が前後2週間のタスクがありません'),
+      h('ul', { class: 'vlist' }, fever.map(r => h('li', {},
+        h('span', { class: `st ${r.zone}` }, `● ${label[r.zone]}`),
+        h('span', {}, r.name),
+        h('span', { class: 'meta' }, `進捗 ${Math.round(r.progress * 100)}%・消費 ${Math.round(r.use * 100)}%・${r.n}件`))))));
+
+  const totals = stats.reduce((a, s) => ({ active: a.active + s.active, late: a.late + s.late, done: a.done + s.doneTotal }), { active: 0, late: 0, done: 0 });
+  $('summary').replaceChildren(
+    h('span', { class: 'chip' + (totals.late ? ' late' : '') }, 'チームの締切超過', h('b', {}, totals.late)),
+    h('span', { class: 'chip' }, 'チームの手持ち', h('b', {}, totals.active)),
+    h('span', { class: 'chip' }, '直近2週間の完了', h('b', {}, totals.done)));
 }
 
 /* =====================================================================
@@ -1067,8 +1374,8 @@ function renderInbox() {
 // 未整理の振り分けとカード編集で共通の入力欄。prefix で id を分ける
 function issueFields(issue, prefix) {
   const parsed = parseTitle(issue.subject);
-  const field = (label, control, required) => h('div', { class: 'field' },
-    h('label', { for: control.id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
+  const field = (label, control, required, forId) => h('div', { class: 'field' },
+    h('label', { for: forId || control.id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
 
   // 終了したバージョンや、メンバー一覧にいない担当者が入っていても消えないよう選択肢に足す
   const versionOpts = [...state.versions];
@@ -1093,6 +1400,45 @@ function issueFields(issue, prefix) {
   };
   el.desc.value = issue.description || '';
 
+  // バージョンの新規作成（Redmine の「バージョンの管理」権限が要るので上司だけに出す）
+  let versionControl = el.version;
+  if (isManager()) {
+    const codes = Array.from({ length: 9 }, (_, i) => String(i + 1).padStart(2, '0'));
+    const code = h('select', { id: prefix + 'NvCode', 'aria-label': '優先番号' }, codes.map(c => h('option', { value: c }, c)));
+    const name = h('input', { type: 'text', id: prefix + 'NvName', placeholder: '例: 次期SUV車体', 'aria-label': 'バージョン名' });
+    const pv = h('span', { class: 'pv' });
+    const make = h('button', { type: 'button', class: 'btn-mini' }, '作成');
+    const box = h('div', { class: 'new-version', hidden: true },
+      code, name, make, h('button', { type: 'button', class: 'btn-mini', onclick: () => { box.hidden = true; } }, 'やめる'), pv);
+    const showPv = () => { pv.textContent = name.value.trim() ? `作られる名前: ${code.value}_${name.value.trim()}（01 が最優先）` : '01 が最優先。番号の小さい順にカードが並びます'; };
+    [code, name].forEach(x => x.addEventListener('input', showPv));
+    showPv();
+    make.addEventListener('click', async () => {
+      if (!name.value.trim()) { el.error.textContent = '新しいバージョンの名前を入力してください。'; name.focus(); return; }
+      const full = `${code.value}_${name.value.trim()}`;
+      if (versionOpts.some(v => v.name === full)) { el.error.textContent = `「${full}」はもうあります。`; return; }
+      make.disabled = true; make.textContent = '作成中…';
+      try {
+        const v = await api.createVersion(issue.project && issue.project.id, full);
+        state.versions.push(v); versionOpts.push(v);
+        el.version.append(h('option', { value: v.id }, v.name));
+        el.version.value = String(v.id);
+        box.hidden = true; name.value = ''; el.error.textContent = '';
+        toast(`バージョン「${v.name}」を作りました`);
+      } catch (err) {
+        el.error.textContent = /403/.test(err.message)
+          ? 'バージョンを作る権限がありません（Redmine の役割に「バージョンの管理」が必要です）。'
+          : `バージョンを作れませんでした。${err.message}`;
+      } finally {
+        make.disabled = false; make.textContent = '作成';
+      }
+    });
+    versionControl = h('div', {},
+      h('div', { class: 'row' }, el.version,
+        h('button', { type: 'button', class: 'btn-mini', onclick: () => { box.hidden = !box.hidden; if (!box.hidden) name.focus(); } }, '＋ 新しいバージョン')),
+      box);
+  }
+
   const deadlineDate = () => (el.deadline.value ? parseDate(el.deadline.value) : null);
   const refresh = () => el.preview.replaceChildren(
     h('span', { class: 'lbl' }, 'Redmine に登録される件名'), buildTitle(el.subject.value.trim(), deadlineDate()));
@@ -1110,7 +1456,7 @@ function issueFields(issue, prefix) {
       field('件名', el.subject, true),
       el.preview,
       h('div', { class: 'grid2' },
-        field('対象バージョン', el.version, true),
+        field('対象バージョン', versionControl, true, el.version.id),
         field('担当', el.assignee, true)),
       field(descLabel, el.desc),
     ],
@@ -1181,13 +1527,67 @@ function renderTriageForm(issue) {
 }
 
 /* ---------- カードの編集 ---------- */
+// 新規チケットを作るプロジェクト（設定 → 読み込んだチケット → 未整理 の順に探す）
+function projectForNew() {
+  if (CONFIG.projectNumericId || CONFIG.projectId) return CONFIG.projectNumericId || CONFIG.projectId;
+  const any = [...state.issues.values(), ...state.inbox].find(i => i.project);
+  return any ? any.project.id : null;
+}
+
+async function ensureVersions(projectId) {
+  if (state.versions.length) return true;
+  try { state.versions = await api.versions(projectId); return true; }
+  catch (e) { toast(`対象バージョンの一覧を読めませんでした。${e.message}`, { error: true }); return false; }
+}
+
+async function openNewTask() {
+  const projectId = projectForNew();
+  if (!projectId) { toast('新規タスクを作るプロジェクトが決まっていません（board_settings.json の project）', { error: true }); return; }
+  if (!(await ensureVersions(projectId))) return;
+  const assignee = CONFIG.members.find(m => m.id === state.view) || (state.me && { id: state.me.id, name: state.me.name });
+  const draft = { id: null, subject: '', description: '', due_date: null, project: { id: projectId }, assigned_to: assignee };
+  const form = $('editorForm');
+  const f = issueFields(draft, 'e');
+  const submit = h('button', { type: 'submit', class: 'btn primary' }, '登録');
+
+  form.replaceChildren(
+    h('div', { class: 'head' }, h('h2', {}, '新規タスク')),
+    h('p', { class: 'meta' }, h('span', {}, '登録すると担当者のボードの「未着手」に入ります')),
+    ...f.rows('説明'),
+    f.el.error,
+    h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn', onclick: closeEditor }, '閉じる'),
+      submit));
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    if (!f.validate()) return;
+    const fields = f.collect();
+    const todo = statusForColumn('todo');
+    if (todo) fields.status_id = todo;
+    submit.disabled = true; submit.textContent = '登録中…';
+    try {
+      const created = await api.createIssue(projectId, fields);
+      if (created && statusById[created.status.id]) state.issues.set(created.id, created);
+      closeEditor();
+      renderBoard();
+      const who = CONFIG.members.find(m => m.id === fields.assigned_to_id);
+      toast(`#${created.id} を${who ? who.name + 'さんの' : ''}「未着手」に登録しました`);
+    } catch (err) {
+      f.el.error.textContent = `登録できませんでした。${err.message}`;
+      submit.disabled = false; submit.textContent = '登録';
+    }
+  };
+
+  form.dataset.id = '';
+  $('editor').hidden = false;
+  f.el.subject.focus();
+}
+
 async function openEditor(id) {
   const issue = state.issues.get(id);
   if (!issue || state.saving.has(id)) return;
-  if (!state.versions.length) {
-    try { state.versions = await api.versions(issue.project.id); }
-    catch (e) { toast(`対象バージョンの一覧を読めませんでした。${e.message}`, { error: true }); return; }
-  }
+  if (!(await ensureVersions(issue.project.id))) return;
   const form = $('editorForm');
   const f = issueFields(issue, 'e');
   const notes = h('textarea', { id: 'eNotes', placeholder: '例: 試作課に確認中。回答待ち' });
@@ -1298,6 +1698,7 @@ async function loadInbox() {
 
 async function loadView() {
   if (state.view === INBOX) await loadInbox();
+  else if (state.view === DASH) await Promise.all([loadTeam(), loadInbox()]);
   else await Promise.all([loadUser(state.view), loadInbox()]);
 }
 
@@ -1530,6 +1931,7 @@ function openSettings() {
 function closeSettings() { $('settings').hidden = true; }
 
 $('settingsBtn').addEventListener('click', openSettings);
+$('newTaskBtn').addEventListener('click', () => { if (state.me) openNewTask(); });
 $('cancelSettings').addEventListener('click', closeSettings);
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
 document.addEventListener('keydown', e => {
