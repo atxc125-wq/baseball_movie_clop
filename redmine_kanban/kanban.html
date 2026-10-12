@@ -481,7 +481,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-12 12:24'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-12 22:40'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -622,6 +622,8 @@ function createMockApi(getMockUserId) {
     [4613, 3, 'ヒンジ部品の重量見積り', 4600, '02', 7, 1, 1, 0],
     [4614, 3, 'ストライカー位置の公差計算', 4600, '02', 8, -5, -5, -3],
     [4615, 3, '仕入先打合せ議事録の展開', null, null, 1, 12, null, -1],
+    [4616, 3, '試作3号車 ドア周り対応（中項目）', null, null, 2, 20, null, -1],
+    [4617, 3, 'ドアヒンジ取付ボルトの選定', 4616, '02', 1, 9, 8, -1],
 
     [4410, 4, '頭部インパクタ試験の結果整理', 4400, '04', 5, -4, -4, -1],
     [4411, 4, 'フード裏 補強材の配置見直し', 4400, '04', 3, 7, 9, -2],
@@ -1691,9 +1693,8 @@ async function loadUser(userId) {
 
 async function loadInbox() {
   const open = (await api.inboxIssues()).filter(i => ['todo', 'doing', 'done'].includes(colOf(i)));
-  // 子チケットを持ち、担当も期日もないものは「まとめ用」なのでタスクとして扱わない
-  const candidates = open.filter(i => !i.assigned_to && !i.due_date).map(i => i.id);
-  const containers = await api.withChildren(candidates);
+  // 子チケットを持つものは「中項目（まとめ用）」なので、担当や期日の有無にかかわらず未整理に出さない
+  const containers = await api.withChildren(open.map(i => i.id));
   state.inbox = open.filter(i => !containers.has(i.id));
   if (!state.versions.length && state.inbox.length) {
     // バージョン一覧は振り分けでしか使わないので、読めなくてもボードの表示は続ける
