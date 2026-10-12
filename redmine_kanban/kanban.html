@@ -481,7 +481,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-12 22:40'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-12 23:52'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -529,8 +529,11 @@ const CONFIG = {
   // 中継プログラム(kanban_relay.py)。ボードは中継プログラムが http://127.0.0.1:8765/ で出す
   relay: { port: 8765 },
   defaultMode: 'relay', // 'relay' | 'mock' | 'live'
-  // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '02_次期SUV車体': 1 }
+  // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '05_開発業務_EV電池ケース': 1 }
   versionColors: {},
+  // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
+  versionCategories: ['01_市場問題_', '02_供給問題_', '03_業務改善_', '03_風土改革_', '04_モジュール開発_',
+    '05_開発業務_', '06_MBD開発_', '07_工場困りごと_', '08_原価低減_'],
 };
 /*__SERVER_CONFIG__*/ // 中継プログラムがここで board_settings.json と Redmine から読んだ設定を差し込む
 
@@ -563,12 +566,18 @@ function parseTitle(subject) {
 }
 function buildTitle(text, deadline) { return deadline ? `【${deadline.getMonth() + 1}/${deadline.getDate()}】${text}` : text; }
 
-// バージョン名の先頭の数字を優先度として読む（01_不具合対応 → 1）
+// バージョン名の先頭の数字を優先度として読む（05_開発業務_EV電池ケース → 5）
+// バージョン名は「番号_カテゴリ_個別名」（例: 05_開発業務_EV電池ケース）。
+// 表示には個別名を使い（何の仕事かが分かるように）、個別名がなければカテゴリ名を使う
 function parseVersion(name) {
-  if (!name) return { prio: null, code: null, label: '未分類' };
+  if (!name) return { prio: null, code: null, category: '', detail: '', label: '未分類' };
   const m = /^([0-9０-９]{1,3})[\s_.\-:：・、]*(.*)$/.exec(name);
-  if (!m || !m[2]) return { prio: null, code: null, label: name };
-  return { prio: Number(toHalfWidth(m[1])), code: toHalfWidth(m[1]), label: m[2] };
+  if (!m || !m[2]) return { prio: null, code: null, category: '', detail: '', label: name };
+  const rest = m[2].replace(/_+$/, '');
+  const cut = rest.indexOf('_');
+  const category = cut < 0 ? rest : rest.slice(0, cut);
+  const detail = cut < 0 ? '' : rest.slice(cut + 1).replace(/^_+/, '');
+  return { prio: Number(toHalfWidth(m[1])), code: toHalfWidth(m[1]), category, detail, label: detail || category };
 }
 
 /* =====================================================================
@@ -585,9 +594,11 @@ function createMockApi(getMockUserId) {
   const t = startOfToday();
   const d = n => (n === null ? null : isoDate(addDays(t, n)));
   const users = { 1: '山本 一郎', 2: '高橋 健', 3: '伊藤 さくら', 4: '渡辺 大輔', 5: '中村 美咲', 6: '小林 翔' };
-  const versionList = ['01_不具合対応', '02_次期SUV車体', '03_EV電池ケース', '04_法規対応', '05_原価低減VA', '09_部内改善']
-    .map((name, i) => ({ id: 100 + i, name }));
-  const V = Object.fromEntries(versionList.map(v => [v.name.slice(0, 2), v]));
+  // モックの行の「バージョン番号」→ 実際のバージョン名
+  const versionMap = { '01': '01_市場問題_試作3号車', '02': '04_モジュール開発_次期SUV車体', '03': '05_開発業務_EV電池ケース',
+    '04': '01_市場問題_歩行者保護', '05': '08_原価低減_ブラケットVA', '09': '03_業務改善_CADテンプレート' };
+  const versionList = Object.values(versionMap).map((name, i) => ({ id: 100 + i, name }));
+  const V = Object.fromEntries(Object.entries(versionMap).map(([k, name]) => [k, versionList.find(v => v.name === name)]));
   // [id, 担当, 件名, 親ID, バージョン番号, ステータスID, 件名の締切(日), Redmineの期日=作業完了予定(日), 更新日(日)]
   const rows = [
     [4100, 1, 'フロントバンパー設計', null, '02', 3, 45, 40, -1],
@@ -978,7 +989,7 @@ function tagClass(name) {
 function renderTag(versionName) {
   const v = parseVersion(versionName);
   const urgent = v.prio !== null && v.prio <= CONFIG.urgentPriority;
-  return h('span', { class: `tag ${urgent ? 'urgent' : tagClass(v.label)}`, title: `対象バージョン: ${versionName || '未設定'}` },
+  return h('span', { class: `tag ${urgent ? 'urgent' : tagClass(v.label)}`, title: `対象バージョン: ${versionName || '未設定'}${v.category ? `（${v.category}）` : ''}` },
     v.code ? h('span', { class: 'code' }, v.code) : null, v.label);
 }
 
@@ -1292,7 +1303,8 @@ function renderFever(rows) {
     g.append(el('title', {}, `${r.name}\n対象 ${r.n} 件 / 進捗 ${Math.round(r.progress * 100)}% / バッファ消費 ${Math.round(r.use * 100)}%` +
       (r.worst ? `\nいちばん遅れ: #${r.worst.i.id} ${parseTitle(r.worst.i.subject).text}` : '')));
     g.append(el('circle', { cx: x(r.progress), cy: y(r.use), r: 6 }));
-    g.append(el('text', { x: x(r.progress) + 9, y: y(r.use) + 4 }, r.v.code || r.name.slice(0, 4)));
+    const short = r.v.label.length > 10 ? r.v.label.slice(0, 9) + '…' : r.v.label;
+    g.append(el('text', { x: x(r.progress) + 9, y: y(r.use) + 4 }, short));
     svg.append(g);
   }
   return svg;
@@ -1411,19 +1423,20 @@ function issueFields(issue, prefix) {
   // バージョンの新規作成（Redmine の「バージョンの管理」権限が要るので上司だけに出す）
   let versionControl = el.version;
   if (isManager()) {
-    const codes = Array.from({ length: 9 }, (_, i) => String(i + 1).padStart(2, '0'));
-    const code = h('select', { id: prefix + 'NvCode', 'aria-label': '優先番号' }, codes.map(c => h('option', { value: c }, c)));
-    const name = h('input', { type: 'text', id: prefix + 'NvName', placeholder: '例: 次期SUV車体', 'aria-label': 'バージョン名' });
+    const code = h('select', { id: prefix + 'NvCode', 'aria-label': '業務カテゴリ' },
+      CONFIG.versionCategories.map(c => h('option', { value: c }, c.replace(/_+$/, ''))));
+    const name = h('input', { type: 'text', id: prefix + 'NvName', placeholder: '例: EV電池ケース', 'aria-label': '個別名' });
     const pv = h('span', { class: 'pv' });
     const make = h('button', { type: 'button', class: 'btn-mini' }, '作成');
     const box = h('div', { class: 'new-version', hidden: true },
       code, name, make, h('button', { type: 'button', class: 'btn-mini', onclick: () => { box.hidden = true; } }, 'やめる'), pv);
-    const showPv = () => { pv.textContent = name.value.trim() ? `作られる名前: ${code.value}_${name.value.trim()}（01 が最優先）` : '01 が最優先。番号の小さい順にカードが並びます'; };
+    const fullName = () => `${code.value.replace(/_*$/, '_')}${name.value.trim()}`;
+    const showPv = () => { pv.textContent = name.value.trim() ? `作られる名前: ${fullName()}` : 'カテゴリを選び、個別名（何の仕事か）を入れてください。番号の小さい順にカードが並びます'; };
     [code, name].forEach(x => x.addEventListener('input', showPv));
     showPv();
     make.addEventListener('click', async () => {
-      if (!name.value.trim()) { el.error.textContent = '新しいバージョンの名前を入力してください。'; name.focus(); return; }
-      const full = `${code.value}_${name.value.trim()}`;
+      if (!name.value.trim()) { el.error.textContent = '新しいバージョンの個別名を入力してください。'; name.focus(); return; }
+      const full = fullName();
       if (versionOpts.some(v => v.name === full)) { el.error.textContent = `「${full}」はもうあります。`; return; }
       make.disabled = true; make.textContent = '作成中…';
       try {
