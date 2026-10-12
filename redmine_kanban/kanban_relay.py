@@ -255,12 +255,22 @@ def _norm_name(s: str) -> str:
     return re.sub(r"\s", "", str(s)).lower()
 
 
+def _as_id(e) -> int | None:
+    """12 でも "12" でも ID として扱う。"""
+    if isinstance(e, int):
+        return e
+    if isinstance(e, str) and e.strip().isdigit():
+        return int(e.strip())
+    return None
+
+
 def match_people(entries: list, people: list[dict]) -> tuple[list[dict], list[str]]:
-    """設定に書いた名前（または ID）を、プロジェクトのメンバーと突き合わせる。空白の有無は区別しない。"""
+    """設定に書いた名前（または ID）を、知っている人と突き合わせる。空白の有無・全角半角の空白は区別しない。"""
     found, missing = [], []
     for e in entries:
-        hit = next((p for p in people if (isinstance(e, int) and p["id"] == e)
-                    or (isinstance(e, str) and _norm_name(p["name"]) == _norm_name(e))), None)
+        uid = _as_id(e)
+        hit = next((p for p in people if (uid is not None and p["id"] == uid)
+                    or (uid is None and isinstance(e, str) and _norm_name(p["name"]) == _norm_name(e))), None)
         if hit is None:
             missing.append(str(e))
         elif hit not in found:
@@ -283,28 +293,61 @@ def detect_config(key: str) -> tuple[dict, list[str]]:
         if not any(x["col"] == col for x in statuses):
             warnings.append(f"「{label}」に当たるステータスが見つかりません")
 
-    # メンバーは team に書いた人だけ。プロジェクトの全員は出さない
-    people = [{"id": m["user"]["id"], "name": m["user"]["name"]}
-              for m in redmine_all(key, f"/projects/{project['id']}/memberships.json", "memberships") if "user" in m]
+    # 知っている人: プロジェクトのメンバー + 未完了チケットの担当者・作成者 + 自分。
+    # グループ経由で参加している人や、メンバー登録されていない上司も名前で見つけられるように
+    people: list[dict] = []
+    nameless: list[int] = []
+
+    def know(u: dict | None) -> None:
+        if not u or "id" not in u or any(p["id"] == u["id"] for p in people):
+            return
+        if not u.get("name"):
+            nameless.append(u["id"])  # 名前が取れない（削除・ロックされたユーザーなど）
+            return
+        people.append({"id": u["id"], "name": u["name"]})
+
+    memberships = redmine_all(key, f"/projects/{project['id']}/memberships.json", "memberships")
+    project_members = [m["user"] for m in memberships if "user" in m]
+    for u in project_members:
+        know(u)
+    open_issues = redmine_all(key, f"/issues.json?project_id={project['id']}&status_id=open", "issues")
+    for i in open_issues:
+        know(i.get("assigned_to"))
+        know(i.get("author"))
+    me = redmine_json(key, "/users/current.json")["user"]
+    know({"id": me["id"], "name": f"{me.get('lastname', '')} {me.get('firstname', '')}".strip()})
+    if nameless:
+        warnings.append("名前が取れないユーザーを除きました（削除・ロックされた人の可能性）: ID " + "、".join(map(str, sorted(set(nameless)))))
+    member_ids = {u["id"] for u in project_members}
+    group_ids = {m["group"]["id"] for m in memberships if "group" in m}
+
+    def not_found(label: str, missing: list[str]) -> None:
+        names = "、".join(sorted(p["name"] for p in people)[:15])
+        warnings.append(f"{label} に書いた人が見つかりません: {'、'.join(missing)}（見つかる名前の例: {names}）")
+
     team = SETTINGS.get("team")
     if team == "auto":
         # 未完了のチケットを担当している人だけ（担当がグループのものは除く）
-        open_issues = redmine_all(key, f"/issues.json?project_id={project['id']}&status_id=open", "issues")
-        assigned = {i["assigned_to"]["id"] for i in open_issues if i.get("assigned_to")}
+        assigned = {i["assigned_to"]["id"] for i in open_issues if i.get("assigned_to")} - group_ids
         members = sorted((p for p in people if p["id"] in assigned), key=lambda p: p["name"])
     elif team:
         members, missing = match_people(team, people)
         if missing:
-            warnings.append("team に書いた人がプロジェクトのメンバーにいません: " + "、".join(missing))
+            not_found("team", missing)
     else:
-        members = people
+        members = [p for p in people if p["id"] in member_ids]
         warnings.append("team が空なので、プロジェクトのメンバー全員を表示しています")
     hidden, _ = match_people(SETTINGS.get("team_exclude") or [], people)
     members = [m for m in members if m not in hidden]
     managers, missing = match_people(SETTINGS.get("managers") or [], people)
     if missing:
-        warnings.append("managers に書いた人がプロジェクトのメンバーにいません: " + "、".join(missing))
+        not_found("managers", missing)
     members += [m for m in managers if m not in members]
+
+    # 表示順: team_order に書いた人をその順で先頭に。残りは今の順のまま後ろに
+    order, _ = match_people(SETTINGS.get("team_order") or [], people)
+    rank = {p["id"]: k for k, p in enumerate(order)}
+    members.sort(key=lambda p: rank.get(p["id"], len(rank)))
 
     # 子チケット条件(child_id)が使えるか。使えない Redmine は条件を無視して全件返すので合計が合わない
     def count(**q) -> int:
@@ -775,6 +818,8 @@ def main() -> int:
     Relay.config, Relay.warnings = board_config(key)
     names = "、".join(m["name"] for m in Relay.config.get("members", []))
     log(f"メンバー: {names or '（なし）'}")
+    bosses = [m["name"] for m in Relay.config.get("members", []) if m["id"] in Relay.config.get("managerUserIds", [])]
+    log(f"上司: {'、'.join(bosses) or '（なし。managers を確認してください）'}")
     for w in Relay.warnings:
         log(f"  ! {w}")
 

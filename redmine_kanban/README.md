@@ -36,13 +36,16 @@ SharePoint に置く方式は、SharePoint Online がページ内のスクリプ
 - `redmine_url` / `project`: Redmine の URL とプロジェクトの識別子
 - `team`: タブに並べるメンバー。`"auto"` なら未完了のチケットを担当している人だけ。名前（Redmine の表示名）か ID の一覧を書けばその人だけ。
   どちらの場合も `team_exclude` に書いた人は出さない。プロジェクトの他のメンバーは出ない
-- `managers`: 「上司完了」を扱える人
+- `team_order`: タブの並び順。書いた人がこの順で先頭、残りは後ろ
+- `managers`: 「上司完了」と「全体」タブを扱える人。名前か ID（`12` でも `"12"` でもよい）。
+  プロジェクトのメンバーでなくても、チケットの担当者・作成者か、中継を動かしている本人なら見つかる
 - `status_columns`: 名前から列を推定できないステータスだけ指定（例 `{"保留": "todo"}`）
 - `update_dir`: 更新を取りに行くフォルダ。空なら `setup.bat` を実行したフォルダ（`%USERPROFILE%` なども使える）
 - `options`: `urgentPriority` / `dueSoonDays` / `approvedDays` / `versionColors`
 
 ステータスの ID と列の対応、子チケット条件が使えるかは、起動時に Redmine から自動で読む。
-読めなかったときは前回の内容（`%APPDATA%\DesignTaskBoard\detected_config.json`）を使う。
+読んだ結果は毎回 `%APPDATA%\DesignTaskBoard\detected_config.json` に上書き保存し、読めなかったときはこれを使う
+（確認用の控えなので手で直さない。直すのは `board_settings.json`）。
 起動時の注意（推定できないステータス、見つからないメンバー）は「接続設定」の下にも出る。
 
 ### メンバーの初回
