@@ -404,6 +404,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .meter b { font-family: var(--font-num); font-weight: 500; text-align: right; }
 .dash .foot { font-size: 12px; color: var(--ink-3); margin: 0; }
 @media (max-width: 860px) { .dash .main { grid-template-columns: 1fr; } .dash .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash { height: auto; } }
+.checks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.checks label.chk { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 4px 9px; font-size: 13px; cursor: pointer; }
+.checks label.chk:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.checks .all { margin-left: 4px; }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -1155,7 +1159,8 @@ function memberList() {
 
 function renderTabs() {
   const n = state.inbox.length;
-  $('tabs').replaceChildren(
+  // replaceChildren に null を渡すと「null」という文字が出るので、出さないタブは除く
+  $('tabs').replaceChildren(...[
     ...memberList().map(m => h('button', {
       type: 'button', role: 'tab', class: 'tab',
       'aria-selected': String(m.id === state.view),
@@ -1171,7 +1176,8 @@ function renderTabs() {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === INBOX),
       onclick: () => switchView(INBOX),
-    }, '未整理', h('span', { class: 'badge' + (n ? '' : ' zero') }, n)));
+    }, '未整理', h('span', { class: 'badge' + (n ? '' : ' zero') }, n)),
+  ].filter(Boolean));
 }
 
 function renderChrome() {
@@ -1441,7 +1447,8 @@ function renderInbox() {
 }
 
 // 未整理の振り分けとカード編集で共通の入力欄。prefix で id を分ける
-function issueFields(issue, prefix) {
+// opts.multi: 担当をチェックボックスで複数選べる（人数分のチケットを作る。E-ラーニングなど全員がやる仕事向け）
+function issueFields(issue, prefix, opts = {}) {
   const parsed = parseTitle(issue.subject);
   const field = (label, control, required, forId) => h('div', { class: 'field' },
     h('label', { for: forId || control.id }, label, required ? h('span', { class: 'req' }, '*') : null), control);
@@ -1459,9 +1466,13 @@ function issueFields(issue, prefix) {
     version: h('select', { id: prefix + 'Version' },
       h('option', { value: '' }, '選んでください'),
       versionOpts.map(v => h('option', { value: v.id, selected: issue.fixed_version && issue.fixed_version.id === v.id }, v.name))),
-    assignee: h('select', { id: prefix + 'Assignee' },
-      h('option', { value: '' }, '選んでください'),
-      memberOpts.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name))),
+    assignee: opts.multi
+      ? h('div', { class: 'checks', role: 'group', 'aria-label': '担当（複数選べます）' },
+          memberOpts.map((m, k) => h('label', { class: 'chk' },
+            h('input', { type: 'checkbox', id: k ? null : prefix + 'Assignee', value: m.id, checked: issue.assigned_to && issue.assigned_to.id === m.id }), m.name)))
+      : h('select', { id: prefix + 'Assignee' },
+          h('option', { value: '' }, '選んでください'),
+          memberOpts.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name))),
     plan: h('input', { type: 'date', id: prefix + 'Plan', value: issue.due_date || '' }),
     desc: h('textarea', { id: prefix + 'Desc' }),
     preview: h('p', { class: 'preview' }),
@@ -1510,13 +1521,22 @@ function issueFields(issue, prefix) {
   }
 
   const deadlineDate = () => (el.deadline.value ? parseDate(el.deadline.value) : null);
+  const assignees = () => (opts.multi
+    ? [...el.assignee.querySelectorAll('input:checked')].map(x => Number(x.value))
+    : (el.assignee.value ? [Number(el.assignee.value)] : []));
+  if (opts.multi) {
+    const boxes = () => [...el.assignee.querySelectorAll('input')];
+    el.assignee.append(
+      h('button', { type: 'button', class: 'btn-mini all', onclick: () => { boxes().forEach(b => { b.checked = true; }); el.assignee.dispatchEvent(new Event('change')); } }, '全員'),
+      h('button', { type: 'button', class: 'btn-mini', onclick: () => { boxes().forEach(b => { b.checked = false; }); el.assignee.dispatchEvent(new Event('change')); } }, '外す'));
+  }
   const refresh = () => el.preview.replaceChildren(
     h('span', { class: 'lbl' }, 'Redmine に登録される件名'), buildTitle(el.subject.value.trim(), deadlineDate()));
   [el.deadline, el.subject].forEach(x => x.addEventListener('input', refresh));
   refresh();
 
   return {
-    el, deadlineDate,
+    el, deadlineDate, assignees,
     onChange(fn) { [el.deadline, el.subject].forEach(x => x.addEventListener('input', fn)); fn(); },
     // 画面に並べる部品（説明欄のラベルだけ呼び出し側で決める）
     rows: descLabel => [
@@ -1527,7 +1547,7 @@ function issueFields(issue, prefix) {
       el.preview,
       h('div', { class: 'grid2' },
         field('対象バージョン', versionControl, true, el.version.id),
-        field('担当', el.assignee, true)),
+        field(opts.multi ? '担当（複数選ぶと人数分のチケットを作ります）' : '担当', el.assignee, true, prefix + 'Assignee')),
       field(descLabel, el.desc),
     ],
     // 入力に問題があればメッセージを出して false
@@ -1536,13 +1556,13 @@ function issueFields(issue, prefix) {
       const fail = (msg, x) => { el.error.textContent = msg; x.focus(); return false; };
       if (!el.subject.value.trim()) return fail('件名を入力してください。', el.subject);
       if (!el.version.value) return fail('対象バージョンを選んでください。', el.version);
-      if (!el.assignee.value) return fail('担当を選んでください。', el.assignee);
+      if (!assignees().length) return fail('担当を選んでください。', opts.multi ? el.assignee.querySelector('input') : el.assignee);
       return true;
     },
     collect: () => ({
       subject: buildTitle(el.subject.value.trim(), deadlineDate()),
       fixed_version_id: Number(el.version.value),
-      assigned_to_id: Number(el.assignee.value),
+      assigned_to_id: assignees()[0],
       description: el.desc.value,
       due_date: el.plan.value || null,
     }),
@@ -1559,13 +1579,37 @@ function issueFields(issue, prefix) {
   };
 }
 
+// 1人目以外の分のチケットを作る。失敗した人の名前を返す
+async function createCopies(projectId, fields, assigneeIds) {
+  const todo = statusForColumn('todo');
+  const created = [], failed = [];
+  for (const id of assigneeIds) {
+    try {
+      const c = await api.createIssue(projectId, { ...fields, assigned_to_id: id, ...(todo ? { status_id: todo } : {}) });
+      created.push(c);
+      if (c && statusById[c.status.id]) state.issues.set(c.id, c);
+    } catch (err) {
+      const m = CONFIG.members.find(x => x.id === id);
+      failed.push(`${m ? m.name : id}（${err.message}）`);
+    }
+  }
+  return { created, failed };
+}
+const nameOf = id => (CONFIG.members.find(m => m.id === id) || { name: `ID ${id}` }).name;
+const whoText = ids => (ids.length > 1 ? `${nameOf(ids[0])}さんほか ${ids.length - 1} 名` : `${nameOf(ids[0])}さん`);
+
 function renderTriageForm(issue) {
   const form = $('triage');
   if (!issue) { form.replaceChildren(h('p', { class: 'hint' }, '左の一覧から整理するチケットを選んでください。')); return; }
 
-  const f = issueFields(issue, 't');
+  const f = issueFields(issue, 't', { multi: true });
   const submit = h('button', { type: 'submit', class: 'btn primary' });
-  f.onChange(() => { submit.textContent = f.deadlineDate() ? '整理して登録' : '締切なしで登録'; });
+  const label = () => {
+    const n = f.assignees().length;
+    return (f.deadlineDate() ? '整理して登録' : '締切なしで登録') + (n > 1 ? `（${n} 人分）` : '');
+  };
+  f.onChange(() => { submit.textContent = label(); });
+  f.el.assignee.addEventListener('change', () => { submit.textContent = label(); });
 
   form.replaceChildren(
     h('div', {},
@@ -1574,7 +1618,7 @@ function renderTriageForm(issue) {
     ...f.rows('説明（メール本文。指示を追記できます）'),
     f.el.error,
     h('div', { class: 'actions' },
-      h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。'),
+      h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。担当を複数選ぶと、2人目からは同じ内容のチケットを新しく作ります。'),
       h('button', { type: 'button', class: 'btn', title: 'チケットは削除せず「中止」にします（Power Automate の重複判定に使うため）', onclick: () => dismissInbox(issue) }, 'タスクではない'),
       submit));
 
@@ -1582,17 +1626,20 @@ function renderTriageForm(issue) {
     e.preventDefault();
     if (!f.validate()) return;
     const fields = f.collect();
+    const ids = f.assignees();
     submit.disabled = true; submit.textContent = '登録中…';
     try {
-      await api.updateIssue(issue.id, fields);
-      state.inbox = state.inbox.filter(i => i.id !== issue.id);
-      const who = CONFIG.members.find(m => m.id === fields.assigned_to_id);
-      toast(`#${issue.id} を${who ? who.name : ''}さんの「未着手」に登録しました`);
-      render();
+      await api.updateIssue(issue.id, fields);   // 元のチケットは 1 人目の担当に
     } catch (err) {
       f.el.error.textContent = `登録できませんでした。${err.message}`;
-      submit.disabled = false; submit.textContent = f.deadlineDate() ? '整理して登録' : '締切なしで登録';
+      submit.disabled = false; submit.textContent = label();
+      return;
     }
+    const { failed } = await createCopies(issue.project.id, fields, ids.slice(1));
+    state.inbox = state.inbox.filter(i => i.id !== issue.id);
+    toast(`#${issue.id} を${whoText(ids)}の「未着手」に登録しました` + (ids.length > 1 ? `（${ids.length} 件）` : ''));
+    if (failed.length) toast(`作れなかった分があります: ${failed.join('、')}`, { error: true });
+    render();
   };
 }
 
@@ -1617,8 +1664,9 @@ async function openNewTask() {
   const assignee = CONFIG.members.find(m => m.id === state.view) || (state.me && { id: state.me.id, name: state.me.name });
   const draft = { id: null, subject: '', description: '', due_date: null, project: { id: projectId }, assigned_to: assignee };
   const form = $('editorForm');
-  const f = issueFields(draft, 'e');
+  const f = issueFields(draft, 'e', { multi: true });
   const submit = h('button', { type: 'submit', class: 'btn primary' }, '登録');
+  f.el.assignee.addEventListener('change', () => { const n = f.assignees().length; submit.textContent = n > 1 ? `${n} 人分を登録` : '登録'; });
 
   form.replaceChildren(
     h('div', { class: 'head' }, h('h2', {}, '新規タスク')),
@@ -1633,20 +1681,18 @@ async function openNewTask() {
     e.preventDefault();
     if (!f.validate()) return;
     const fields = f.collect();
-    const todo = statusForColumn('todo');
-    if (todo) fields.status_id = todo;
+    const ids = f.assignees();
     submit.disabled = true; submit.textContent = '登録中…';
-    try {
-      const created = await api.createIssue(projectId, fields);
-      if (created && statusById[created.status.id]) state.issues.set(created.id, created);
-      closeEditor();
-      renderBoard();
-      const who = CONFIG.members.find(m => m.id === fields.assigned_to_id);
-      toast(`#${created.id} を${who ? who.name + 'さんの' : ''}「未着手」に登録しました`);
-    } catch (err) {
-      f.el.error.textContent = `登録できませんでした。${err.message}`;
-      submit.disabled = false; submit.textContent = '登録';
+    const { created, failed } = await createCopies(projectId, fields, ids);
+    if (!created.length) {
+      f.el.error.textContent = `登録できませんでした。${failed.join('、')}`;
+      submit.disabled = false; submit.textContent = ids.length > 1 ? `${ids.length} 人分を登録` : '登録';
+      return;
     }
+    closeEditor();
+    renderBoard();
+    toast(`#${created[0].id}${created.length > 1 ? ` ほか ${created.length - 1} 件` : ''} を${whoText(ids)}の「未着手」に登録しました`);
+    if (failed.length) toast(`作れなかった分があります: ${failed.join('、')}`, { error: true });
   };
 
   form.dataset.id = '';
