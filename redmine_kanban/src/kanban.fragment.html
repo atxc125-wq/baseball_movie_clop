@@ -748,6 +748,8 @@ function createMockApi(getMockUserId) {
       const since = addDays(t, -CONFIG.approvedDays);
       return [...db.values()].filter(i => i.assigned_to && (!closedIds.has(i.status.id) || new Date(i.updated_on) >= since)).map(clone);
     },
+    async childIssues(parentId) { await wait(60); return [...db.values()].filter(i => i.parent && i.parent.id === parentId).map(clone); },
+    async getIssue(id) { await wait(40); const i = db.get(id); if (!i) throw new Error(`#${id} が見つかりません (404)`); return clone(i); },
     async issueJournals(id) {
       await wait(40);
       const i = db.get(id);
@@ -867,6 +869,12 @@ function createRedmineApi(baseUrl, apiKey) {
         allIssues(`status_id=closed&updated_on=${encodeURIComponent('>=' + since)}`),
       ]);
       return [...open, ...closed];
+    },
+    async childIssues(parentId) {
+      return allIssues(`parent_id=${parentId}&status_id=*`);
+    },
+    async getIssue(id) {
+      return (await req(`/issues/${id}.json`)).issue;
     },
     async issueJournals(id) {
       const { issue } = await req(`/issues/${id}.json?include=journals`);
@@ -1891,7 +1899,10 @@ async function loadInbox() {
 
 async function loadView() {
   if (state.view === INBOX) await loadInbox();
-  else if (state.view === DASH) await Promise.all([loadTeam(), loadInbox()]);
+  else if (state.view === DASH) {
+    await Promise.all([loadTeam(), loadInbox()]);
+    sweepParents().catch(() => {});   // 表示を待たせないよう裏で行う
+  }
   else await Promise.all([loadUser(state.view), loadInbox()]);
 }
 
@@ -1988,6 +1999,7 @@ async function changeStatus(id, statusId, { undoable = false } = {}) {
     issue.updated_on = new Date().toISOString();
     const undo = undoable ? () => changeStatus(id, prev.status.id) : null;
     toast(`#${id} を「${next.name}」にしました`, { action: undo && { label: '元に戻す', run: undo } });
+    if (issue.parent) syncParentsAndReport(issue.parent.id);
   } catch (e) {
     issue.status = prev.status;
     issue.done_ratio = prev.done_ratio;
@@ -2016,6 +2028,72 @@ function moveToColumn(id, targetCol) {
   const statusId = statusForColumn(col.key);
   if (!statusId) { toast(`「${col.title}」に当たるステータスが CONFIG.statuses にありません`, { error: true }); return; }
   changeStatus(id, statusId, { undoable: true });
+}
+
+/* =====================================================================
+ * 9b. 親チケットのステータスを子チケットから決める
+ *   全員 未着手 → 未着手 / 全員 完了（確認済）→ 完了（確認済）/ 全員 完了以上 → 完了（実務者）
+ *   それ以外 → 子の進捗の平均を 20% 刻みで切り捨て（未着手 0、完了 100 として平均。中止は除く）
+ *   Redmine 本体は親のステータスを自動で変えないため、ボードで動かす
+ * ===================================================================== */
+function parentStatusFor(children) {
+  const live = children.filter(c => statusById[c.status.id] && colOf(c) !== 'cancelled');
+  if (!live.length) return null;
+  if (live.every(c => colOf(c) === 'approved')) return statusForColumn('approved');
+  if (live.every(c => isDoneCol(colOf(c)))) return statusForColumn('done');
+  if (live.every(c => colOf(c) === 'todo')) return statusForColumn('todo');
+  const ratioOf = c => (isDoneCol(colOf(c)) ? 100 : colOf(c) === 'todo' ? 0 : (statusById[c.status.id].ratio || 0));
+  const avg = live.reduce((sum, c) => sum + ratioOf(c), 0) / live.length;
+  // 進行中のステータスのうち、平均を超えない一番大きいもの
+  const doing = CONFIG.statuses.filter(x => x.col === 'doing').sort((a, b) => (a.ratio ?? 0) - (b.ratio ?? 0));
+  const pick = [...doing].reverse().find(x => (x.ratio ?? 0) <= avg) || doing[0];
+  return pick ? pick.id : null;
+}
+
+// 親を子に合わせ、さらにその親へとさかのぼる。変えた親の [id, 新しいステータス名] を返す
+async function syncParents(parentId, depth = 0, changed = []) {
+  if (!parentId || depth > 5) return changed;
+  const [parent, children] = await Promise.all([api.getIssue(parentId), api.childIssues(parentId)]);
+  const current = statusById[parent.status.id];
+  const target = parentStatusFor(children);
+  // ボードが知らないステータス・中止の親は触らない
+  if (current && current.col !== 'cancelled' && target && target !== parent.status.id) {
+    const next = statusById[target];
+    const fields = { status_id: target };
+    if (CONFIG.syncDoneRatio && next.ratio != null) fields.done_ratio = next.ratio;
+    await api.updateIssue(parentId, fields);
+    changed.push([parentId, next.name]);
+    const local = state.issues.get(parentId);
+    if (local) { local.status = { id: target, name: next.name }; if (fields.done_ratio != null) local.done_ratio = fields.done_ratio; }
+  }
+  return syncParents(parent.parent && parent.parent.id, depth + 1, changed);
+}
+
+async function syncParentsAndReport(parentId) {
+  try {
+    const changed = await syncParents(parentId);
+    if (changed.length) {
+      toast('親チケットも子に合わせました: ' + changed.map(([id, name]) => `#${id}「${name}」`).join('、'));
+      if (state.view !== DASH && state.view !== INBOX) renderBoard();
+    }
+  } catch (e) {
+    toast(`親チケットのステータスを合わせられませんでした。${e.message}`, { error: true });
+  }
+}
+
+// 全体タブを開いたときのまとめての見直し（Redmine の画面で直接変えた分の取りこぼし対策）。10 分に 1 回まで
+let lastParentSweep = 0;
+async function sweepParents() {
+  if (Date.now() - lastParentSweep < 10 * 60 * 1000) return;
+  lastParentSweep = Date.now();
+  const ids = [...new Set(state.team.filter(i => i.parent).map(i => i.parent.id))];
+  const changed = [], failed = [];
+  for (let k = 0; k < ids.length; k += 4) {
+    await Promise.all(ids.slice(k, k + 4).map(id => syncParents(id).then(c => changed.push(...c)).catch(() => failed.push(id))));
+  }
+  const uniq = [...new Map(changed.map(([id, name]) => [id, name]))];
+  if (uniq.length) toast(`親チケット ${uniq.length} 件のステータスを子に合わせました`);
+  if (failed.length) toast(`親チケット ${failed.length} 件はステータスを合わせられませんでした（権限やワークフローを確認してください）`, { error: true });
 }
 
 /* =====================================================================
