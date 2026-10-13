@@ -309,6 +309,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .mail[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .mail .meta { display: flex; gap: 8px; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .mail .meta .missing { margin-left: auto; color: var(--soon); font-weight: 700; }
+.mail .parent-line { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail .title { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
 .triage {
   min-height: 0; overflow-y: auto;
@@ -527,7 +528,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-13 12:53'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-13 12:57'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -739,6 +740,7 @@ function createMockApi(getMockUserId) {
       description: body, due_date: null, created_on: created, updated_on: created,
     });
   }
+  db.get(4703).parent = { id: 4300 };   // 親のある未整理（ブラケット部品のVA検討の下）
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
   const closedIds = new Set([8, 9]);
@@ -1525,6 +1527,7 @@ function renderInbox() {
         h('span', {}, `#${i.id}`),
         h('span', {}, `${jpDate(new Date(i.created_on))} ${hhmm(i.created_on)} 受信`),
         h('span', { class: 'missing' }, `${missing}なし`)),
+      ancestors(i).length ? h('span', { class: 'parent-line', title: ancestors(i).join(' › ') }, (ancestors(i).length > 2 ? '… › ' : '') + ancestors(i).slice(-2).join(' › ')) : null,
       h('span', { class: 'title' }, i.subject)));
   }) : [h('li', { class: 'empty' }, '未整理のチケットはありません')]));
   renderTriageForm(state.inbox.find(i => i.id === state.inboxSel));
@@ -1712,7 +1715,8 @@ function renderTriageForm(issue) {
   form.replaceChildren(
     h('div', {},
       h('h2', {}, `#${issue.id} を整理する`),
-      h('p', { class: 'from' }, `${jpDate(new Date(issue.created_on))} ${hhmm(issue.created_on)} 受信　元の件名: ${issue.subject}`)),
+      h('p', { class: 'from' }, `${jpDate(new Date(issue.created_on))} ${hhmm(issue.created_on)} 受信　元の件名: ${issue.subject}`),
+      ancestors(issue).length ? h('p', { class: 'from' }, `親: ${ancestors(issue).join(' › ')}`) : null),
     ...f.rows('説明（メール本文。指示を追記できます）'),
     f.el.error,
     h('div', { class: 'actions' },
@@ -1903,7 +1907,11 @@ async function loadUser(userId) {
   const issues = await api.issuesFor(userId);
   for (const [id, i] of state.issues) if (i.assigned_to && i.assigned_to.id === userId) state.issues.delete(id);
   for (const i of issues) if (statusById[i.status.id]) state.issues.set(i.id, i);
-  // 親、親の親…と、つながる限り（最大5階層）取得する
+  await loadAncestors(issues);
+}
+
+// 親、親の親…と、つながる限り（最大5階層）取得して件名を控える（カードや未整理の「親:」表示用）
+async function loadAncestors(issues) {
   let pending = issues;
   for (let depth = 0; depth < 5; depth++) {
     const missing = [...new Set(pending.filter(i => i.parent).map(i => i.parent.id))].filter(id => !state.parents.has(id));
@@ -1918,6 +1926,7 @@ async function loadInbox() {
   // 子チケットを持つものは「中項目（まとめ用）」なので、担当や期日の有無にかかわらず未整理に出さない
   const containers = await api.withChildren(open.map(i => i.id));
   state.inbox = open.filter(i => !containers.has(i.id));
+  await loadAncestors(state.inbox);
   if (!state.versions.length && state.inbox.length) {
     // バージョン一覧は振り分けでしか使わないので、読めなくてもボードの表示は続ける
     try { state.versions = await api.versions(state.inbox[0].project.id); }
