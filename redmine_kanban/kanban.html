@@ -358,7 +358,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .legend i { display: inline-block; width: 14px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
 .dash .sw-late { background: var(--late-bg); box-shadow: inset 3px 0 var(--late); }
 .dash .sw-soon { background: var(--soon-bg); box-shadow: inset 3px 0 var(--soon); }
-.dash .sw-norm { background: var(--accent-soft); }
+.dash .sw-norm { background: var(--surface-2); border: 1px dashed var(--line); }
 .dash .sw-done { background: var(--accent); }
 .dash .sw-due { background: var(--accent-mid); }
 .dash .who { display: flex; flex-direction: column; min-width: 0; }
@@ -376,6 +376,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .blk { min-width: 6px; border-radius: 5px; background: var(--accent-soft); color: var(--ink); font-size: 12px; line-height: 1.25; padding: 4px 7px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; }
 .dash .blk.late { background: var(--late-bg); box-shadow: inset 4px 0 var(--late); padding-left: 9px; }
 .dash .blk.soon { background: var(--soon-bg); box-shadow: inset 4px 0 var(--soon); padding-left: 9px; }
+.dash .blk.named { flex: 0 0 9.5em; font-size: 13px; }
+.dash .rest-lane { flex: 1 1 auto; min-width: 6em; display: flex; }
+.dash .blk.rest { background: var(--surface-2); border: 1px dashed var(--line); color: var(--ink-2); min-width: 6em; gap: 6px; }
+.dash .rest-late { color: var(--late); font-weight: 700; }
 .dash .sub { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
 .dash .sub b { font-family: var(--font-num); font-weight: 500; color: var(--ink); }
 .dash .sub .warn b { color: var(--late); }
@@ -523,7 +527,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-13 02:24'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-13 12:53'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1348,26 +1352,44 @@ function dashMode() { try { return localStorage.getItem(DASH_MODE_KEY) || 'block
 function setDashMode(mode) { try { localStorage.setItem(DASH_MODE_KEY, mode); } catch (_) { /* 覚えられなくても表示は切り替える */ } renderDashboard(); }
 
 // 案C: いま抱えている仕事を、タスク1つ = ブロック1つで積む（多い順）
+// 名前を出すのは締切超過と間近のタスクだけ（1人 NAMED_MAX 件まで、名前が読める固定幅）。
+// 残りは「ほか N 件」の 1 ブロックにまとめ、その長さを残りの作業量に比例させる（誰が多いかを長さで比べられる）。
+// 1人 30〜40 件あっても、会議で読むべきものだけが読める大きさで残る
+const NAMED_MAX = 4;
 function renderBlocks(stats) {
   const sorted = [...stats].sort((a, b) => b.load - a.load);
-  const max = Math.max(1, ...sorted.map(s => s.load));
   const order = { late: 0, soon: 1, norm: 2 };
-  return sorted.map(s => h('div', { class: 'mrow clickable', title: `${s.member.name} のボードを開く`, onclick: () => switchView(s.member.id) },
-    h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件`)),
-    s.tasks.length
-      ? h('div', {}, h('div', { class: 'stack', style: `width:${(s.load / max) * 100}%` },
-          [...s.tasks].sort((a, b) => order[a.state] - order[b.state] || b.remaining - a.remaining).map(t => {
-            const name = parseTitle(t.issue.subject).text;
-            const work = parseVersion(t.issue.fixed_version && t.issue.fixed_version.name).label;
-            return h('div', { class: `blk ${t.state}`, style: `flex:${Math.max(t.remaining, 0.05)} 1 0`,
-              title: `#${t.issue.id} ${name}（${work}）\n${deadlineInfo(t.issue).text}・残り ${t.remaining.toFixed(1)}` }, name);
-          })))
-      : h('div', { class: 'empty-row' }, '抱えている仕事はありません'),
-    h('div', { class: 'load' }, h('b', {}, s.load.toFixed(1)), h('span', {}, '残作業量')),
-    h('div', { class: 'sub' },
-      h('span', { class: s.late ? 'warn' : '' }, '締切超過 ', h('b', {}, s.late), ' 件'),
-      h('span', {}, '2週間で完了 ', h('b', {}, s.doneTotal), ' 件'),
-      h('span', {}, 'これから2週間の締切 ', h('b', {}, s.dueTotal), ' 件'))));
+  const label = t => `#${t.issue.id} ${parseTitle(t.issue.subject).text}（${parseVersion(t.issue.fixed_version && t.issue.fixed_version.name).label}）`;
+  const restOf = s => {
+    const ordered = [...s.tasks].sort((a, b) => order[a.state] - order[b.state] || b.remaining - a.remaining);
+    const named = ordered.filter(t => t.state !== 'norm').slice(0, NAMED_MAX);
+    return ordered.filter(t => !named.includes(t)).reduce((sum, t) => sum + t.remaining, 0);
+  };
+  const maxRest = Math.max(0.1, ...sorted.map(restOf));
+  return sorted.map(s => {
+    const ordered = [...s.tasks].sort((a, b) => order[a.state] - order[b.state] || b.remaining - a.remaining);
+    const named = ordered.filter(t => t.state !== 'norm').slice(0, NAMED_MAX);
+    const rest = ordered.filter(t => !named.includes(t));
+    const restLate = rest.filter(t => t.state === 'late').length;
+    const restLoad = rest.reduce((sum, t) => sum + t.remaining, 0);
+    const blocks = [
+      ...named.map(t => h('div', { class: `blk named ${t.state}`,
+        title: `${label(t)}\n${deadlineInfo(t.issue).text}・残り ${t.remaining.toFixed(1)}` }, parseTitle(t.issue.subject).text)),
+      rest.length ? h('div', { class: 'rest-lane' }, h('div', { class: 'blk rest', style: `width:${(restLoad / maxRest) * 100}%`,
+        title: rest.slice(0, 25).map(label).join('\n') + (rest.length > 25 ? `\n…ほか ${rest.length - 25} 件` : '') },
+        `ほか${rest.length}件`, restLate ? h('span', { class: 'rest-late' }, `超過${restLate}`) : null)) : null,
+    ];
+    return h('div', { class: 'mrow clickable', title: `${s.member.name} のボードを開く`, onclick: () => switchView(s.member.id) },
+      h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件`)),
+      s.tasks.length
+        ? h('div', {}, h('div', { class: 'stack' }, blocks))
+        : h('div', { class: 'empty-row' }, '抱えている仕事はありません'),
+      h('div', { class: 'load' }, h('b', {}, s.load.toFixed(1)), h('span', {}, '残作業量')),
+      h('div', { class: 'sub' },
+        h('span', { class: s.late ? 'warn' : '' }, '締切超過 ', h('b', {}, s.late), ' 件'),
+        h('span', {}, '2週間で完了 ', h('b', {}, s.doneTotal), ' 件'),
+        h('span', {}, 'これから2週間の締切 ', h('b', {}, s.dueTotal), ' 件')));
+  });
 }
 
 // 案A: これまでの2週間（完了）と、これからの2週間（締切）
@@ -1447,7 +1469,7 @@ function renderDashboard() {
 
   const legend = mode === 'blocks'
     ? [h('span', {}, h('i', { class: 'sw-late' }), '締切超過'), h('span', {}, h('i', { class: 'sw-soon' }), `${CONFIG.dueSoonDays}日以内に締切`),
-       h('span', {}, h('i', { class: 'sw-norm' }), 'その他'), h('span', {}, 'ブロック1つ = タスク1つ。長さ = 残りの作業量（未着手 1.0、40% 済みなら 0.6）。行をクリックするとその人のボードへ')]
+       h('span', {}, h('i', { class: 'sw-norm' }), 'その他（まとめて表示。乗せると一覧）'), h('span', {}, '名前が出るのは締切超過・間近のもの（1人4件まで）。「ほか」の長さ = 残りの作業量。行をクリックするとその人のボードへ')]
     : [h('span', {}, h('i', { class: 'sw-done' }), '完了した数（これまで）'), h('span', {}, h('i', { class: 'sw-due' }), '締切の数（これから）'),
        h('span', {}, h('i', { class: 'sw-soon' }), `${CONFIG.dueSoonDays}日以内の締切`), h('span', {}, '平日だけ表示。週末の分は金曜に含めています')];
   const zoneLabel = { r: '見直し', y: '注意', g: '順調' };
