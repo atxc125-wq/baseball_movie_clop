@@ -413,6 +413,18 @@ a.btn { text-decoration: none; display: inline-block; }
 .checks label.chk { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 4px 9px; font-size: 13px; cursor: pointer; }
 .checks label.chk:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
 .checks .all { margin-left: 4px; }
+.group-opt { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); font-size: 13px; }
+.group-opt input { margin-top: 3px; }
+.group-opt small { display: block; color: var(--ink-2); }
+.dash .together { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.dash .together li { display: flex; flex-direction: column; gap: 3px; }
+.dash .together .head { display: flex; gap: 8px; align-items: baseline; }
+.dash .together .name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash .together .due { margin-left: auto; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.dash .together .due.late { color: var(--late); font-weight: 700; }
+.dash .together .left { font-size: 12px; color: var(--ink-2); }
+.dash .together .left b { color: var(--ink); font-weight: 400; }
+.dash .panel h3 { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -511,7 +523,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-13 00:58'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-13 02:15'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -766,6 +778,7 @@ function createMockApi(getMockUserId) {
       const now = new Date().toISOString();
       const issue = {
         id, subject: fields.subject, project: { id: 1, name: '設計課' },
+        parent: fields.parent_issue_id ? { id: fields.parent_issue_id } : undefined,
         assigned_to: fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined,
         fixed_version: fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined,
         status: { id: 1, name: '未着手' }, done_ratio: 0, description: fields.description || '',
@@ -1197,6 +1210,7 @@ function renderChrome() {
 }
 
 function render() {
+  $('cancelZone').hidden = true;
   const inbox = state.view === INBOX, dash = state.view === DASH;
   $('board').hidden = inbox || dash;
   $('inbox').hidden = !inbox;
@@ -1377,6 +1391,39 @@ function renderTimeline(stats, pastDays, futureDays) {
     h('div', { class: 'load' }, h('b', {}, s.late || '–'), h('span', {}, '締切超過'))))];
 }
 
+// みんなでやる仕事: 同じ親チケットの下に、同じ件名の子チケットが 2 人以上にあるもの（E-ラーニングなどのコピー）。
+// 普通の作業分解（親の下に別々の作業）は対象にしない
+function renderTogether() {
+  const groups = new Map();
+  for (const i of state.team) {
+    if (!i.parent || colOf(i) === 'cancelled') continue;
+    const key = `${i.parent.id}|${parseTitle(i.subject).text}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i);
+  }
+  const rows = [...groups.values()]
+    .filter(items => new Set(items.map(i => i.assigned_to.id)).size >= 2)
+    .map(items => {
+      const done = items.filter(i => isDoneCol(colOf(i)));
+      const left = items.filter(i => !isDoneCol(colOf(i)));
+      return { items, done, left, name: parseTitle(items[0].subject).text, info: deadlineInfo(left[0] || items[0]) };
+    })
+    .filter(g => g.left.length)                       // 全員終わったものは出さない
+    .sort((a, b) => (targetDate(a.items[0]) || Infinity) - (targetDate(b.items[0]) || Infinity));
+  if (!rows.length) return [];
+  return [
+    h('h2', {}, 'みんなでやる仕事'),
+    h('ul', { class: 'together' }, rows.map(g => h('li', {},
+      h('div', { class: 'head' },
+        h('span', { class: 'name', title: g.name }, g.name),
+        h('span', { class: 'due' + (g.info.level === 2 ? ' late' : '') }, g.info.text)),
+      h('div', { class: 'meter' }, h('span', {}, `完了 ${g.done.length}/${g.items.length}`),
+        h('div', { class: 'tr' }, h('div', { class: 'fl use-g', style: `width:${(g.done.length / g.items.length) * 100}%` })),
+        h('b', {}, `${Math.round((g.done.length / g.items.length) * 100)}%`)),
+      h('div', { class: 'left' }, 'まだ: ', h('b', {}, g.left.map(i => i.assigned_to.name).join('、')))))),
+  ];
+}
+
 function renderDashboard() {
   const today = startOfToday();
   const pastDays = weekdaysFrom(today, -1, 10).reverse();      // 今日を含む過去の平日 10 日
@@ -1413,6 +1460,7 @@ function renderDashboard() {
         h('div', { class: 'legend' }, legend),
         h('div', {}, mode === 'blocks' ? renderBlocks(stats) : renderTimeline(stats, pastDays, futureDays))),
       h('section', { class: 'panel', 'aria-label': '仕事ごとの状況' },
+        ...renderTogether(),
         h('h2', {}, '仕事ごとの状況（締切が前後2週間のタスク）'),
         fever.length
           ? h('ul', { class: 'cats' }, fever.map(r => h('li', { class: 'cat', title: r.worst ? `いちばん遅れ: #${r.worst.i.id} ${parseTitle(r.worst.i.subject).text}` : '' },
@@ -1530,7 +1578,13 @@ function issueFields(issue, prefix, opts = {}) {
   const assignees = () => (opts.multi
     ? [...el.assignee.querySelectorAll('input:checked')].map(x => Number(x.value))
     : (el.assignee.value ? [Number(el.assignee.value)] : []));
+  // 2人以上選んだら「親チケットでまとめる」を出す（全員の進み具合を一か所で見られる）
+  el.group = h('label', { class: 'group-opt', hidden: true },
+    h('input', { type: 'checkbox', id: prefix + 'Group', checked: true }),
+    h('span', {}, 'まとめ用の親チケットを作り、各自のチケットをその下に入れる',
+      h('small', {}, '全体タブの「みんなでやる仕事」で、誰が終わって誰がまだかを一か所で見られます（E-ラーニングなど）')));
   if (opts.multi) {
+    el.assignee.addEventListener('change', () => { el.group.hidden = assignees().length < 2; });
     const boxes = () => [...el.assignee.querySelectorAll('input')];
     el.assignee.append(
       h('button', { type: 'button', class: 'btn-mini all', onclick: () => { boxes().forEach(b => { b.checked = true; }); el.assignee.dispatchEvent(new Event('change')); } }, '全員'),
@@ -1543,6 +1597,7 @@ function issueFields(issue, prefix, opts = {}) {
 
   return {
     el, deadlineDate, assignees,
+    grouped: () => opts.multi && assignees().length > 1 && el.group.querySelector('input').checked,
     onChange(fn) { [el.deadline, el.subject].forEach(x => x.addEventListener('input', fn)); fn(); },
     // 画面に並べる部品（説明欄のラベルだけ呼び出し側で決める）
     rows: descLabel => [
@@ -1554,8 +1609,9 @@ function issueFields(issue, prefix, opts = {}) {
       h('div', { class: 'grid2' },
         field('対象バージョン', versionControl, true, el.version.id),
         field(opts.multi ? '担当（複数選ぶと人数分のチケットを作ります）' : '担当', el.assignee, true, prefix + 'Assignee')),
+      opts.multi ? el.group : null,
       field(descLabel, el.desc),
-    ],
+    ].filter(Boolean),   // replaceChildren に null を渡すと「null」と出るので除く
     // 入力に問題があればメッセージを出して false
     validate() {
       el.error.textContent = '';
@@ -1586,12 +1642,13 @@ function issueFields(issue, prefix, opts = {}) {
 }
 
 // 1人目以外の分のチケットを作る。失敗した人の名前を返す
-async function createCopies(projectId, fields, assigneeIds) {
+async function createCopies(projectId, fields, assigneeIds, parentId = null) {
   const todo = statusForColumn('todo');
   const created = [], failed = [];
   for (const id of assigneeIds) {
     try {
-      const c = await api.createIssue(projectId, { ...fields, assigned_to_id: id, ...(todo ? { status_id: todo } : {}) });
+      const c = await api.createIssue(projectId, { ...fields, assigned_to_id: id, ...(todo ? { status_id: todo } : {}),
+        ...(parentId ? { parent_issue_id: parentId } : {}) });
       created.push(c);
       if (c && statusById[c.status.id]) state.issues.set(c.id, c);
     } catch (err) {
@@ -1600,6 +1657,11 @@ async function createCopies(projectId, fields, assigneeIds) {
     }
   }
   return { created, failed };
+}
+// まとめ用の親チケットに入れる内容（担当なし。子チケットがあるので未整理にも出ない）
+function parentFields(fields) {
+  const { assigned_to_id, ...rest } = fields;
+  return { ...rest, subject: `${fields.subject}（全員）` };
 }
 const nameOf = id => (CONFIG.members.find(m => m.id === id) || { name: `ID ${id}` }).name;
 const whoText = ids => (ids.length > 1 ? `${nameOf(ids[0])}さんほか ${ids.length - 1} 名` : `${nameOf(ids[0])}さん`);
@@ -1633,15 +1695,20 @@ function renderTriageForm(issue) {
     if (!f.validate()) return;
     const fields = f.collect();
     const ids = f.assignees();
+    const grouped = f.grouped();
     submit.disabled = true; submit.textContent = '登録中…';
     try {
-      await api.updateIssue(issue.id, fields);   // 元のチケットは 1 人目の担当に
+      // まとめる場合: 元のチケットを親にする（Power Automate の重複判定のため元のチケットは残す）
+      // まとめない場合: 元のチケットは 1 人目の担当に
+      await api.updateIssue(issue.id, grouped ? parentFields(fields) : fields);
     } catch (err) {
       f.el.error.textContent = `登録できませんでした。${err.message}`;
       submit.disabled = false; submit.textContent = label();
       return;
     }
-    const { failed } = await createCopies(issue.project.id, fields, ids.slice(1));
+    const { failed } = grouped
+      ? await createCopies(issue.project.id, fields, ids, issue.id)
+      : await createCopies(issue.project.id, fields, ids.slice(1));
     state.inbox = state.inbox.filter(i => i.id !== issue.id);
     toast(`#${issue.id} を${whoText(ids)}の「未着手」に登録しました` + (ids.length > 1 ? `（${ids.length} 件）` : ''));
     if (failed.length) toast(`作れなかった分があります: ${failed.join('、')}`, { error: true });
@@ -1689,7 +1756,18 @@ async function openNewTask() {
     const fields = f.collect();
     const ids = f.assignees();
     submit.disabled = true; submit.textContent = '登録中…';
-    const { created, failed } = await createCopies(projectId, fields, ids);
+    let parentId = null;
+    if (f.grouped()) {
+      try {
+        const todo = statusForColumn('todo');
+        parentId = (await api.createIssue(projectId, { ...parentFields(fields), ...(todo ? { status_id: todo } : {}) })).id;
+      } catch (err) {
+        f.el.error.textContent = `まとめ用の親チケットを作れませんでした。${err.message}`;
+        submit.disabled = false; submit.textContent = `${ids.length} 人分を登録`;
+        return;
+      }
+    }
+    const { created, failed } = await createCopies(projectId, fields, ids, parentId);
     if (!created.length) {
       f.el.error.textContent = `登録できませんでした。${failed.join('、')}`;
       submit.disabled = false; submit.textContent = ids.length > 1 ? `${ids.length} 人分を登録` : '登録';
@@ -1963,6 +2041,13 @@ board.addEventListener('dragstart', e => {
   board.querySelectorAll('.col').forEach(c => { const r = canMove(issue, c.dataset.col); if (!r.ok && !r.quiet) c.classList.add('drag-denied'); });
   $('cancelZone').hidden = false;
 });
+// ドロップ後に描き直すと元のカードが消えて dragend が来ないことがあるので、終わりの片付けをまとめる
+function endDrag() {
+  dragId = null;
+  board.querySelectorAll('.dragging, .drag-over, .drag-denied').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied'));
+  $('cancelZone').hidden = true;
+  $('cancelZone').classList.remove('drag-over');
+}
 board.addEventListener('dragend', () => {
   dragId = null;
   board.querySelectorAll('.dragging, .drag-over, .drag-denied').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied'));
@@ -1984,7 +2069,9 @@ board.addEventListener('drop', e => {
   const col = e.target.closest && e.target.closest('.col');
   if (!col || dragId == null) return;
   e.preventDefault();
-  moveToColumn(dragId, col.dataset.col);
+  const id = dragId;
+  endDrag();
+  moveToColumn(id, col.dataset.col);
 });
 
 const cancelZone = $('cancelZone');
@@ -1992,7 +2079,9 @@ cancelZone.addEventListener('dragover', e => { e.preventDefault(); cancelZone.cl
 cancelZone.addEventListener('dragleave', () => cancelZone.classList.remove('drag-over'));
 cancelZone.addEventListener('drop', e => {
   e.preventDefault();
-  if (dragId != null) changeStatus(dragId, cancelStatusId(), { undoable: true });
+  const id = dragId;
+  endDrag();
+  if (id != null) changeStatus(id, cancelStatusId(), { undoable: true });
 });
 
 // クリック / Enter でカードを編集
