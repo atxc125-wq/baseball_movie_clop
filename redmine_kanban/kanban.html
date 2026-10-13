@@ -19,6 +19,7 @@
   --accent: #0e6488;
   --accent-ink: #ffffff;
   --accent-soft: #dcecf3;
+  --accent-mid: #8fbcd3;
   --late: #b8322a;
   --late-bg: #fbe7e4;
   --soon: #8a5a00;
@@ -39,7 +40,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #11161c; --surface: #1a2129; --surface-2: #212932; --ink: #e5eaf0; --ink-2: #a0abb8; --ink-3: #6f7a88;
-    --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442;
+    --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442; --accent-mid: #4b8fb0;
     --late: #ff8f80; --late-bg: #3b1d1a; --soon: #f0c064; --soon-bg: #362a0e; --ok: #74d39a; --ok-bg: #16301f;
     --drop: #1b3a4a; --shadow: 0 1px 2px rgba(0,0,0,.35);
     --tag1-bg: #1c2d4a; --tag1-fg: #9dbdf4; --tag2-bg: #17322a; --tag2-fg: #8fd8b3; --tag3-bg: #3a2516; --tag3-fg: #f2b184;
@@ -49,7 +50,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #11161c; --surface: #1a2129; --surface-2: #212932; --ink: #e5eaf0; --ink-2: #a0abb8; --ink-3: #6f7a88;
-  --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442;
+  --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442; --accent-mid: #4b8fb0;
   --late: #ff8f80; --late-bg: #3b1d1a; --soon: #f0c064; --soon-bg: #362a0e; --ok: #74d39a; --ok-bg: #16301f;
   --drop: #1b3a4a; --shadow: 0 1px 2px rgba(0,0,0,.35);
   --tag1-bg: #1c2d4a; --tag1-fg: #9dbdf4; --tag2-bg: #17322a; --tag2-fg: #8fd8b3; --tag3-bg: #3a2516; --tag3-fg: #f2b184;
@@ -339,50 +340,75 @@ a.btn { text-decoration: none; display: inline-block; }
 .new-version select { width: auto !important; }
 .new-version input { flex: 1 1 140px; min-width: 0; }
 .new-version .pv { font-size: 12px; color: var(--ink-2); width: 100%; }
-/* ---------- ダッシュボード（上司だけ） ---------- */
-.dash { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); gap: 12px; }
-.panel { min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.panel h2 { margin: 0; font-size: 14px; }
-.panel .note { margin: 0; font-size: 11px; color: var(--ink-3); }
-.team { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.team th { text-align: left; font-size: 11px; font-weight: 400; color: var(--ink-3); padding: 0 8px 6px; white-space: nowrap; vertical-align: bottom; }
-.team th small { display: block; font-size: 10px; }
-.team td { padding: 8px; border-top: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
-.team tbody tr { cursor: pointer; }
-.team tbody tr:hover td { background: var(--surface-2); }
-.team .name { font-weight: 700; }
-.team .num { text-align: right; font-family: var(--font-num); }
-.team .zero { color: var(--ink-3); }
-.team .warn-late { color: var(--late); font-weight: 700; }
-.team .warn-soon { color: var(--soon); font-weight: 700; }
-.loadbar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
-.loadbar .track { flex: 1 1 auto; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
-.loadbar .fill { height: 100%; border-radius: 4px; background: var(--accent); }
-.loadbar span { font-family: var(--font-num); font-size: 12px; min-width: 2.5em; text-align: right; }
-.spark { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
-.spark i { display: block; width: 6px; border-radius: 2px 2px 0 0; background: var(--accent); min-height: 1px; }
-.spark i.none { background: var(--line); }
-.cellrow { display: flex; align-items: center; gap: 8px; }
-.cellrow b { font-family: var(--font-num); font-weight: 500; font-size: 12px; min-width: 1.5em; text-align: right; }
-.heat { display: flex; gap: 2px; }
-.heat i { display: block; width: 9px; height: 16px; border-radius: 2px; background: var(--surface-2); border: 1px solid var(--line); }
-.heat i.l1 { background: var(--accent); opacity: .35; border-color: transparent; }
-.heat i.l2 { background: var(--accent); opacity: .65; border-color: transparent; }
-.heat i.l3 { background: var(--accent); border-color: transparent; }
-.heat i.wk { margin-left: 4px; }
-.fever svg { width: 100%; height: auto; max-height: 320px; }
-.fever .zone-g { fill: var(--ok-bg); } .fever .zone-y { fill: var(--soon-bg); } .fever .zone-r { fill: var(--late-bg); }
-.fever .axis { stroke: var(--line); } .fever .tick { fill: var(--ink-3); font-size: 10px; font-family: var(--font-num); }
-.fever .lbl { fill: var(--ink-2); font-size: 11px; }
-.fever .pt circle { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
-.fever .pt text { fill: var(--ink); font-size: 11px; font-family: var(--font-num); font-weight: 500; }
-.fever .pt:hover circle { fill: var(--accent); }
-.vlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-.vlist li { display: flex; gap: 8px; align-items: baseline; }
-.vlist .st { font-weight: 700; min-width: 3.2em; }
-.vlist .st.r { color: var(--late); } .vlist .st.y { color: var(--soon); } .vlist .st.g { color: var(--ok); }
-.vlist .meta { color: var(--ink-3); margin-left: auto; font-family: var(--font-num); }
-@media (max-width: 860px) { .dash { grid-template-columns: 1fr; height: auto; } }
+/* ---------- ダッシュボード（上司だけ）: Teams の画面共有で読める大きさにする ---------- */
+.dash { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; font-size: 15px; }
+.dash .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.dash .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: baseline; gap: 10px; }
+.dash .tile .v { font-family: var(--font-num); font-size: 30px; line-height: 1; }
+.dash .tile .k { color: var(--ink-2); font-size: 14px; }
+.dash .tile.bad .v { color: var(--late); }
+.dash .main { min-height: 0; display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr); gap: 12px; }
+.dash .panel { min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.dash .panel-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dash h2 { margin: 0; font-size: 17px; }
+.dash .seg { margin-left: auto; display: flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.dash .seg button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
+.dash .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
+.dash .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
+.dash .legend i { display: inline-block; width: 14px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+.dash .sw-late { background: var(--late-bg); box-shadow: inset 3px 0 var(--late); }
+.dash .sw-soon { background: var(--soon-bg); box-shadow: inset 3px 0 var(--soon); }
+.dash .sw-norm { background: var(--accent-soft); }
+.dash .sw-done { background: var(--accent); }
+.dash .sw-due { background: var(--accent-mid); }
+.dash .who { display: flex; flex-direction: column; min-width: 0; }
+.dash .who b { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash .who span { font-size: 13px; color: var(--ink-2); }
+.dash .load { text-align: right; }
+.dash .load b { font-family: var(--font-num); font-size: 22px; font-weight: 500; }
+.dash .load span { display: block; font-size: 11px; color: var(--ink-3); }
+.dash .clickable { cursor: pointer; border-radius: 6px; }
+.dash .clickable:hover { background: var(--surface-2); }
+/* 案C: 積み木 */
+.dash .mrow { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) 4.5em; gap: 2px 14px; align-items: center; padding: 7px 6px; border-top: 1px solid var(--line); }
+.dash .mrow:first-child { border-top: 0; }
+.dash .stack { display: flex; gap: 3px; height: 36px; }
+.dash .blk { min-width: 6px; border-radius: 5px; background: var(--accent-soft); color: var(--ink); font-size: 12px; line-height: 1.25; padding: 4px 7px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; }
+.dash .blk.late { background: var(--late-bg); box-shadow: inset 4px 0 var(--late); padding-left: 9px; }
+.dash .blk.soon { background: var(--soon-bg); box-shadow: inset 4px 0 var(--soon); padding-left: 9px; }
+.dash .sub { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
+.dash .sub b { font-family: var(--font-num); font-weight: 500; color: var(--ink); }
+.dash .sub .warn b { color: var(--late); }
+.dash .empty-row { color: var(--ink-3); font-size: 13px; }
+/* 案A: タイムライン */
+.dash .tl { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) 4.5em; gap: 14px; align-items: end; padding-inline: 6px; }
+.dash .days { display: grid; grid-template-columns: repeat(10, 1fr) 14px repeat(10, 1fr); gap: 3px; align-items: end; }
+.dash .hd { font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.2; }
+.dash .hd.wk { color: var(--ink-2); font-weight: 700; }
+.dash .today { align-self: stretch; border-left: 2px dashed var(--ink-3); margin-left: 6px; }
+.dash .half { font-size: 13px; color: var(--ink-2); display: grid; grid-template-columns: 1fr 14px 1fr; text-align: center; }
+.dash .bar { position: relative; border-radius: 4px 4px 0 0; min-height: 2px; background: var(--line); }
+.dash .bar.done { background: var(--accent); }
+.dash .bar.due { background: var(--accent-mid); }
+.dash .bar.due.hot { background: var(--soon); }
+.dash .bar em { position: absolute; bottom: 100%; left: 0; right: 0; text-align: center; font-style: normal; font-family: var(--font-num); font-size: 12px; color: var(--ink); }
+.dash .tlrow { padding: 12px 6px 8px; border-top: 1px solid var(--line); }
+.dash .tlrow .days { height: 46px; }
+/* 仕事ごとの状況 */
+.dash .cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.dash .cat .head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.dash .cat .st { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 4px; }
+.dash .st.r { background: var(--late-bg); color: var(--late); } .dash .st.y { background: var(--soon-bg); color: var(--soon); } .dash .st.g { background: var(--ok-bg); color: var(--ok); }
+.dash .cat .name { font-weight: 700; }
+.dash .cat .kind { font-size: 12px; color: var(--ink-3); }
+.dash .cat .n { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.dash .meter { display: grid; grid-template-columns: 6.5em 1fr 3em; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.dash .meter .tr { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.dash .meter .fl { height: 100%; border-radius: 4px; background: var(--accent); }
+.dash .meter .fl.use-r { background: var(--late); } .dash .meter .fl.use-y { background: var(--soon); } .dash .meter .fl.use-g { background: var(--ok); }
+.dash .meter b { font-family: var(--font-num); font-weight: 500; text-align: right; }
+.dash .foot { font-size: 12px; color: var(--ink-3); margin: 0; }
+@media (max-width: 860px) { .dash .main { grid-template-columns: 1fr; } .dash .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash { height: auto; } }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -481,7 +507,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-12 23:52'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-13 00:42'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1207,42 +1233,50 @@ async function loadTeam() {
   }
 }
 
-const dayIndex = (d, start) => Math.round((parseDate(isoDate(d)) - start) / DAY);
 const targetDate = i => parseTitle(i.subject).deadline || parseDate(i.due_date);
 
-function memberStats(member) {
+// 平日だけの日付。週末の完了・締切は直前の金曜に寄せて数える
+function weekdaysFrom(start, step, n) {
+  const out = [];
+  for (let d = new Date(start); out.length < n; d = addDays(d, step)) if (d.getDay() % 6) out.push(d);
+  return out;
+}
+const toWeekday = d => { let x = parseDate(isoDate(d)); while (!(x.getDay() % 6)) x = addDays(x, -1); return isoDate(x); };
+const remainingOf = i => (colOf(i) === 'todo' ? 1 : 1 - (statusById[i.status.id].ratio || 0) / 100);
+
+function memberStats(member, pastDays, futureDays) {
   const mine = state.team.filter(i => i.assigned_to.id === member.id);
   const active = mine.filter(i => ['todo', 'doing'].includes(colOf(i)));
-  const today = startOfToday(), from = addDays(today, -(WINDOW_DAYS - 1));
-  const done = Array(WINDOW_DAYS).fill(0), doneItems = Array.from({ length: WINDOW_DAYS }, () => []);
+  const today = startOfToday(), since = addDays(today, -(WINDOW_DAYS - 1)), until = addDays(today, WINDOW_DAYS - 1);
+  const pastKeys = pastDays.map(isoDate), futureKeys = futureDays.map(isoDate);
+  const done = pastKeys.map(() => []), due = futureKeys.map(() => []);
+  let doneTotal = 0, dueTotal = 0;
   for (const i of mine) {
     if (!isDoneCol(colOf(i))) continue;
     const at = (state.doneOn.get(i.id) || {}).at;
-    if (!at) continue;
-    const k = dayIndex(new Date(at), from);
-    if (k >= 0 && k < WINDOW_DAYS) { done[k]++; doneItems[k].push(i); }
+    if (!at || new Date(at) < since) continue;
+    doneTotal++;
+    const k = pastKeys.indexOf(toWeekday(new Date(at)));
+    if (k >= 0) done[k].push(i);
   }
-  const due = Array(WINDOW_DAYS).fill(0), dueItems = Array.from({ length: WINDOW_DAYS }, () => []);
-  for (const i of active) {
+  const tasks = active.map(i => {
+    const info = deadlineInfo(i);
     const d = targetDate(i);
-    if (!d) continue;
-    const k = Math.round((d - today) / DAY);
-    if (k >= 0 && k < WINDOW_DAYS) { due[k]++; dueItems[k].push(i); }
-  }
-  const infos = active.map(deadlineInfo);
+    if (d && d >= today && d <= until) {
+      dueTotal++;
+      const k = futureKeys.indexOf(toWeekday(d));
+      if (k >= 0) due[k].push(i);
+    }
+    return { issue: i, remaining: remainingOf(i), state: info.level === 2 ? 'late' : info.level === 1 ? 'soon' : 'norm' };
+  });
   return {
-    member, active: active.length,
-    load: active.reduce((sum, i) => sum + (colOf(i) === 'todo' ? 1 : 1 - (statusById[i.status.id].ratio || 0) / 100), 0),
-    late: infos.filter(x => x.level === 2).length,
-    over: infos.filter(x => x.over).length,
-    done, doneItems, doneTotal: done.reduce((a, b) => a + b, 0), due, dueItems,
+    member, tasks,
+    load: tasks.reduce((sum, t) => sum + t.remaining, 0),
+    late: tasks.filter(t => t.state === 'late').length,
+    done, due, doneTotal, dueTotal,
   };
 }
 
-// ---- バッファ（CCPM のフィーバーチャート） ----
-// バッファ = 本来の締切【M/D】 − 作業完了予定（Redmine の期日）。
-// 締切が「今日の前後 2 週間」にあるタスクだけで測る。後から増えたタスクで分母が増え続けて
-// 100% にならない、を避けるため（窓の中を片付ければ 100% に届く）。
 function bufferUse(i) {
   const D = parseTitle(i.subject).deadline;
   const P = parseDate(i.due_date);
@@ -1281,92 +1315,113 @@ function versionFever() {
   }).sort((a, b) => ({ r: 0, y: 1, g: 2 }[a.zone] - { r: 0, y: 1, g: 2 }[b.zone]) || (b.use - a.use));
 }
 
-function renderFever(rows) {
-  const W = 340, H = 260, L = 50, R = 14, T = 10, B = 34;
-  const x = v => L + v * (W - L - R), y = v => T + (1 - Math.min(v, 1.5) / 1.5) * (H - T - B);
-  const ns = 'http://www.w3.org/2000/svg';
-  const el = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '業務カテゴリごとの進捗とバッファ消費' });
-  const band = (y0a, y0b, y1a, y1b, cls) => svg.append(el('polygon', { class: cls, points: `${x(0)},${y(y0a)} ${x(1)},${y(y1a)} ${x(1)},${y(y1b)} ${x(0)},${y(y0b)}` }));
-  band(0, FEVER_YELLOW(0), 0, FEVER_YELLOW(1), 'zone-g');                    // 下端 〜 黄の線
-  band(FEVER_YELLOW(0), FEVER_RED(0), FEVER_YELLOW(1), FEVER_RED(1), 'zone-y'); // 黄の線 〜 赤の線
-  band(FEVER_RED(0), 1.5, FEVER_RED(1), 1.5, 'zone-r');                      // 赤の線 〜 上端
-  for (const v of [0, 0.5, 1]) {
-    svg.append(el('line', { class: 'axis', x1: x(v), x2: x(v), y1: T, y2: H - B }));
-    svg.append(el('text', { class: 'tick', x: x(v), y: H - B + 14, 'text-anchor': 'middle' }, `${v * 100}%`));
-  }
-  for (const v of [0, 0.5, 1, 1.5]) svg.append(el('text', { class: 'tick', x: L - 6, y: y(v) + 3, 'text-anchor': 'end' }, `${v * 100}%`));
-  svg.append(el('text', { class: 'lbl', x: (L + W - R) / 2, y: H - 4, 'text-anchor': 'middle' }, '進捗（締切が前後2週間のタスク）'));
-  svg.append(el('text', { class: 'lbl', x: 10, y: (T + H - B) / 2, 'text-anchor': 'middle', transform: `rotate(-90 10 ${(T + H - B) / 2})` }, 'バッファ消費'));
-  for (const r of rows) {
-    const g = el('g', { class: 'pt' });
-    g.append(el('title', {}, `${r.name}\n対象 ${r.n} 件 / 進捗 ${Math.round(r.progress * 100)}% / バッファ消費 ${Math.round(r.use * 100)}%` +
-      (r.worst ? `\nいちばん遅れ: #${r.worst.i.id} ${parseTitle(r.worst.i.subject).text}` : '')));
-    g.append(el('circle', { cx: x(r.progress), cy: y(r.use), r: 6 }));
-    const short = r.v.label.length > 10 ? r.v.label.slice(0, 9) + '…' : r.v.label;
-    g.append(el('text', { x: x(r.progress) + 9, y: y(r.use) + 4 }, short));
-    svg.append(g);
-  }
-  return svg;
+const DASH_MODE_KEY = 'designBoard.dashMode';
+function dashMode() { try { return localStorage.getItem(DASH_MODE_KEY) || 'blocks'; } catch (_) { return 'blocks'; } }
+function setDashMode(mode) { try { localStorage.setItem(DASH_MODE_KEY, mode); } catch (_) { /* 覚えられなくても表示は切り替える */ } renderDashboard(); }
+
+// 案C: いま抱えている仕事を、タスク1つ = ブロック1つで積む（多い順）
+function renderBlocks(stats) {
+  const sorted = [...stats].sort((a, b) => b.load - a.load);
+  const max = Math.max(1, ...sorted.map(s => s.load));
+  const order = { late: 0, soon: 1, norm: 2 };
+  return sorted.map(s => h('div', { class: 'mrow clickable', title: `${s.member.name} のボードを開く`, onclick: () => switchView(s.member.id) },
+    h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件`)),
+    s.tasks.length
+      ? h('div', {}, h('div', { class: 'stack', style: `width:${(s.load / max) * 100}%` },
+          [...s.tasks].sort((a, b) => order[a.state] - order[b.state] || b.remaining - a.remaining).map(t => {
+            const name = parseTitle(t.issue.subject).text;
+            const work = parseVersion(t.issue.fixed_version && t.issue.fixed_version.name).label;
+            return h('div', { class: `blk ${t.state}`, style: `flex:${Math.max(t.remaining, 0.05)} 1 0`,
+              title: `#${t.issue.id} ${name}（${work}）\n${deadlineInfo(t.issue).text}・残り ${t.remaining.toFixed(1)}` }, name);
+          })))
+      : h('div', { class: 'empty-row' }, '抱えている仕事はありません'),
+    h('div', { class: 'load' }, h('b', {}, s.load.toFixed(1)), h('span', {}, '残作業量')),
+    h('div', { class: 'sub' },
+      h('span', { class: s.late ? 'warn' : '' }, '締切超過 ', h('b', {}, s.late), ' 件'),
+      h('span', {}, '2週間で完了 ', h('b', {}, s.doneTotal), ' 件'),
+      h('span', {}, 'これから2週間の締切 ', h('b', {}, s.dueTotal), ' 件'))));
+}
+
+// 案A: これまでの2週間（完了）と、これからの2週間（締切）
+function renderTimeline(stats, pastDays, futureDays) {
+  const max = Math.max(1, ...stats.flatMap(s => [...s.done, ...s.due].map(x => x.length)));
+  const md = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  const wd = d => '日月火水木金土'[d.getDay()];
+  const list = items => items.map(i => `#${i.id} ${parseTitle(i.subject).text}`).join('\n');
+  const soonLimit = addDays(startOfToday(), CONFIG.dueSoonDays);
+  const bar = (items, cls, day, label) => {
+    const n = items.length;
+    return h('div', { class: 'bar' + (n ? ' ' + cls : ''), style: `height:${n ? 8 + (n / max) * 34 : 2}px`,
+      title: `${jpDate(day)} ${label} ${n} 件${n ? '\n' + list(items) : ''}` }, n ? h('em', {}, n) : null);
+  };
+  const header = h('div', { class: 'tl' }, h('div', {}),
+    h('div', {},
+      h('div', { class: 'half' }, h('span', {}, '← これまで（完了）'), h('span', {}), h('span', {}, 'これから（締切）→')),
+      h('div', { class: 'days' },
+        pastDays.map(d => h('div', { class: 'hd' + (d.getDay() === 1 ? ' wk' : '') }, md(d), h('br'), wd(d))),
+        h('div', { class: 'hd' }, '今日'),
+        futureDays.map(d => h('div', { class: 'hd' + (d.getDay() === 1 ? ' wk' : '') }, md(d), h('br'), wd(d))))),
+    h('div', {}));
+  return [header, ...stats.map(s => h('div', { class: 'tl tlrow clickable', title: `${s.member.name} のボードを開く`, onclick: () => switchView(s.member.id) },
+    h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件・残 ${s.load.toFixed(1)}`)),
+    h('div', { class: 'days' },
+      s.done.map((items, k) => bar(items, 'done', pastDays[k], '完了')),
+      h('div', { class: 'today' }),
+      s.due.map((items, k) => bar(items, 'due' + (futureDays[k] <= soonLimit ? ' hot' : ''), futureDays[k], '締切'))),
+    h('div', { class: 'load' }, h('b', {}, s.late || '–'), h('span', {}, '締切超過'))))];
 }
 
 function renderDashboard() {
-  const stats = CONFIG.members.map(memberStats);
-  const maxLoad = Math.max(1, ...stats.map(s => s.load));
-  const maxDone = Math.max(1, ...stats.flatMap(s => s.done));
   const today = startOfToday();
-  const fromDay = addDays(today, -(WINDOW_DAYS - 1)), toDay = addDays(today, WINDOW_DAYS - 1);
-  const md = d => `${d.getMonth() + 1}/${d.getDate()}`;
-  const count = (n, cls) => h('td', { class: 'num ' + (n ? cls : 'zero') }, n || '–');
-  const list = items => items.map(i => `#${i.id} ${parseTitle(i.subject).text}`).join('\n');
-
-  const rows = stats.map(s => h('tr', { onclick: () => switchView(s.member.id), title: `${s.member.name} のボードを開く` },
-    h('td', { class: 'name' }, s.member.name),
-    h('td', { class: 'num' }, s.active),
-    h('td', {}, h('div', { class: 'loadbar' },
-      h('div', { class: 'track' }, h('div', { class: 'fill', style: `width:${(s.load / maxLoad) * 100}%` })),
-      h('span', {}, s.load.toFixed(1)))),
-    count(s.late, 'warn-late'),
-    count(s.over, 'warn-soon'),
-    h('td', {}, h('div', { class: 'cellrow' },
-      h('div', { class: 'spark' }, s.done.map((n, k) => h('i', {
-        class: n ? '' : 'none',
-        style: `height:${n ? Math.max(4, (n / maxDone) * 22) : 2}px`,
-        title: `${jpDate(addDays(fromDay, k))} 完了 ${n} 件${n ? '\n' + list(s.doneItems[k]) : ''}`,
-      }))),
-      h('b', {}, s.doneTotal))),
-    h('td', {}, h('div', { class: 'heat' }, s.due.map((n, k) => h('i', {
-      class: `l${Math.min(n, 3)}` + (k && addDays(today, k).getDay() === 1 ? ' wk' : ''),
-      title: `${jpDate(addDays(today, k))} 締切 ${n} 件${n ? '\n' + list(s.dueItems[k]) : ''}`,
-    }))))));
-
+  const pastDays = weekdaysFrom(today, -1, 10).reverse();      // 今日を含む過去の平日 10 日
+  const futureDays = weekdaysFrom(addDays(today, 1), 1, 10);   // 明日からの平日 10 日
+  const stats = CONFIG.members.map(m => memberStats(m, pastDays, futureDays));
   const fever = versionFever();
-  const label = { r: '要対応', y: '注意', g: '順調' };
-  $('dash').replaceChildren(
-    h('section', { class: 'panel', 'aria-label': 'メンバーの状況' },
-      h('h2', {}, 'メンバーの状況'),
-      h('p', { class: 'note' }, '残作業量 = 未着手 1.0、進行中は残りの割合（40% なら 0.6）で数えた合計。行をクリックするとその人のボードを開きます。'),
-      h('table', { class: 'team' },
-        h('thead', {}, h('tr', {},
-          h('th', {}, 'メンバー'), h('th', { class: 'num' }, '手持ち'), h('th', {}, '残作業量'),
-          h('th', { class: 'num' }, '締切超過'), h('th', { class: 'num' }, '予定超え'),
-          h('th', {}, '直近2週間の完了', h('small', {}, `${md(fromDay)}〜${md(today)}・1日1本`)),
-          h('th', {}, '今後2週間の締切', h('small', {}, `${md(today)}〜${md(toDay)}・濃いほど多い`)))),
-        h('tbody', {}, rows))),
-    h('section', { class: 'panel fever', 'aria-label': '業務カテゴリごとのバッファ' },
-      h('h2', {}, '業務カテゴリごとのバッファ'),
-      h('p', { class: 'note' }, 'バッファ = 本来の締切 − 作業完了予定。締切が前後2週間のタスクだけで測るので、先のタスクが増えても進捗は下がりません。'),
-      fever.length ? renderFever(fever) : h('p', { class: 'empty' }, '締切が前後2週間のタスクがありません'),
-      h('ul', { class: 'vlist' }, fever.map(r => h('li', {},
-        h('span', { class: `st ${r.zone}` }, `● ${label[r.zone]}`),
-        h('span', {}, r.name),
-        h('span', { class: 'meta' }, `進捗 ${Math.round(r.progress * 100)}%・消費 ${Math.round(r.use * 100)}%・${r.n}件`))))));
+  const mode = dashMode();
 
-  const totals = stats.reduce((a, s) => ({ active: a.active + s.active, late: a.late + s.late, done: a.done + s.doneTotal }), { active: 0, late: 0, done: 0 });
-  $('summary').replaceChildren(
-    h('span', { class: 'chip' + (totals.late ? ' late' : '') }, 'チームの締切超過', h('b', {}, totals.late)),
-    h('span', { class: 'chip' }, 'チームの手持ち', h('b', {}, totals.active)),
-    h('span', { class: 'chip' }, '直近2週間の完了', h('b', {}, totals.done)));
+  // チームの数字
+  const endOfWeek = addDays(today, 7 - (today.getDay() || 7));
+  const thisWeek = stats.reduce((n, s) => n + s.tasks.filter(t => { const d = targetDate(t.issue); return d && d >= today && d <= endOfWeek; }).length, 0);
+  const tile = (v, k, bad) => h('div', { class: 'tile' + (bad && v ? ' bad' : '') }, h('span', { class: 'v' }, v), h('span', { class: 'k' }, k));
+
+  const legend = mode === 'blocks'
+    ? [h('span', {}, h('i', { class: 'sw-late' }), '締切超過'), h('span', {}, h('i', { class: 'sw-soon' }), `${CONFIG.dueSoonDays}日以内に締切`),
+       h('span', {}, h('i', { class: 'sw-norm' }), 'その他'), h('span', {}, 'ブロック1つ = タスク1つ。長さ = 残りの作業量（未着手 1.0、40% 済みなら 0.6）。行をクリックするとその人のボードへ')]
+    : [h('span', {}, h('i', { class: 'sw-done' }), '完了した数（これまで）'), h('span', {}, h('i', { class: 'sw-due' }), '締切の数（これから）'),
+       h('span', {}, h('i', { class: 'sw-soon' }), `${CONFIG.dueSoonDays}日以内の締切`), h('span', {}, '平日だけ表示。週末の分は金曜に含めています')];
+  const zoneLabel = { r: '見直し', y: '注意', g: '順調' };
+
+  $('dash').replaceChildren(
+    h('div', { class: 'tiles' },
+      tile(stats.reduce((n, s) => n + s.late, 0), '締切超過', true),
+      tile(thisWeek, '今週の締切'),
+      tile(stats.reduce((n, s) => n + s.doneTotal, 0), '2週間で完了'),
+      tile(fever.filter(r => r.zone === 'r').length, '日程の見直しが必要な仕事', true)),
+    h('div', { class: 'main' },
+      h('section', { class: 'panel', 'aria-label': 'メンバーの状況' },
+        h('div', { class: 'panel-head' },
+          h('h2', {}, mode === 'blocks' ? 'いま抱えている仕事（多い順）' : 'これまでの2週間と、これからの2週間'),
+          h('div', { class: 'seg', role: 'group', 'aria-label': '表示の切り替え' },
+            h('button', { type: 'button', 'aria-pressed': String(mode === 'blocks'), onclick: () => setDashMode('blocks') }, '積み木'),
+            h('button', { type: 'button', 'aria-pressed': String(mode === 'timeline'), onclick: () => setDashMode('timeline') }, 'タイムライン'))),
+        h('div', { class: 'legend' }, legend),
+        h('div', {}, mode === 'blocks' ? renderBlocks(stats) : renderTimeline(stats, pastDays, futureDays))),
+      h('section', { class: 'panel', 'aria-label': '仕事ごとの状況' },
+        h('h2', {}, '仕事ごとの状況（締切が前後2週間のタスク）'),
+        fever.length
+          ? h('ul', { class: 'cats' }, fever.map(r => h('li', { class: 'cat', title: r.worst ? `いちばん遅れ: #${r.worst.i.id} ${parseTitle(r.worst.i.subject).text}` : '' },
+              h('div', { class: 'head' },
+                h('span', { class: `st ${r.zone}` }, zoneLabel[r.zone]),
+                h('span', { class: 'name' }, r.v.label),
+                r.v.code ? h('span', { class: 'kind' }, `${r.v.code}_${r.v.category}`) : null,
+                h('span', { class: 'n' }, `${r.n} 件`)),
+              h('div', { class: 'meter' }, h('span', {}, '進捗'),
+                h('div', { class: 'tr' }, h('div', { class: 'fl', style: `width:${r.progress * 100}%` })), h('b', {}, `${Math.round(r.progress * 100)}%`)),
+              h('div', { class: 'meter' }, h('span', {}, 'バッファ消費'),
+                h('div', { class: 'tr' }, h('div', { class: `fl use-${r.zone}`, style: `width:${Math.min(1, r.use) * 100}%` })), h('b', {}, `${Math.round(r.use * 100)}%`)))))
+          : h('p', { class: 'empty' }, '締切が前後2週間のタスクがありません'),
+        h('p', { class: 'foot' }, 'バッファ = 本来の締切 − 作業完了予定。進捗に対して消費が大きいものを「見直し」にしています（30% + 進捗×70% を超えたら見直し、10% + 進捗×60% を超えたら注意）。'))));
+  $('summary').replaceChildren();
 }
 
 /* =====================================================================
