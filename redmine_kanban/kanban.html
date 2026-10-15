@@ -607,6 +607,13 @@ a.btn { text-decoration: none; display: inline-block; }
 .guide-page th { font-size: 12px; color: var(--ink-2); background: var(--surface-2); }
 .guide-page .end { margin-top: 36px; padding: 16px 18px; border-radius: 10px; background: var(--accent-soft); }
 @media (max-width: 640px) { .guide-page .ba { grid-template-columns: 1fr; } .guide-page nav.toc ol { columns: 1; } .guide-page .mini-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.desc-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.desc-links:empty { display: none; }
+.desc-links a { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+  border-radius: 6px; padding: 3px 10px; font-size: 12px; text-decoration: none; }
+.desc-links a:hover { background: var(--accent); color: var(--accent-ink); }
+.desc-links a b { white-space: nowrap; }
+.desc-links a span { font-size: 11px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -868,7 +875,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-15 23:34'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-15 23:35'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1046,7 +1053,7 @@ function createMockApi(getMockUserId) {
   // Power Automate がメールから作った、担当もバージョンもないチケット
   const mails = [
     [4701, '試作3号車 バンパーとフェンダーの干渉について', 0, 8 * 60 + 12,
-      '試作課 佐々木です。\n\n試作3号車の組付けで、フロントバンパー端部とフェンダーが約2mm干渉しています。\n写真を共有フォルダに置きました。\n対策案のご検討をお願いします。来週の試作会議で報告が必要です。'],
+      '試作課 佐々木です。\n\n試作3号車の組付けで、フロントバンパー端部とフェンダーが約2mm干渉しています。\n写真を共有フォルダに置きました。\n対策案のご検討をお願いします。来週の試作会議で報告が必要です。\n\n写真: https://share.example.com/sites/shisaku/photos/3gou-bumper\n前回の議事録: https://wiki.example.com/minutes/2026-10-08'],
     [4702, '【至急】量産部品 ブラケット寸法不一致の連絡', -1, 16 * 60 + 40,
       '品質保証 森です。\n\n仕入先A社より、ブラケット(品番 51234-XX)の穴位置が図面と1.5mmずれているとの連絡がありました。\n図面側の誤りか、製造側の問題か判断をお願いします。'],
     [4703, '設計変更依頼 DCN-2318 ブラケット取付穴位置の変更', -1, 10 * 60 + 5,
@@ -2029,6 +2036,27 @@ function issueFields(issue, prefix, opts = {}) {
     error: h('p', { class: 'error-msg', role: 'alert' }),
   };
   el.desc.value = issue.description || '';
+  // 説明に書かれた URL を、下にリンクとして並べる（クリックで別タブ。http/https だけ）
+  // 文末の句読点は外す。閉じ括弧は、URL の中に対応する開き括弧がないときだけ外す（…/a(b) は残す）
+  const trimUrl = u => {
+    for (let prev = ''; prev !== u; ) {
+      prev = u;
+      u = u.replace(/[.,;:!?]+$/, '');
+      if (u.endsWith(')') && (u.match(/\(/g) || []).length < (u.match(/\)/g) || []).length) u = u.slice(0, -1);
+    }
+    return u;
+  };
+  el.links = h('div', { class: 'desc-links', 'aria-label': '説明の中のリンク' });
+  const showLinks = () => {
+    const urls = [...new Set((el.desc.value.match(/https?:\/\/[^\s<>"'（）「」、。]+/g) || []).map(trimUrl))];
+    el.links.replaceChildren(...urls.map((u, k) => {
+      let host = u;
+      try { const x = new URL(u); host = x.host + (x.pathname.length > 1 ? x.pathname : ''); } catch (_) { /* そのまま表示 */ }
+      return h('a', { href: u, target: '_blank', rel: 'noopener noreferrer', title: u }, h('b', {}, `リンク${k + 1}`), h('span', {}, host));
+    }));
+  };
+  el.desc.addEventListener('input', showLinks);
+  showLinks();
 
   // バージョンの新規作成（全員に出す。Redmine の権限がなければ作成時にその旨を表示する）
   let versionControl = el.version;
@@ -2106,7 +2134,7 @@ function issueFields(issue, prefix, opts = {}) {
         field('対象バージョン', versionControl, true, el.version.id),
         field(opts.multi ? '担当（複数選ぶと人数分のチケットを作ります）' : '担当', el.assignee, true, prefix + 'Assignee')),
       opts.multi ? el.group : null,
-      field(descLabel, el.desc),
+      h('div', { class: 'field' }, h('label', { for: el.desc.id }, descLabel), el.desc, el.links),
     ].filter(Boolean),   // replaceChildren に null を渡すと「null」と出るので除く
     // 入力に問題があればメッセージを出して false
     validate() {
