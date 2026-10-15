@@ -463,6 +463,90 @@ a.btn { text-decoration: none; display: inline-block; }
 .htable tfoot td { font-weight: 700; background: var(--surface-2); }
 .htable td.zero { color: var(--ink-3); }
 .htable .kind { display: block; font-size: 11px; color: var(--ink-3); }
+/* ---------- 課題バラシ ---------- */
+.bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.bara .btop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(460px, 100%); }
+.bara .btop .sp { flex: 1; }
+.bara .bhelp { display: flex; gap: 4px 14px; flex-wrap: wrap; padding: 6px 14px; font-size: 11px; color: var(--ink-2); background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.bara .bhelp b { color: var(--ink); }
+.bara .sumbar { font-size: 12px; color: var(--ink-2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.bara .sumbar b { font-family: var(--font-num); font-weight: 500; color: var(--ink); }
+.bara .sumbar .crit-v { color: var(--late); }
+.bara .canvas { flex: 1; min-height: 0; overflow: auto; position: relative; padding: 20px; background: var(--bg); }
+.bara .canvas.busy { opacity: .6; pointer-events: none; }
+.bara .inner { position: relative; display: inline-block; min-width: 100%; padding-right: 40px; }
+.bara svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.bara svg.arrows path.hit { stroke: transparent; stroke-width: 14; fill: none; pointer-events: stroke; cursor: pointer; }
+.bara svg.arrows path.line { stroke: var(--ink-3); stroke-width: 1.8; fill: none; }
+.bara svg.arrows path.line.crit { stroke: var(--late); stroke-width: 2.4; }
+.bara svg.arrows g:hover path.line { stroke: var(--late); stroke-width: 2.6; stroke-dasharray: 5 3; }
+.bara svg.arrows .head { fill: var(--ink-3); }
+.bara svg.arrows .head.crit { fill: var(--late); }
+.bara .flow { display: flex; gap: 44px; align-items: flex-start; }
+.bara .stage { display: flex; flex-direction: column; gap: 14px; }
+.bara .flow.empty-flow { min-height: 54px; min-width: 220px; border: 1.5px dashed var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--ink-3); font-size: 12px; padding: 8px; }
+.bara .frame { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 0 14px 14px; position: relative; }
+.bara .frame > .bx { margin: 0 -14px 12px; border-radius: 12px 12px 0 0; border-width: 0 0 1px; width: auto; box-shadow: none; }
+.bara .frame.drop-into { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.bara .bx { width: 200px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 9px; box-shadow: var(--shadow);
+  position: relative; display: flex; flex-direction: column; gap: 4px; cursor: grab; user-select: none; }
+.bara .bx:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bara .bx.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.bara .bx.root { cursor: default; }
+.bara .bx.dragging, .bara .frame.dragging { opacity: .4; }
+.bara .bx.saving { opacity: .55; }
+.bara .bx .sj { font-weight: 700; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.bara .bx .sj input { width: 100%; border: 1px solid var(--accent); border-radius: 4px; padding: 2px 4px; font-weight: 700; font-size: 13px; background: var(--surface); }
+.bara .bx .meta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
+.bara .bx .meta .who { color: var(--ink-2); }
+.bara .bx .meta .st { margin-left: auto; padding: 0 6px; border-radius: 4px; background: var(--surface-2); }
+.bara .bx .meta .st.doing { background: var(--accent-soft); color: var(--accent); }
+.bara .bx .meta .st.done { background: var(--ok-bg); color: var(--ok); }
+.bara .bx .meta .dl.late { color: var(--late); font-weight: 700; } .bara .bx .meta .dl.soon { color: var(--soon); font-weight: 700; }
+.bara .bx .bar { height: 3px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.bara .bx .bar i { display: block; height: 100%; background: var(--accent); }
+.bara .bx.done .bar i { background: var(--ok); }
+.bara .bx.done .sj { color: var(--ink-2); }
+.bara .frame > .bx .sj { font-size: 14px; }
+.bara .frame > .bx .sj::before { content: "▾ "; color: var(--ink-3); }
+.bara .frame.collapsed > .bx .sj::before { content: "▸ "; }
+.bara .outside { font-size: 11px; color: var(--soon); }
+.bara .est-row { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
+.bara .est { border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2); font-family: var(--font-num); white-space: nowrap; }
+.bara button.est:hover { border-color: var(--accent); color: var(--accent); }
+.bara .est.unset { border-style: dashed; color: var(--ink-3); font-family: var(--font-ui); }
+.bara .est.over { border-color: var(--late); color: var(--late); background: var(--late-bg); }
+.bara .est.sum { background: transparent; border-color: transparent; padding-left: 0; }
+.bara .knob { position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--accent); background: var(--surface); color: var(--accent);
+  display: grid; place-items: center; font-size: 14px; line-height: 1; padding: 0; opacity: 0; transition: opacity .12s; z-index: 2; }
+.bara .bx:hover > .knob, .bara .bx.sel > .knob, .bara .bx:focus-within > .knob { opacity: 1; }
+.bara .knob.l { left: -12px; top: calc(50% - 11px); }
+.bara .knob.r { right: -12px; top: calc(50% - 11px); }
+.bara .knob.b { left: calc(50% - 11px); bottom: -12px; }
+.bara .knob.x, .bara .knob.link, .bara .knob.ed { top: 4px; width: 18px; height: 18px; font-size: 10px; }
+.bara .knob.x { right: 4px; border-color: var(--line); color: var(--ink-3); font-size: 12px; }
+.bara .knob.link { right: 24px; cursor: crosshair; }
+.bara .knob.ed { right: 44px; }
+.bara .knob:hover { background: var(--accent); color: var(--accent-ink); }
+.bara .knob.x:hover { background: var(--late); border-color: var(--late); color: #fff; }
+.bara .bx.zone-l::before, .bara .bx.zone-r::after { content: ""; position: absolute; top: -4px; bottom: -4px; width: 5px; border-radius: 3px; background: var(--accent); }
+.bara .bx.zone-l::before { left: -9px; }
+.bara .bx.zone-r::after { right: -9px; }
+.bara .bx.zone-c { outline: 2px dashed var(--accent); outline-offset: 3px; }
+.bara-tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 4px 8px; border-radius: 6px; z-index: 30; }
+.bara-link { position: fixed; inset: 0; pointer-events: none; z-index: 25; width: 100vw; height: 100vh; }
+.bara-link path { stroke: var(--accent); stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+.bara-pop { position: fixed; z-index: 35; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.2); padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 250px; }
+.bara-pop .ttl { font-size: 12px; color: var(--ink-2); font-weight: 700; }
+.bara-pop .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.bara-pop .chips button { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 3px 8px; font-family: var(--font-num); font-size: 12px; }
+.bara-pop .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.bara-pop .row { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.bara-pop .row input { width: 70px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 4px 6px; font-family: var(--font-num); text-align: right; }
+.bara-pop .row .gap { flex: 1; }
+.bara-pop .row button { border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 3px 8px; font-size: 12px; }
+.bara .empty-scope { padding: 40px; text-align: center; color: var(--ink-3); }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -501,6 +585,7 @@ a.btn { text-decoration: none; display: inline-block; }
   <div class="board-wrap">
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
     <div class="dash" id="dash" hidden></div>
+    <div class="bara" id="bara" hidden></div>
     <div class="inbox" id="inbox" hidden>
       <section class="col" aria-label="未整理のチケット">
         <header class="col-head">
@@ -785,6 +870,12 @@ function createMockApi(getMockUserId) {
     });
   }
   db.get(4703).parent = { id: 4300 };   // 親のある未整理（ブラケット部品のVA検討の下）
+  // 課題バラシ用: 予定工数と、前後のつながり（Redmine の「先行」。from が終わってから to）
+  for (const [id, est] of [[4521, 16], [4522, 12], [4523, 4], [4573, 2], [4610, 8], [4611, 6], [4613, 4], [4614, 4], [4572, 4], [4120, null]]) {
+    if (est != null) db.get(id).estimated_hours = est;
+  }
+  let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572]]
+    .map(([from, to], k) => ({ id: 900 + k, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null }));
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
   const closedIds = new Set([8, 9]);
@@ -810,7 +901,26 @@ function createMockApi(getMockUserId) {
       }
     }
   }
+  const isAncestor = (a, b) => { for (let x = db.get(b); x && x.parent; x = db.get(x.parent.id)) if (x.parent.id === a) return true; return false; };
   return {
+    async issuesInVersion(versionId) { await wait(150); return [...db.values()].filter(i => i.fixed_version && i.fixed_version.id === versionId).map(clone); },
+    async issueDetail(id) {
+      await wait(30);
+      const i = db.get(id);
+      if (!i) throw new Error(`#${id} が見つかりません (404)`);
+      const spent = entries.filter(e => e.issue && e.issue.id === id).reduce((n, e) => n + e.hours, 0);
+      return { ...clone(i), spent_hours: spent, relations: clone(rels.filter(r => r.issue_id === id || r.issue_to_id === id)) };
+    },
+    async addRelation(from, to) {
+      await wait(120);
+      if (isAncestor(from, to) || isAncestor(to, from)) throw new Error('Redmine がエラーを返しました (422) 関連するチケットは親子関係にあるチケットにできません');
+      const reach = (a, b, seen = new Set()) => a === b || (!seen.has(a) && (seen.add(a), rels.filter(r => r.issue_id === a).some(r => reach(r.issue_to_id, b, seen))));
+      if (reach(to, from)) throw new Error('Redmine がエラーを返しました (422) 関連の循環');
+      const r = { id: Math.max(899, ...rels.map(x => x.id)) + 1, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null };
+      rels.push(r);
+      return clone(r);
+    },
+    async removeRelation(relId) { await wait(100); rels = rels.filter(r => r.id !== relId); },
     async timeEntries({ from, to, userId }) {
       await wait(200);
       return entries.filter(e => e.spent_on >= from && e.spent_on <= to && (!userId || e.user.id === userId)).map(clone);
@@ -872,6 +982,7 @@ function createMockApi(getMockUserId) {
         fixed_version: fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined,
         status: { id: 1, name: '未着手' }, done_ratio: 0, description: fields.description || '',
         due_date: fields.due_date || null, created_on: now, updated_on: now,
+        ...(fields.estimated_hours != null ? { estimated_hours: fields.estimated_hours } : {}),
       };
       db.set(id, issue);
       return clone(issue);
@@ -900,6 +1011,13 @@ function createMockApi(getMockUserId) {
       if ('assigned_to_id' in fields) issue.assigned_to = fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined;
       if (fields.notes) (issue.journals = issue.journals || []).push({ notes: fields.notes, created_on: new Date().toISOString() });
       if ('fixed_version_id' in fields) issue.fixed_version = fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined;
+      if ('estimated_hours' in fields) issue.estimated_hours = fields.estimated_hours ?? undefined;
+      if ('parent_issue_id' in fields) {
+        const p = fields.parent_issue_id || null;
+        if (p && (p === id || isAncestor(id, p))) throw new Error('Redmine がエラーを返しました (422) 親チケットが不正です');
+        if (p && rels.some(r => (r.issue_id === id && r.issue_to_id === p) || (r.issue_to_id === id && r.issue_id === p))) throw new Error('Redmine がエラーを返しました (422) 親チケットが不正です');
+        issue.parent = p ? { id: p } : undefined;
+      }
       issue.updated_on = new Date().toISOString();
     },
   };
@@ -953,6 +1071,13 @@ function createRedmineApi(baseUrl, apiKey) {
     return activityId;
   }
   return {
+    async issuesInVersion(versionId) { return allIssues(`fixed_version_id=${versionId}&status_id=*`); },
+    async issueDetail(id) { return (await req(`/issues/${id}.json?include=relations`)).issue; },
+    async addRelation(from, to) {
+      const j = await req(`/issues/${from}/relations.json`, { method: 'POST', body: JSON.stringify({ relation: { issue_to_id: to, relation_type: 'precedes' } }) });
+      return j.relation;
+    },
+    async removeRelation(relId) { await req(`/relations/${relId}.json`, { method: 'DELETE' }); },
     async timeEntries({ from, to, userId }) {
       const scope = CONFIG.projectId ? `project_id=${encodeURIComponent(CONFIG.projectId)}&` : '';
       const who = userId ? `user_id=${userId}&` : '';
@@ -1069,6 +1194,8 @@ function createRedmineApi(baseUrl, apiKey) {
         ['fixed_version_id', '対象バージョン', issue.fixed_version && issue.fixed_version.id],
         ['due_date', '作業完了予定（期日）', issue.due_date],
         ['description', '説明', issue.description],
+        ['parent_issue_id', '親チケット', issue.parent && issue.parent.id],
+        ['estimated_hours', '予定工数', issue.estimated_hours],
       ];
       const ignored = checks.filter(([k, , now]) => k in fields && norm(fields[k]) !== norm(now)).map(([, label]) => label);
       if (ignored.length) {
@@ -1099,6 +1226,7 @@ let settings = loadSettings();
 let api = null;
 const INBOX = 'inbox';
 const DASH = 'dash';
+const BARA = 'bara';
 const state = {
   me: null, view: null,               // view = メンバーの ID または 'inbox'
   issues: new Map(), parents: new Map(), saving: new Set(),
@@ -1321,6 +1449,11 @@ function renderTabs() {
     }, '全体'),
     h('button', {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
+      'aria-selected': String(state.view === BARA),
+      onclick: () => switchView(BARA),
+    }, '課題バラシ'),
+    h('button', {
+      type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === INBOX),
       onclick: () => switchView(INBOX),
     }, '未整理', h('span', { class: 'badge' + (n ? '' : ' zero') }, n)),
@@ -1339,13 +1472,15 @@ function renderChrome() {
 
 function render() {
   $('cancelZone').hidden = true;
-  const inbox = state.view === INBOX, dash = state.view === DASH;
-  $('board').hidden = inbox || dash;
+  const inbox = state.view === INBOX, dash = state.view === DASH, bara = state.view === BARA;
+  $('board').hidden = inbox || dash || bara;
   $('inbox').hidden = !inbox;
   $('dash').hidden = !dash;
+  $('bara').hidden = !bara;
   renderTabs();
   if (inbox) { renderInbox(); renderSummary([]); }
   else if (dash) renderDashboard();
+  else if (bara) { renderBara(); $('summary').replaceChildren(); }
   else renderBoard();
 }
 
@@ -1836,6 +1971,8 @@ function renderTriageForm(issue) {
     h('div', { class: 'actions' },
       h('p', { class: 'hint' }, '登録すると担当者のボードの「未着手」に入ります。担当を複数選ぶと、2人目からは同じ内容のチケットを新しく作ります。'),
       h('button', { type: 'button', class: 'btn', title: 'チケットは削除せず「中止」にします（Power Automate の重複判定に使うため）', onclick: () => dismissInbox(issue) }, 'タスクではない'),
+      h('button', { type: 'button', class: 'btn', title: '件名・締切・バージョンを保存して、このチケットを親にしてタスクを分解します（担当はなくてもかまいません）',
+        onclick: () => triageToBara(issue, f) }, '課題バラシで分解する'),
       submit));
 
   form.onsubmit = async e => {
@@ -1862,6 +1999,21 @@ function renderTriageForm(issue) {
     if (failed.length) toast(`作れなかった分があります: ${failed.join('、')}`, { error: true });
     render();
   };
+}
+
+// 未整理のチケットを親にして課題バラシへ。バージョンは分解したタスクにも引き継ぐので必須、担当はなくてよい
+async function triageToBara(issue, f) {
+  f.el.error.textContent = '';
+  if (!f.el.subject.value.trim()) { f.el.error.textContent = '件名を入力してください。'; f.el.subject.focus(); return; }
+  if (!f.el.version.value) { f.el.error.textContent = '分解したタスクに付けるので、対象バージョンを選んでください。'; f.el.version.focus(); return; }
+  const fields = f.collect();
+  if (!fields.assigned_to_id) delete fields.assigned_to_id;
+  try { await api.updateIssue(issue.id, fields); }
+  catch (err) { f.el.error.textContent = `保存できませんでした。${err.message}`; return; }
+  state.bara.scope = { kind: 'issue', id: issue.id };
+  state.bara.selected = issue.id;
+  await switchView(BARA);
+  toast(`#${issue.id} を親にして分解します。箱の下の ＋ で中のタスクを足してください（中にタスクができると未整理から外れます）`);
 }
 
 /* ---------- カードの編集 ---------- */
@@ -1994,6 +2146,7 @@ async function openEditor(id) {
 
 function closeEditor() {
   $('editor').hidden = true;
+  if (state.view === BARA) renderBara();
   const card = document.querySelector(`.card[data-id="${$('editorForm').dataset.id || ''}"]`);
   if (card) card.focus();
 }
@@ -2055,6 +2208,7 @@ async function loadView() {
     // 親チケットのまとめての見直しは上司だけ（メンバーは「完了（確認済）」を付けられずエラーになるため）。表示を待たせないよう裏で行う
     if (isManager()) sweepParents().catch(() => {});
   }
+  else if (state.view === BARA) await Promise.all([loadBara(), loadInbox()]);
   else await Promise.all([loadUser(state.view), loadInbox()]);
 }
 
@@ -2102,7 +2256,7 @@ async function boot() {
   clearInterval(relayTimer);
   buildApi();
   renderChrome();
-  $('board').hidden = false; $('inbox').hidden = true;
+  $('board').hidden = false; $('inbox').hidden = true; $('bara').hidden = true; $('dash').hidden = true;
   $('board').style.gridTemplateColumns = '';
   $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
   if (settings.mode === 'relay') {
@@ -2452,6 +2606,551 @@ async function renderHoursMonth(slot) {
       h('span', { class: 'hint', style: 'margin-right:auto' }, team ? '他の人の記録が見えない場合は、Redmine の「作業時間の閲覧」権限を確認してください。' : ''),
       h('button', { type: 'button', class: 'btn', disabled: !rows.length, onclick: csv }, 'CSV で保存'))));
 }
+
+/* =====================================================================
+ * 9d. 課題バラシ（親子 = 枠の入れ子、前後 = Redmine の「先行」を矢印で）
+ *   範囲はバージョン 1 つか、親チケット 1 つ。予定工数を入れると「一番長い流れ」を時間で出す
+ * ===================================================================== */
+state.bara = { scope: null, issues: new Map(), rels: [], outside: new Map(), collapsed: new Set(), selected: null, editing: null, temp: null, busy: false };
+const B = state.bara;
+const bKids = id => [...B.issues.values()].filter(i => i.parent && i.parent.id === id);
+const bTop = () => [...B.issues.values()].filter(i => !i.parent || !B.issues.has(i.parent.id));
+function bInSubtree(id, top) { for (let x = B.issues.get(id), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) if (x.id === top) return true; return false; }
+function bVisible(id) {
+  for (let x = B.issues.get(id), g = 0; x && x.parent && B.issues.has(x.parent.id) && g < 20; x = B.issues.get(x.parent.id), g++) {
+    if (B.collapsed.has(x.parent.id) && !(B.scope && B.scope.kind === 'issue' && B.scope.id === x.parent.id)) return false;
+  }
+  return true;
+}
+const bStatus = i => { const c = colOf(i); return c === 'todo' || !c ? 'todo' : isDoneCol(c) ? 'done' : 'doing'; };
+const bRatio = i => (bStatus(i) === 'done' ? 100 : bStatus(i) === 'todo' ? 0 : (statusById[i.status.id].ratio || 0));
+
+async function loadBara() {
+  if (!B.scope) {
+    const pid = projectForNew();
+    if (pid) await ensureVersions(pid);
+    const first = [...state.versions].sort((a, b) => (parseVersion(a.name).prio ?? 999) - (parseVersion(b.name).prio ?? 999))[0];
+    if (!first) { B.issues = new Map(); B.rels = []; return; }
+    B.scope = { kind: 'version', id: first.id };
+  } else if (!state.versions.length) {
+    const pid = projectForNew(); if (pid) await ensureVersions(pid);
+  }
+  let list;
+  if (B.scope.kind === 'version') list = await api.issuesInVersion(B.scope.id);
+  else {
+    // 親チケットから子、孫…とたどる
+    list = [await api.getIssue(B.scope.id)];
+    for (let level = [B.scope.id], depth = 0; level.length && depth < 6; depth++) {
+      const next = [];
+      for (let k = 0; k < level.length; k += 4) {
+        const got = await Promise.all(level.slice(k, k + 4).map(id => api.childIssues(id)));
+        for (const c of got.flat()) { list.push(c); next.push(c.id); }
+      }
+      level = next;
+    }
+  }
+  const cancelled = new Set(list.filter(i => colOf(i) === 'cancelled').map(i => i.id));
+  list = list.filter(i => colOf(i) !== 'cancelled');
+  // 前後のつながりと実績工数は 1 件ずつの詳細にしかないので、まとめて取る（同時 6 件まで）
+  const details = [];
+  for (let k = 0; k < list.length; k += 6) details.push(...await Promise.all(list.slice(k, k + 6).map(i => api.issueDetail(i.id))));
+  B.issues = new Map(details.filter(i => colOf(i) !== 'cancelled').map(i => [i.id, i]));
+  const rels = new Map();
+  B.outside = new Map();
+  for (const i of details) for (const r of i.relations || []) {
+    let from, to;
+    if (r.relation_type === 'precedes') { from = r.issue_id; to = r.issue_to_id; }
+    else if (r.relation_type === 'follows') { from = r.issue_to_id; to = r.issue_id; }
+    else continue;
+    if (cancelled.has(from) || cancelled.has(to)) continue;   // 中止したものとのつながりは数えない
+    if (B.issues.has(from) && B.issues.has(to)) rels.set(r.id, { id: r.id, from, to });
+    else { const inside = B.issues.has(from) ? from : to; if (B.issues.has(inside)) B.outside.set(inside, (B.outside.get(inside) || 0) + 0.5); }
+  }
+  B.rels = [...rels.values()];
+  for (const [k, v] of B.outside) B.outside.set(k, Math.ceil(v));
+  B.temp = null; B.editing = null;
+}
+
+function bStages(list) {
+  const ids = new Set(list.map(i => i.id));
+  const lift = id => { for (let x = B.issues.get(id), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) if (ids.has(x.id)) return x.id; return null; };
+  const rels = [...B.rels, ...(B.temp && B.temp.rel ? [B.temp.rel] : [])];   // 名前を入れている途中の箱も、前後の位置に出す
+  const edges = rels.map(r => [lift(r.from), lift(r.to)]).filter(([a, b]) => a != null && b != null && a !== b);
+  const memo = new Map();
+  const rank = (id, guard = 0) => {
+    if (memo.has(id)) return memo.get(id);
+    if (guard > 50) return 0;
+    const preds = edges.filter(([, b]) => b === id).map(([a]) => a);
+    const v = preds.length ? Math.max(...preds.map(p => rank(p, guard + 1))) + 1 : 0;
+    memo.set(id, v); return v;
+  };
+  const cols = [];
+  for (const i of [...list].sort(byPriority)) (cols[rank(i.id)] = cols[rank(i.id)] || []).push(i);
+  return cols.filter(Boolean);
+}
+
+function bFlow(parentId) {
+  const list = parentId == null ? bTop() : bKids(parentId);
+  if (!list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, parentId == null ? 'タスクがありません。右上の ＋ タスク で追加' : 'ここに箱をドラッグ、または ＋（下）で追加');
+  return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, bStages(list).map(col => h('div', { class: 'stage' }, col.map(bNode))));
+}
+function bNode(issue) {
+  if (!bKids(issue.id).length) return bBox(issue, false);
+  const isCollapsed = B.collapsed.has(issue.id) && !(B.scope.kind === 'issue' && B.scope.id === issue.id);
+  return h('div', { class: 'frame' + (isCollapsed ? ' collapsed' : ''), 'data-frame': issue.id }, bBox(issue, true), isCollapsed ? null : bFlow(issue.id));
+}
+function bLeaves(id) { const k = bKids(id); return k.length ? k.flatMap(c => bLeaves(c.id)) : [B.issues.get(id)]; }
+
+function bBox(issue, isHeader) {
+  const leaves = isHeader ? bLeaves(issue.id).filter(l => !l.temp) : null;
+  const st = isHeader ? (leaves.every(l => bStatus(l) === 'done') ? 'done' : leaves.every(l => bStatus(l) === 'todo') ? 'todo' : 'doing') : bStatus(issue);
+  const ratio = isHeader ? Math.round(leaves.reduce((n, l) => n + bRatio(l), 0) / Math.max(1, leaves.length)) : bRatio(issue);
+  const stText = issue.temp ? '新規' : { todo: '未着手', doing: `${ratio}%`, done: '完了' }[st];
+  const isRoot = B.scope.kind === 'issue' && B.scope.id === issue.id;
+  const due = issue.temp ? null : deadlineInfo(issue);
+  const knob = (cls, title, text, fn, ev = 'onclick') => h('button', { type: 'button', class: 'knob ' + cls, title, 'aria-label': title, [ev]: e => { e.stopPropagation(); fn(e); } }, text);
+  return h('div', {
+    class: `bx ${st}${B.selected === issue.id ? ' sel' : ''}${isRoot ? ' root' : ''}${issue.saving ? ' saving' : ''}`, tabindex: '0',
+    draggable: B.editing === issue.id || isRoot || issue.temp ? 'false' : 'true', 'data-id': issue.id, 'aria-label': issue.subject,
+  },
+    h('div', { class: 'sj' }, B.editing === issue.id ? bEditInput(issue) : parseTitle(issue.subject).text),
+    h('div', { class: 'meta' },
+      issue.temp ? null : h('span', {}, `#${issue.id}`),
+      h('span', { class: 'who' }, issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] : '担当なし'),
+      due && due.hasDeadline ? h('span', { class: 'dl ' + due.cls, title: due.text },
+        due.level ? due.text.replace(/ \d+\/\d+\(.\)$/, '') : `締切 ${due.text.match(/\d+\/\d+/)[0]}`) : null,
+      isHeader ? h('span', {}, `子 ${bKids(issue.id).length}`) : null,
+      h('span', { class: `st ${st}` }, stText)),
+    h('div', { class: 'bar' }, h('i', { style: `width:${ratio}%` })),
+    issue.temp ? null : bEst(issue, isHeader, leaves),
+    B.outside.get(issue.id) ? h('span', { class: 'outside' }, `範囲の外とのつながり ${B.outside.get(issue.id)}`) : null,
+    issue.temp ? null : [
+      isRoot ? null : knob('l', '前の仕事を追加', '+', () => bAddNear(issue.id, 'before')),
+      isRoot ? null : knob('r', '後の仕事を追加', '+', () => bAddNear(issue.id, 'after')),
+      knob('b', '中の仕事（子）を追加', '+', () => bAddNear(issue.id, 'child')),
+      knob('link', 'ドラッグして矢印だけつなぐ', '⤳', e => bStartLink(e, issue.id), 'onpointerdown'),
+      knob('ed', '詳しく編集（担当・締切など）', '✎', () => bOpenEditor(issue.id)),
+      isRoot || isHeader ? null : knob('x', '中止にする（チケットは残ります）', '×', () => bCancel(issue.id)),
+    ]);
+}
+
+function bEst(issue, isHeader, leaves) {
+  if (isHeader) {
+    const est = leaves.reduce((n, l) => n + (l.estimated_hours || 0), 0), spent = leaves.reduce((n, l) => n + (l.spent_hours || 0), 0);
+    const unset = leaves.filter(l => l.estimated_hours == null).length;
+    return h('div', { class: 'est-row' }, h('span', { class: 'est sum' }, `予定 合計 ${fmtH(est)}`),
+      spent ? h('span', {}, `実績 ${fmtH(spent)}`) : null, unset ? h('span', {}, `（予定未入力 ${unset}件）`) : null);
+  }
+  const est = issue.estimated_hours, spent = issue.spent_hours || 0;
+  const over = est != null && spent > est;
+  return h('div', { class: 'est-row' },
+    h('button', { type: 'button', class: 'est' + (est == null ? ' unset' : '') + (over ? ' over' : ''), title: '予定工数を入れる',
+      onclick: e => { e.stopPropagation(); bOpenEst(issue, e.currentTarget); }, onpointerdown: e => e.stopPropagation() },
+      est == null ? '予定工数 ＋' : `予定 ${fmtH(est)}`),
+    spent ? h('span', { title: '工数ボタンなどで記録した実績' }, `実績 ${fmtH(spent)}`) : null,
+    over ? h('span', { style: 'color:var(--late)' }, '予定超え') : null);
+}
+
+let bPop = null;
+function bCloseEst() { if (bPop) { bPop.remove(); bPop = null; } }
+function bOpenEst(issue, anchor) {
+  bCloseEst();
+  const set = v => { bCloseEst(); bSetEst(issue, v); };
+  const input = h('input', { type: 'number', min: '0', step: '0.5', value: issue.estimated_hours ?? '', 'aria-label': '予定工数（時間）' });
+  input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && input.value !== '') set(Number(input.value)); if (e.key === 'Escape') bCloseEst(); });
+  bPop = h('div', { class: 'bara-pop', role: 'dialog', 'aria-label': '予定工数' },
+    h('span', { class: 'ttl' }, `予定工数 — ${parseTitle(issue.subject).text}`),
+    h('div', { class: 'chips' }, [1, 2, 4, 8, 16, 24, 40].map(n => h('button', { type: 'button', 'aria-pressed': String(issue.estimated_hours === n), onclick: () => set(n) },
+      n % CONFIG.hoursPerDay === 0 ? `${n / CONFIG.hoursPerDay}日` : `${n}h`))),
+    h('div', { class: 'row' }, input, 'h', h('button', { type: 'button', onclick: () => input.value !== '' && set(Number(input.value)) }, '決定'),
+      h('span', { class: 'gap' }), issue.estimated_hours != null ? h('button', { type: 'button', onclick: () => set(null) }, '消す') : null));
+  bPop.addEventListener('pointerdown', e => e.stopPropagation());
+  document.body.append(bPop);
+  const r = anchor.getBoundingClientRect();
+  bPop.style.left = `${Math.max(8, Math.min(r.left, innerWidth - bPop.offsetWidth - 8))}px`;
+  bPop.style.top = `${r.bottom + 6 + bPop.offsetHeight > innerHeight ? r.top - bPop.offsetHeight - 6 : r.bottom + 6}px`;
+  input.focus();
+}
+document.addEventListener('pointerdown', bCloseEst);
+
+function bEditInput(issue) {
+  const input = h('input', { type: 'text', value: parseTitle(issue.subject).text, 'aria-label': '件名', placeholder: '仕事の名前' });
+  let done = false;
+  const finish = commit => {
+    if (done) return; done = true;
+    B.editing = null;
+    const text = input.value.trim();
+    if (issue.temp) { if (commit && text) bCreateTemp(text); else { bDropTemp(); renderBara(); } return; }
+    if (commit && text && text !== parseTitle(issue.subject).text) bRename(issue, text); else renderBara();
+  };
+  input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('pointerdown', e => e.stopPropagation());
+  return input;
+}
+
+function bScopeOptions() {
+  const versions = [...state.versions].sort((a, b) => (parseVersion(a.name).prio ?? 999) - (parseVersion(b.name).prio ?? 999) || a.name.localeCompare(b.name, 'ja'));
+  const opts = versions.map(v => h('option', { value: `v${v.id}` }, `バージョン: ${v.name}`));
+  const parents = [...B.issues.values()].filter(i => !i.temp && bKids(i.id).length);
+  if (B.scope && B.scope.kind === 'issue' && !parents.some(p => p.id === B.scope.id)) {
+    const root = B.issues.get(B.scope.id);
+    opts.unshift(h('option', { value: `i${B.scope.id}` }, `親チケット: ${root ? parseTitle(root.subject).text : '#' + B.scope.id}`));
+  }
+  for (const p of parents) {
+    let depth = 0; for (let x = p; x.parent && B.issues.has(x.parent.id) && depth < 10; x = B.issues.get(x.parent.id)) depth++;
+    opts.push(h('option', { value: `i${p.id}` }, `${'　'.repeat(depth)}親チケット: ${parseTitle(p.subject).text}`));
+  }
+  return opts;
+}
+
+function bCritical() {
+  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length).map(i => i.id);
+  const set = new Set(leaves);
+  const ends = (id, first) => {
+    const L = bLeaves(id).map(l => l.id);
+    if (L.length === 1 && L[0] === id) return L;
+    return L.filter(l => !B.rels.some(r => (first ? r.to === l && bInSubtree(r.from, id) : r.from === l && bInSubtree(r.to, id))));
+  };
+  const edges = [];
+  for (const r of B.rels) for (const a of ends(r.from, false)) for (const b of ends(r.to, true)) if (set.has(a) && set.has(b) && a !== b) edges.push({ a, b, rel: r.id });
+  const byHours = leaves.some(id => (B.issues.get(id).estimated_hours || 0) > 0);
+  const w = id => (byHours ? B.issues.get(id).estimated_hours || 0 : 1);
+  const memo = new Map(), onPath = new Set();
+  // 親子をまたいだつながりで輪ができることがあるので、たどっている途中の仕事には戻らない
+  const longest = id => {
+    if (memo.has(id)) return memo.get(id);
+    onPath.add(id);
+    let best = { len: w(id), n: 1, path: [] };
+    for (const e of edges.filter(x => x.a === id && !onPath.has(x.b))) { const x = longest(e.b); if (w(id) + x.len > best.len) best = { len: w(id) + x.len, n: x.n + 1, path: [e.rel, ...x.path] }; }
+    onPath.delete(id);
+    memo.set(id, best); return best;
+  };
+  let top = { len: 0, n: 0, path: [] };
+  for (const id of leaves) { const x = longest(id); if (x.len > top.len) top = x; }
+  return { edges: new Set(top.n > 2 ? top.path : []), hours: byHours ? top.len : null, n: top.n };
+}
+
+const BARA_CRIT_KEY = 'designBoard.baraCrit';
+function bCritOn() { try { return localStorage.getItem(BARA_CRIT_KEY) !== '0'; } catch (_) { return true; } }
+
+function renderBara() {
+  const root = $('bara');
+  if (!B.scope) { root.replaceChildren(h('p', { class: 'empty-scope' }, '対象バージョンがありません。')); return; }
+  const scopeSel = h('select', { 'aria-label': 'バラす範囲' }, bScopeOptions());
+  scopeSel.value = `${B.scope.kind === 'version' ? 'v' : 'i'}${B.scope.id}`;
+  scopeSel.addEventListener('change', () => {
+    const v = scopeSel.value;
+    B.scope = { kind: v[0] === 'v' ? 'version' : 'issue', id: Number(v.slice(1)) };
+    B.selected = null; B.collapsed.delete(B.scope.id);
+    bReload();
+  });
+  const crit = h('input', { type: 'checkbox', checked: bCritOn() });
+  crit.addEventListener('change', () => { try { localStorage.setItem(BARA_CRIT_KEY, crit.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } bDrawArrows(); });
+  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length);
+  const cp = bCritical();
+  const sum = h('span', { class: 'sumbar' },
+    h('span', {}, '予定 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.estimated_hours || 0), 0)))),
+    h('span', {}, '実績 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.spent_hours || 0), 0)))),
+    cp.hours != null && cp.n > 2 ? h('span', { title: '並行してできる仕事を除いた、順番にしかできない仕事の予定工数の合計' }, '一番長い流れ ',
+      h('b', { class: 'crit-v' }, `${fmtH(cp.hours)}（約${Math.round((cp.hours / CONFIG.hoursPerDay) * 10) / 10}日）`)) : null);
+  const add = h('button', { type: 'button', class: 'btn primary', onclick: () => bAddTop() }, '＋ タスク');
+  const inner = h('div', { class: 'inner' });
+  const canvas = h('div', { class: 'canvas' + (B.busy ? ' busy' : '') }, inner);
+  const scroll = root.querySelector('.canvas');
+  const keep = scroll ? [scroll.scrollLeft, scroll.scrollTop] : [0, 0];
+  root.replaceChildren(
+    h('div', { class: 'btop' }, scopeSel, h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, crit, '一番長い流れを赤く'), sum, h('span', { class: 'sp' }), add),
+    h('div', { class: 'bhelp' },
+      h('span', {}, h('b', {}, '＋（左・右・下）'), ' 前・後・中（子）の仕事を追加'),
+      h('span', {}, h('b', {}, '箱をドラッグ'), ' 相手の左端＝前／右端＝後／真ん中＝中に入れる'),
+      h('span', {}, h('b', {}, '⤳ をドラッグ'), ' 矢印だけつなぐ'),
+      h('span', {}, h('b', {}, '矢印をクリック'), ' 外す'),
+      h('span', {}, h('b', {}, 'ダブルクリック'), ' 名前を変える'),
+      h('span', {}, h('b', {}, '✎'), ' 担当・締切などを編集'),
+      h('span', {}, '前後のつながりは Redmine の「先行」として保存され、ガントチャートにも出ます')),
+    canvas);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'arrows');
+  const top = B.scope.kind === 'issue' && B.issues.has(B.scope.id)
+    ? h('div', { class: 'flow' }, h('div', { class: 'stage' }, bNode(B.issues.get(B.scope.id))))
+    : bFlow(null);
+  inner.replaceChildren(top, svg);
+  canvas.scrollLeft = keep[0]; canvas.scrollTop = keep[1];
+  bDrawArrows(cp);
+  bBindCanvas(inner);
+  const editing = inner.querySelector('.bx .sj input');   // 描いた直後に入力欄へ（打ち始めの1文字目を取りこぼさない）
+  if (editing) { editing.focus(); editing.select(); }
+}
+
+function bAnchor(id) {
+  const inner = $('bara').querySelector('.inner');
+  return inner && (inner.querySelector(`.frame[data-frame="${id}"]`) || inner.querySelector(`.bx[data-id="${id}"]`));
+}
+function bDrawArrows(cp) {
+  const inner = $('bara').querySelector('.inner');
+  const svg = inner && inner.querySelector('svg.arrows');
+  if (!svg || $('bara').hidden) return;
+  const base = inner.getBoundingClientRect();
+  svg.setAttribute('width', inner.scrollWidth); svg.setAttribute('height', inner.scrollHeight);
+  const critOn = bCritOn();
+  const crit = critOn ? (cp || bCritical()).edges : new Set();
+  const NS = 'http://www.w3.org/2000/svg';
+  const parts = [];
+  const rels = [...B.rels, ...(B.temp && B.temp.rel ? [B.temp.rel] : [])];
+  for (const r of rels) {
+    if (!bVisible(r.from) || !bVisible(r.to)) continue;
+    const a = bAnchor(r.from), b = bAnchor(r.to);
+    if (!a || !b) continue;
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const x1 = ra.right - base.left, y1 = ra.top - base.top + Math.min(ra.height / 2, 30);
+    const x2 = rb.left - base.left - 6, y2 = rb.top - base.top + Math.min(rb.height / 2, 30);
+    const dx = x2 > x1 ? Math.max(30, (x2 - x1) / 2) : Math.min(90, 30 + (x1 - x2) / 8);
+    const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    const g = document.createElementNS(NS, 'g');
+    const mk = (cls, dd) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', dd); p.setAttribute('class', cls); return p; };
+    const title = document.createElementNS(NS, 'title'); title.textContent = `#${r.from} → #${r.to}（クリックで外す）`;
+    const hit = mk('hit', d);
+    if (typeof r.id === 'number') hit.addEventListener('click', () => bRemoveRel(r));
+    g.append(title, mk('line' + (crit.has(r.id) ? ' crit' : ''), d), mk('head' + (crit.has(r.id) ? ' crit' : ''), `M${x2 + 6},${y2} l-8,-4.5 v9 z`), hit);
+    parts.push(g);
+  }
+  svg.replaceChildren(...parts);
+}
+window.addEventListener('resize', () => { if (state.view === BARA) bDrawArrows(); });
+
+/* ---- 課題バラシの操作（Redmine に書いてから画面を更新する） ---- */
+async function bReload() {
+  B.busy = true; renderBara();
+  try { await loadBara(); } catch (e) { toast(e.message, { error: true }); }
+  B.busy = false; renderBara();
+}
+async function bRun(fn, okMsg, undo) {
+  B.busy = true; renderBara();
+  try {
+    await fn();
+    if (okMsg) toast(okMsg, undo ? { action: { label: '元に戻す', run: () => bRun(undo, '元に戻しました') } } : {});
+  } catch (e) {
+    toast(e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: '), { error: true });
+  }
+  try { await loadBara(); } catch (e) { toast(e.message, { error: true }); }
+  B.busy = false; renderBara();
+}
+const bTitle = id => `「${parseTitle(B.issues.get(id) ? B.issues.get(id).subject : '#' + id).text}」`;
+
+function bReaches(a, b) {
+  const seen = new Set(), st = [a];
+  while (st.length) { const x = st.pop(); if (x === b) return true; if (seen.has(x)) continue; seen.add(x); B.rels.filter(r => r.from === x).forEach(r => st.push(r.to)); }
+  return false;
+}
+function bRelCheck(from, to) {
+  if (from === to) return '同じ仕事どうしはつなげません';
+  if (B.rels.some(r => r.from === from && r.to === to)) return 'もうつながっています';
+  if (bInSubtree(from, to) || bInSubtree(to, from)) return '親と中の仕事どうしはつなげません（Redmine の制限）';
+  if (bReaches(to, from)) return 'つなぐと輪になってしまうので、つなげません';
+  return null;
+}
+
+function bScopeVersion(base) {
+  if (base && base.fixed_version) return base.fixed_version.id;
+  return B.scope.kind === 'version' ? B.scope.id : null;
+}
+// 新しい箱はまず画面にだけ出し、名前が決まったら Redmine に作る（名前を入れずにやめれば何も作らない）
+function bAddNear(id, where) {
+  bDropTemp();
+  const base = B.issues.get(id);
+  const parentId = where === 'child' ? id : base.parent && B.issues.has(base.parent.id) ? base.parent.id : null;
+  const t = { id: -1, temp: true, subject: '', parent: parentId ? { id: parentId } : null, status: { id: statusForColumn('todo') },
+    assigned_to: base.assigned_to || (state.me && { id: state.me.id, name: state.me.name }), fixed_version: base.fixed_version, project: base.project };
+  B.temp = { issue: t, rel: where === 'before' ? { id: 'tmp', from: -1, to: id } : where === 'after' ? { id: 'tmp', from: id, to: -1 } : null,
+    parentIdForCreate: where === 'child' ? id : base.parent ? base.parent.id : null };
+  if (where === 'child') B.collapsed.delete(id);
+  B.issues.set(-1, t);
+  B.editing = -1; B.selected = -1;
+  renderBara();
+}
+function bAddTop() {
+  bDropTemp();
+  const parentId = B.scope.kind === 'issue' ? B.scope.id : null;
+  const base = parentId ? B.issues.get(parentId) : null;
+  const ver = state.versions.find(v => v.id === (B.scope.kind === 'version' ? B.scope.id : base && base.fixed_version && base.fixed_version.id));
+  const t = { id: -1, temp: true, subject: '', parent: parentId ? { id: parentId } : null, status: { id: statusForColumn('todo') },
+    assigned_to: state.me && { id: state.me.id, name: state.me.name }, fixed_version: ver ? { id: ver.id, name: ver.name } : null, project: base && base.project };
+  B.temp = { issue: t, rel: null, parentIdForCreate: parentId };
+  B.issues.set(-1, t);
+  B.editing = -1; B.selected = -1;
+  renderBara();
+}
+function bDropTemp() { if (B.temp) { B.issues.delete(-1); B.temp = null; } }
+function bCreateTemp(text) {
+  const { issue: t, rel, parentIdForCreate } = B.temp;
+  const projectId = (t.project && t.project.id) || projectForNew();
+  const todo = statusForColumn('todo');
+  bDropTemp();
+  return bRun(async () => {
+    const fields = { subject: text, ...(todo ? { status_id: todo } : {}) };
+    if (parentIdForCreate) fields.parent_issue_id = parentIdForCreate;
+    const ver = t.fixed_version ? t.fixed_version.id : bScopeVersion(null);
+    if (ver) fields.fixed_version_id = ver;
+    if (t.assigned_to) fields.assigned_to_id = t.assigned_to.id;
+    const created = await api.createIssue(projectId, fields);
+    B.selected = created.id;
+    if (rel) await api.addRelation(rel.from === -1 ? created.id : rel.from, rel.to === -1 ? created.id : rel.to);
+  }, `「${text}」を追加しました`);
+}
+function bRename(issue, text) {
+  const { deadline } = parseTitle(issue.subject);
+  const before = issue.subject;
+  return bRun(() => api.updateIssue(issue.id, { subject: buildTitle(text, deadline) }), '名前を変えました',
+    () => api.updateIssue(issue.id, { subject: before }));
+}
+function bSetEst(issue, v) {
+  const before = issue.estimated_hours ?? null;
+  return bRun(() => api.updateIssue(issue.id, { estimated_hours: v }),
+    v == null ? `#${issue.id} の予定工数を消しました` : `#${issue.id} の予定工数を ${fmtH(v)} にしました`,
+    () => api.updateIssue(issue.id, { estimated_hours: before }));
+}
+function bCancel(id) {
+  const issue = B.issues.get(id);
+  const before = issue.status.id;
+  return bRun(() => api.updateIssue(id, { status_id: cancelStatusId() }), `${bTitle(id)}を中止にしました`,
+    () => api.updateIssue(id, { status_id: before }));
+}
+function bRemoveRel(r) {
+  return bRun(() => api.removeRelation(r.id), `#${r.from} → #${r.to} のつながりを外しました`, async () => { await api.addRelation(r.from, r.to); });
+}
+function bLink(from, to) {
+  const why = bRelCheck(from, to);
+  if (why) { toast(why, { error: true }); return; }
+  return bRun(() => api.addRelation(from, to), `#${from} → #${to} をつなぎました`);
+}
+// 親を変える。入れる先の親・祖先とのつながりは Redmine が許さないので先に外す
+async function bMoveInto(id, parentId) {
+  if (parentId === id || (parentId != null && bInSubtree(parentId, id))) throw new Error('自分の中には入れられません');
+  const up = new Set(); for (let x = parentId == null ? null : B.issues.get(parentId), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) up.add(x.id);
+  for (const r of B.rels.filter(r => (r.from === id && up.has(r.to)) || (r.to === id && up.has(r.from)))) await api.removeRelation(r.id);
+  await api.updateIssue(id, { parent_issue_id: parentId || '' });
+}
+function bDrop(id, target, zone) {
+  const t = B.issues.get(target);
+  if (zone === 'c') { B.collapsed.delete(target); return bRun(() => bMoveInto(id, target), `${bTitle(target)}の中に入れました`); }
+  const tp = t.parent && B.issues.has(t.parent.id) ? t.parent.id : (t.parent ? t.parent.id : null);
+  const cur = B.issues.get(id).parent ? B.issues.get(id).parent.id : null;
+  const from = zone === 'l' ? id : target, to = zone === 'l' ? target : id;
+  return bRun(async () => {
+    if (cur !== tp) await bMoveInto(id, tp);
+    if (!B.rels.some(r => r.from === from && r.to === to)) await api.addRelation(from, to);
+  }, zone === 'l' ? `${bTitle(target)}の前に入れました` : `${bTitle(target)}の後に入れました`);
+}
+function bOpenEditor(id) {
+  const issue = B.issues.get(id);
+  state.issues.set(id, issue);   // 編集画面はボードのチケットを編集する作りなので、同じものを渡す
+  openEditor(id);
+}
+
+/* ---- 課題バラシのドラッグ・クリック ---- */
+const bTip = h('div', { class: 'bara-tip', hidden: true });
+document.body.append(bTip);
+let bDragId = null;
+function bZone(box, e) {
+  const r = box.getBoundingClientRect();
+  const edge = box.parentElement.classList.contains('frame') ? 0.15 : 0.3;
+  const x = (e.clientX - r.left) / r.width;
+  return x < edge ? 'l' : x > 1 - edge ? 'r' : 'c';
+}
+function bClearZones() { $('bara').querySelectorAll('.zone-l, .zone-r, .zone-c, .drop-into').forEach(el => el.classList.remove('zone-l', 'zone-r', 'zone-c', 'drop-into')); bTip.hidden = true; }
+function bShowTip(text, e) { bTip.textContent = text; bTip.hidden = false; bTip.style.left = `${e.clientX + 14}px`; bTip.style.top = `${e.clientY + 14}px`; }
+function bBindCanvas(inner) {
+  inner.addEventListener('dragstart', e => {
+    const box = e.target.closest && e.target.closest('.bx');
+    if (!box) return;
+    bDragId = Number(box.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(bDragId));
+    (box.parentElement.classList.contains('frame') ? box.parentElement : box).classList.add('dragging');
+  });
+  inner.addEventListener('dragend', () => { bDragId = null; bClearZones(); inner.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging')); });
+  inner.addEventListener('dragover', e => {
+    if (bDragId == null) return;
+    e.preventDefault();
+    bClearZones();
+    const box = e.target.closest('.bx');
+    if (box && Number(box.dataset.id) !== bDragId && Number(box.dataset.id) > 0) {
+      const z = bZone(box, e);
+      const isRoot = box.classList.contains('root');
+      if (isRoot && z !== 'c') return;
+      box.classList.add('zone-' + z);
+      bShowTip({ l: '← この前に入れる', r: 'この後に入れる →', c: '↓ この中に入れる（子）' }[z], e);
+      return;
+    }
+    const flow = e.target.closest('.flow[data-parent]');
+    if (!flow) return;
+    const frame = flow.parentElement.closest('.frame');
+    if (frame) frame.classList.add('drop-into');
+    bShowTip(frame ? 'この枠の中に入れる（つながりはそのまま）' : 'いちばん外に出す', e);
+  });
+  inner.addEventListener('dragleave', e => { if (!inner.contains(e.relatedTarget)) bClearZones(); });
+  inner.addEventListener('drop', e => {
+    if (bDragId == null) return;
+    e.preventDefault();
+    const id = bDragId; bDragId = null;
+    const box = e.target.closest('.bx');
+    const zone = box && (box.classList.contains('zone-l') ? 'l' : box.classList.contains('zone-r') ? 'r' : box.classList.contains('zone-c') ? 'c' : null);
+    bClearZones();
+    if (box && zone && Number(box.dataset.id) !== id) return void bDrop(id, Number(box.dataset.id), zone);
+    const flow = e.target.closest('.flow[data-parent]');
+    if (!flow) return;
+    const p = flow.dataset.parent === 'top' ? null : Number(flow.dataset.parent);
+    const cur = B.issues.get(id).parent ? B.issues.get(id).parent.id : null;
+    if (cur === p || (p == null && !B.issues.has(cur))) return;
+    bRun(() => bMoveInto(id, p), p == null ? 'いちばん外に出しました' : `${bTitle(p)}の中に入れました`);
+  });
+  inner.addEventListener('click', e => {
+    const box = e.target.closest('.bx');
+    if (!box || e.target.closest('button, input')) return;
+    const id = Number(box.dataset.id);
+    if (box.parentElement.classList.contains('frame') && B.selected === id && !box.classList.contains('root')) {
+      B.collapsed.has(id) ? B.collapsed.delete(id) : B.collapsed.add(id);
+    }
+    B.selected = id; renderBara();
+    const again = $('bara').querySelector(`.bx[data-id="${id}"]`); if (again) again.focus();
+  });
+  inner.addEventListener('dblclick', e => {
+    const box = e.target.closest('.bx');
+    if (!box || e.target.closest('button') || Number(box.dataset.id) < 0) return;
+    B.editing = Number(box.dataset.id); renderBara();
+  });
+}
+function bStartLink(e, fromId) {
+  e.preventDefault();
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'bara-link');
+  const path = document.createElementNS(NS, 'path'); svg.append(path); document.body.append(svg);
+  const a = bAnchor(fromId).getBoundingClientRect();
+  const x1 = a.right, y1 = a.top + Math.min(a.height / 2, 30);
+  const target = ev => { const t = document.elementFromPoint(ev.clientX, ev.clientY); const box = t && t.closest && t.closest('.bara .bx'); return box && Number(box.dataset.id) > 0 && Number(box.dataset.id) !== fromId ? box : null; };
+  const move = ev => {
+    path.setAttribute('d', `M${x1},${y1} L${ev.clientX},${ev.clientY}`);
+    bClearZones();
+    const box = target(ev);
+    if (box) { box.classList.add('zone-l'); bShowTip(`#${fromId} が終わってから #${box.dataset.id}`, ev); }
+  };
+  const up = ev => {
+    document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
+    svg.remove(); bClearZones();
+    const box = target(ev);
+    if (box) bLink(fromId, Number(box.dataset.id));
+  };
+  document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+}
+document.addEventListener('keydown', e => {
+  if (state.view !== BARA || B.editing != null || B.selected == null || B.selected < 0 || !$('editor').hidden) return;
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.key === 'F2') { e.preventDefault(); B.editing = B.selected; renderBara(); }
+  else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); bAddNear(B.selected, 'after'); }
+  else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); bAddNear(B.selected, 'before'); }
+  else if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); bAddNear(B.selected, 'child'); }
+});
 
 /* =====================================================================
  * 10. ドラッグ＆ドロップ / キーボード
