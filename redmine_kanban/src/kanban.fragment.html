@@ -769,7 +769,6 @@ function createMockApi(getMockUserId) {
     async versions() { await wait(80); return clone(versionList); },
     async createVersion(_projectId, name) {
       await wait(200);
-      if (!CONFIG.managerUserIds.includes(getMockUserId())) throw new Error('この操作の権限がありません (403)');
       const v = { id: 100 + versionList.length + 50, name };
       versionList.push(v);
       return clone(v);
@@ -1194,11 +1193,11 @@ function renderTabs() {
       onclick: () => switchView(m.id),
     }, m.name, m.id === state.me.id ? h('span', { class: 'me' }, '自分') : null)),
     h('span', { class: 'tab-sep', 'aria-hidden': 'true' }),
-    isManager() ? h('button', {
+    h('button', {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === DASH),
       onclick: () => switchView(DASH),
-    }, '全体') : null,
+    }, '全体'),
     h('button', {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === INBOX),
@@ -1561,9 +1560,9 @@ function issueFields(issue, prefix, opts = {}) {
   };
   el.desc.value = issue.description || '';
 
-  // バージョンの新規作成（Redmine の「バージョンの管理」権限が要るので上司だけに出す）
+  // バージョンの新規作成（全員に出す。Redmine の権限がなければ作成時にその旨を表示する）
   let versionControl = el.version;
-  if (isManager()) {
+  {
     const code = h('select', { id: prefix + 'NvCode', 'aria-label': '業務カテゴリ' },
       CONFIG.versionCategories.map(c => h('option', { value: c }, c.replace(/_+$/, ''))));
     const name = h('input', { type: 'text', id: prefix + 'NvName', placeholder: '例: EV電池ケース', 'aria-label': '個別名' });
@@ -1932,7 +1931,8 @@ async function loadView() {
   if (state.view === INBOX) await loadInbox();
   else if (state.view === DASH) {
     await Promise.all([loadTeam(), loadInbox()]);
-    sweepParents().catch(() => {});   // 表示を待たせないよう裏で行う
+    // 親チケットのまとめての見直しは上司だけ（メンバーは「完了（確認済）」を付けられずエラーになるため）。表示を待たせないよう裏で行う
+    if (isManager()) sweepParents().catch(() => {});
   }
   else await Promise.all([loadUser(state.view), loadInbox()]);
 }
