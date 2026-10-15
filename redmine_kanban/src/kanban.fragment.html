@@ -547,6 +547,51 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara-pop .row .gap { flex: 1; }
 .bara-pop .row button { border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 3px 8px; font-size: 12px; }
 .bara .empty-scope { padding: 40px; text-align: center; color: var(--ink-3); }
+/* ---------- 使い方（ブログ風の解説） ---------- */
+.help-btn { position: relative; }
+.help-btn .new-dot { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--late); border: 2px solid var(--surface); }
+.overlay.guide { place-items: stretch center; padding: 24px 16px; }
+.guide-page { width: min(780px, 100%); max-height: 100%; overflow: auto; background: var(--surface); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25); position: relative; }
+.guide-page .close { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: 12px 14px 0; background: linear-gradient(var(--surface) 70%, transparent); z-index: 1; }
+.guide-page article { padding: 0 clamp(18px, 5vw, 48px) 40px; line-height: 1.85; font-size: 15px; }
+.guide-page .eyebrow { font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: .08em; margin: 0; }
+.guide-page h1 { font-size: clamp(22px, 4vw, 28px); line-height: 1.4; margin: 6px 0 4px; text-wrap: balance; }
+.guide-page .byline { font-size: 12px; color: var(--ink-3); margin: 0 0 22px; }
+.guide-page .lead { font-size: 16px; color: var(--ink); background: var(--surface-2); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 0 0 8px; }
+.guide-page nav.toc { margin: 22px 0 8px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+.guide-page nav.toc b { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.guide-page nav.toc ol { margin: 0; padding-left: 1.4em; columns: 2; column-gap: 28px; }
+.guide-page nav.toc a { color: var(--accent); text-decoration: none; }
+.guide-page nav.toc a:hover { text-decoration: underline; }
+.guide-page h2 { font-size: 20px; margin: 38px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--line); scroll-margin-top: 50px; }
+.guide-page h2 .no { font-family: var(--font-num); color: var(--accent); margin-right: 8px; }
+.guide-page h3 { font-size: 16px; margin: 22px 0 6px; }
+.guide-page p { margin: 0 0 12px; }
+.guide-page ul, .guide-page ol { margin: 0 0 12px; padding-left: 1.4em; }
+.guide-page li { margin: 2px 0; }
+.guide-page .ui { display: inline-block; border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 0 7px; font-size: 13px; line-height: 1.7; white-space: nowrap; }
+.guide-page .ui.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.guide-page .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 16px; }
+.guide-page .ba > div { border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.7; }
+.guide-page .ba .before { background: var(--late-bg); }
+.guide-page .ba .after { background: var(--ok-bg); }
+.guide-page .ba b { display: block; font-size: 12px; letter-spacing: .06em; margin-bottom: 4px; }
+.guide-page .ba .before b { color: var(--late); } .guide-page .ba .after b { color: var(--ok); }
+.guide-page .ba ul { margin: 0; }
+.guide-page .note { background: var(--soon-bg); color: var(--ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; margin: 0 0 14px; }
+.guide-page .note b { color: var(--soon); }
+.guide-page .mini-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 12px 0 16px; font-size: 12px; text-align: center; }
+.guide-page .mini-cols div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 4px; background: var(--surface-2); }
+.guide-page .mini-cols div b { display: block; font-size: 13px; }
+.guide-page .mini-cols .arrow { border: 0; background: none; }
+.guide-page .mini-card { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--surface); box-shadow: var(--shadow); font-size: 13px; line-height: 1.6; margin: 6px 0 14px; }
+.guide-page .mini-card .pc { font-size: 11px; color: var(--ink-3); }
+.guide-page .mini-card .due { font-size: 11px; color: var(--late); font-weight: 700; }
+.guide-page table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 6px 0 16px; }
+.guide-page th, .guide-page td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.guide-page th { font-size: 12px; color: var(--ink-2); background: var(--surface-2); }
+.guide-page .end { margin-top: 36px; padding: 16px 18px; border-radius: 10px; background: var(--accent-soft); }
+@media (max-width: 640px) { .guide-page .ba { grid-template-columns: 1fr; } .guide-page nav.toc ol { columns: 1; } .guide-page .mini-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -574,6 +619,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <button class="btn" id="hoursBtn" type="button" title="作業時間の記録と月の集計">工数</button>
       <button class="btn" id="reloadBtn" type="button">再読み込み</button>
       <button class="btn" id="settingsBtn" type="button">接続設定</button>
+      <button class="btn help-btn" id="guideBtn" type="button" title="このボードの使い方">使い方</button>
     </div>
   </header>
 
@@ -609,6 +655,158 @@ a.btn { text-decoration: none; display: inline-block; }
 
 <div class="overlay" id="hoursDlg" hidden>
   <div class="dialog hours" id="hoursBody" role="dialog" aria-label="工数"></div>
+</div>
+
+<div class="overlay guide" id="guide" hidden>
+  <div class="guide-page" role="dialog" aria-labelledby="guideTitle">
+    <div class="close"><button class="btn" type="button" id="guideClose">閉じる</button></div>
+    <article>
+      <p class="eyebrow">設計課タスクボード 使い方ガイド</p>
+      <h1 id="guideTitle">計画のメンテが面倒すぎたので、ボードにしました。</h1>
+      <p class="byline">設計課 課長より ／ 読む時間 約5分</p>
+
+      <p class="lead">
+        Redmine でチケットを探して、開いて、進捗を選んで、保存して……。正直、これが毎日の地味なストレスでした。<br>
+        「計画を守る」より「計画を<strong>直す</strong>」ほうに時間を取られていた気がします。<br>
+        なので、<strong>見る・動かす・終わらせる</strong>をワンクリックでできるボードを作りました。中身は今までどおり Redmine です。
+      </p>
+
+      <nav class="toc" aria-label="目次">
+        <b>目次</b>
+        <ol>
+          <li><a href="#g-why">なぜボードにしたのか</a></li>
+          <li><a href="#g-daily">毎日の使い方（ここだけ読めばOK）</a></li>
+          <li><a href="#g-deadline">締切と予定のルール</a></li>
+          <li><a href="#g-inbox">メールで来た仕事の振り分け</a></li>
+          <li><a href="#g-new">新規タスク・みんなでやる仕事</a></li>
+          <li><a href="#g-hours">工数入力は「押すだけ」</a></li>
+          <li><a href="#g-bara">課題バラシ</a></li>
+          <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
+          <li><a href="#g-faq">困ったとき</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="g-why"><span class="no">01</span>なぜボードにしたのか</h2>
+      <p>Redmine は記録としては優秀です。ただ、<strong>日々の更新</strong>がとにかく面倒でした。</p>
+      <div class="ba">
+        <div class="before"><b>これまで</b>
+          <ul>
+            <li>自分のチケットを検索して一覧を出す</li>
+            <li>1件ずつ開いて進捗をプルダウンで選ぶ</li>
+            <li>親チケットの進捗も手で合わせる</li>
+            <li>月末に工数を思い出しながら入力</li>
+            <li>誰が忙しいかは聞いてみないと分からない</li>
+          </ul>
+        </div>
+        <div class="after"><b>これから</b>
+          <ul>
+            <li>開けば自分の仕事が優先順に並んでいる</li>
+            <li>進捗はボタンをポンと押すだけ</li>
+            <li>親チケットは子に合わせて自動で更新</li>
+            <li>工数は進捗を押したついでに1クリック</li>
+            <li>「全体」タブでチームの状況が一目で分かる</li>
+          </ul>
+        </div>
+      </div>
+      <p>ボードで動かした内容は、その場で Redmine に書き込まれます。ボード専用のデータはないので、Redmine 側で見ても同じです。</p>
+
+      <h2 id="g-daily"><span class="no">02</span>毎日の使い方（ここだけ読めばOK）</h2>
+      <p>開くと<strong>自分のタブ</strong>が選ばれた状態で始まります。列は左から右へ流れます。</p>
+      <div class="mini-cols">
+        <div><b>未着手</b>これから</div>
+        <div><b>進行中</b>0〜80%</div>
+        <div><b>担当完了</b>自分の作業は終わり</div>
+        <div><b>上司完了</b>確認したら上司が移動</div>
+      </div>
+      <ol>
+        <li><strong>始めたら</strong> カードを「進行中」へドラッグ。</li>
+        <li><strong>進んだら</strong> カード下の <span class="ui">0</span> <span class="ui">20</span> <span class="ui">40</span> <span class="ui">60</span> <span class="ui">80</span> を押す。</li>
+        <li><strong>終わったら</strong> 「担当完了」へドラッグ。あとは上司が確認して「上司完了」に動かします。</li>
+        <li><strong>やらなくなったら</strong> ドラッグ中に下に出る「中止」の帯へ落とす。チケットは消えません。</li>
+      </ol>
+      <p>カードをクリックすると、件名・締切・担当・説明を直せます。コメントを書けば Redmine の履歴にも残ります。</p>
+      <div class="mini-card">
+        <div class="pc">フロントバンパー設計 › 補強構造の検討</div>
+        <b>ビーム断面の強度解析</b>
+        <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
+      </div>
+      <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>並び順のルール</h3>
+      <p>バージョン名の先頭の番号が小さいほど上に来ます（<span class="ui">01_市場問題</span> がいちばん急ぎ）。同じ番号なら締切が近い順です。</p>
+
+      <h2 id="g-deadline"><span class="no">03</span>締切と予定のルール</h2>
+      <table>
+        <tr><th>どこに書く</th><th>意味</th></tr>
+        <tr><td>件名の先頭の <strong>【10/24】</strong></td><td><strong>本来の締切</strong>（お客さん・関係部署との約束）</td></tr>
+        <tr><td>Redmine の <strong>期日</strong></td><td><strong>作業完了予定</strong>（自分の見込み）</td></tr>
+      </table>
+      <p>締切を過ぎると<strong>赤</strong>、3日以内だと<strong>黄色</strong>になります。作業完了予定が締切より後ろだと「予定が締切超え」と出るので、早めに相談してください。</p>
+      <p class="note"><b>ポイント：</b>締切と予定の差が「余裕（バッファ）」です。全体ボードでは、この余裕をどれだけ使ったかで、仕事ごとの危なさを見ています。</p>
+
+      <h2 id="g-inbox"><span class="no">04</span>メールで来た仕事の振り分け</h2>
+      <p>メールから自動で作られたチケット（担当やバージョンが空のもの）は<strong>「未整理」タブ</strong>に集まります。誰が振り分けてもOKです。</p>
+      <ol>
+        <li>左の一覧からチケットを選ぶ</li>
+        <li>締切・件名・バージョン・担当を入れて <span class="ui pri">整理して登録</span></li>
+        <li>仕事ではないメール（懇親会のお知らせなど）は <span class="ui">タスクではない</span> で「中止」に</li>
+        <li>大きい仕事は <span class="ui">課題バラシで分解する</span> で、その場で中身に分ける</li>
+      </ol>
+
+      <h2 id="g-new"><span class="no">05</span>新規タスク・みんなでやる仕事</h2>
+      <p>右上の <span class="ui pri">＋ 新規タスク</span> から作れます。バージョンが無ければ、その場で <span class="ui">＋ 新しいバージョン</span> も作れます（「番号_カテゴリ_個別名」の形になります）。</p>
+      <p>E-ラーニングのように<strong>全員がやる仕事</strong>は、担当を複数チェックすると人数分のチケットができます。「まとめ用の親チケット」を付けておくと、全体タブの「みんなでやる仕事」で、誰が終わって誰がまだかが分かります。</p>
+
+      <h2 id="g-hours"><span class="no">06</span>工数入力は「押すだけ」</h2>
+      <div class="ba">
+        <div class="before"><b>これまで</b>月末にカレンダーとメールを見返して、思い出しながら入力。正直つらい。</div>
+        <div class="after"><b>これから</b>進捗ボタンを押すと右下に時間が出るので、近いものを1回押すだけ。</div>
+      </div>
+      <p>出てくるのは <span class="ui">0.5h</span> <span class="ui">1h</span> <span class="ui">2h</span> <span class="ui">4h</span> <span class="ui">1日</span> <span class="ui">記録しない</span>。押さなければ何も記録されません。</p>
+      <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
+      <ul>
+        <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>
+        <li><strong>月の集計</strong>：バージョン別・人別の合計時間。<span class="ui">CSV で保存</span> して月末の工数入力にそのまま使えます。</li>
+      </ul>
+      <p class="note"><b>ゆるく行きましょう：</b>きっちり正確じゃなくて大丈夫。月末に思い出すより、ずっと実態に近い数字になります。聞かれたくない人は「接続設定」でオフにできます。</p>
+
+      <h2 id="g-bara"><span class="no">07</span>課題バラシ</h2>
+      <p>ガントチャートの「前後のつながり」が見える良さを、もっと手軽に使えるようにした画面です。</p>
+      <ul>
+        <li><strong>中の仕事（子）</strong>は親の<strong>枠の中</strong>に入ります</li>
+        <li><strong>順番</strong>は左から右への<strong>矢印</strong>。並行できる仕事は縦に並びます</li>
+        <li>箱の <span class="ui">＋</span>（左・右・下）で前・後・中の仕事を追加</li>
+        <li>箱をドラッグして、相手の左端なら前、右端なら後、真ん中なら中に入れる</li>
+        <li><span class="ui">予定工数 ＋</span> で予定時間を入れると、<strong>一番長い流れ</strong>（順番にしかできない仕事の合計）が赤く出ます</li>
+      </ul>
+      <p>矢印は Redmine の「先行」として保存されるので、ガントチャートにも同じ矢印が出ます。前の仕事が遅れると、後ろの仕事の日程も Redmine が自動でずらします。</p>
+
+      <h2 id="g-dash"><span class="no">08</span>全体ボード（朝会・Teams用）</h2>
+      <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
+      <ul>
+        <li><strong>上の数字</strong>：締切超過・今週の締切・2週間で完了した数・見直しが必要な仕事</li>
+        <li><strong>積み木</strong>：いま抱えている仕事の量（多い順）。締切が危ないものは名前が出ます</li>
+        <li><strong>タイムライン</strong>：これまでの2週間で終わった数と、これからの2週間の締切の数</li>
+        <li><strong>仕事ごとの状況</strong>：進捗に対して余裕をどれだけ使ったかで「順調・注意・見直し」</li>
+      </ul>
+      <p>責めるための画面ではありません。<strong>早めに助けを出すための画面</strong>です。赤いものを見つけたら、遠慮なく声をかけてください（かけます）。</p>
+
+      <h2 id="g-faq"><span class="no">09</span>困ったとき</h2>
+      <table>
+        <tr><th>こんなとき</th><th>こうする</th></tr>
+        <tr><td>ボードが開かない</td><td>共有フォルダの <strong>kanban_relay.py</strong> をダブルクリック。自動で起動してボードが開きます。</td></tr>
+        <tr><td>新しい機能が出てこない</td><td>共有フォルダの kanban_relay.py をダブルクリック（古い版から入れ替わります）。<span class="ui">接続設定</span> の一番下で版を確認できます。</td></tr>
+        <tr><td>「更新できませんでした」と出る</td><td>Redmine 側の権限で止められています。メッセージをそのまま課長に送ってください。</td></tr>
+        <tr><td>表示が古い気がする</td><td>右上の <span class="ui">再読み込み</span>。Redmine で直接変えた分も取り込みます。</td></tr>
+        <tr><td>「上司完了」に動かせない</td><td>仕様です。担当完了まで動かしてもらえれば、上司が確認して動かします。</td></tr>
+      </table>
+
+      <div class="end">
+        <strong>おわりに</strong><br>
+        ボードは道具なので、使いにくいところはどんどん直します。「ここが面倒」「こうだったらいいのに」は気軽に言ってください。<br>
+        計画を直す時間を減らして、設計に時間を使いましょう。
+      </div>
+    </article>
+  </div>
 </div>
 
 <div class="overlay" id="settings" hidden>
@@ -3272,12 +3470,34 @@ function closeSettings() { $('settings').hidden = true; }
 $('settingsBtn').addEventListener('click', openSettings);
 $('newTaskBtn').addEventListener('click', () => { if (state.me) openNewTask(); });
 $('hoursBtn').addEventListener('click', () => openHours());
+// 使い方: まだ開いたことがない人には赤い点を出す
+const GUIDE_KEY = 'designBoard.guideSeen';
+function guideSeen() { try { return localStorage.getItem(GUIDE_KEY) === '1'; } catch (_) { return true; } }
+if (!guideSeen()) $('guideBtn').append(h('span', { class: 'new-dot', 'aria-label': '未読' }));
+function openGuide() {
+  $('guide').hidden = false;
+  $('guide').querySelector('.guide-page').scrollTop = 0;
+  try { localStorage.setItem(GUIDE_KEY, '1'); } catch (_) { /* 保存できなくても続ける */ }
+  const dot = $('guideBtn').querySelector('.new-dot'); if (dot) dot.remove();
+  $('guideClose').focus();
+}
+function closeGuide() { $('guide').hidden = true; $('guideBtn').focus(); }
+$('guideBtn').addEventListener('click', openGuide);
+$('guideClose').addEventListener('click', closeGuide);
+$('guide').addEventListener('click', e => { if (e.target === $('guide')) closeGuide(); });
+// 目次のリンクは、ページ内をスクロールするだけにする（ボードの URL を変えない）
+$('guide').querySelectorAll('nav.toc a').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  const t = $('guide').querySelector(a.getAttribute('href'));
+  if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
 $('hoursDlg').addEventListener('click', e => { if (e.target === $('hoursDlg')) closeHours(); });
 $('cancelSettings').addEventListener('click', closeSettings);
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('hoursDlg').hidden) closeHours();
+  if (!$('guide').hidden) closeGuide();
+  else if (!$('hoursDlg').hidden) closeHours();
   else if (!$('editor').hidden) closeEditor();
   else if (!$('settings').hidden) closeSettings();
 });
