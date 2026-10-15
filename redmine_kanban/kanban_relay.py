@@ -44,7 +44,7 @@ from pathlib import Path
 ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 
-VERSION = "8"
+VERSION = "9"
 HERE = Path(__file__).resolve().parent
 SETTINGS_FILE = "board_settings.json"
 BOARD_URL = f"http://127.0.0.1:{PORT}/"
@@ -492,7 +492,7 @@ class Relay(BaseHTTPRequestHandler):
             return self._error(403, "このページからは使えません")
 
         if path == "/ping":
-            info = {"ok": True, "version": VERSION, "redmine_url": redmine_url(), "board_dir": str(HERE),
+            info = {"ok": True, "version": VERSION, "pid": os.getpid(), "redmine_url": redmine_url(), "board_dir": str(HERE),
                     "warnings": self.warnings,
                     "user": {"id": self.user.get("id"),
                              "name": f"{self.user.get('lastname', '')} {self.user.get('firstname', '')}".strip()}}
@@ -567,15 +567,80 @@ def already_running() -> bool:
         return False
 
 
-def running_dir() -> Path | None:
-    """起動中の中継が動いているフォルダを聞く。"""
+def running_info() -> dict | None:
+    """起動中の中継に版・フォルダ・プロセス番号を聞く。古い版は一部しか答えない。"""
     req = urllib.request.Request(f"{BOARD_URL}ping", headers={"Origin": SELF_ORIGINS[0]})
     try:
         with urllib.request.urlopen(req, timeout=3) as res:
-            info = json.loads(res.read())
+            return json.loads(res.read())
     except (OSError, ValueError):
         return None
-    return Path(info["board_dir"]) if info.get("board_dir") else None
+
+
+def running_dir() -> Path | None:
+    """起動中の中継が動いているフォルダを聞く。"""
+    info = running_info()
+    return Path(info["board_dir"]) if info and info.get("board_dir") else None
+
+
+def port_owner_pid() -> int | None:
+    """ポートで待ち受けているプロセスの番号（古い版は自分の番号を答えないので、OS に聞く）。"""
+    try:
+        if os.name == "nt":
+            out = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=10,
+                                 creationflags=0x08000000).stdout  # CREATE_NO_WINDOW
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 5 and parts[1].endswith(f":{PORT}") and parts[3].upper() == "LISTENING":
+                    return int(parts[4])
+        else:
+            out = subprocess.run(["lsof", "-t", f"-iTCP:{PORT}", "-sTCP:LISTEN"], capture_output=True, text=True, timeout=10).stdout
+            return int(out.split()[0]) if out.split() else None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    return None
+
+
+def stop_running() -> bool:
+    """動いている中継を止める（再起動の依頼に応じない古い版向け）。止まったら True。"""
+    info = running_info() or {}
+    pid = info.get("pid") or port_owner_pid()
+    if not pid or pid == os.getpid():
+        return False
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=10, creationflags=0x08000000)
+        else:
+            os.kill(pid, 15)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    for _ in range(40):
+        if not already_running():
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def latest_is_running() -> bool:
+    info = running_info()
+    return bool(info and str(info.get("version")) == VERSION)
+
+
+def replace_old_running(folder: Path) -> bool:
+    """古い版が動き続けている → 止めて、folder の kanban_relay.py を画面なしで起動する。"""
+    info = running_info() or {}
+    log(f"古い版の中継（v{info.get('version', '?')}）が動き続けているので、止めて入れ替えます…")
+    if not stop_running():
+        return False
+    flags = 0x00000008 if os.name == "nt" else 0  # DETACHED_PROCESS
+    subprocess.Popen([pythonw(), str(folder / "kanban_relay.py")], cwd=str(folder), creationflags=flags,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=os.name != "nt")
+    for _ in range(80):  # Redmine から設定を読むので最大 20 秒待つ
+        time.sleep(0.25)
+        if latest_is_running():
+            return True
+    return False
 
 
 def copy_if_changed(src_dir: Path, dst_dir: Path) -> list[str]:
@@ -698,7 +763,9 @@ def start_in_background() -> bool:
         current = running_dir()
         if current:
             copy_if_changed(HERE, current)
-        return ask_running_to_restart()
+        if ask_running_to_restart() and latest_is_running():
+            return True
+        return replace_old_running(APP_DIR)
     flags = 0x00000008 if os.name == "nt" else 0  # DETACHED_PROCESS
     subprocess.Popen([pythonw(), str(APP_DIR / "kanban_relay.py")], cwd=str(APP_DIR), creationflags=flags,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -788,14 +855,18 @@ def main() -> int:
             current = running_dir()
             changed = sorted(set(updated + (copy_if_changed(HERE, current) if current else [])))
             log("中継を再起動しています…")
-            if ask_running_to_restart():
+            ok = ask_running_to_restart() and latest_is_running()
+            if not ok:
+                # 再起動の依頼に応じない、または別のフォルダの古いファイルで起動し直した古い版 → 止めて入れ替える
+                ok = replace_old_running(APP_DIR if (APP_DIR / "kanban_relay.py").exists() and from_elsewhere else HERE)
+            if ok:
                 log("新しい版（" + "、".join(changed) + "）に入れ替えて、再起動しました。" if changed
                     else "再起動して、設定を読み直しました。")
                 log(f"ボードを開きます（{BOARD_URL}）。")
                 webbrowser.open(BOARD_URL)
             else:
-                log("中継を再起動できませんでした。古い版が動いている可能性があります。\n"
-                    "タスクマネージャーの「詳細」タブで pythonw.exe を終了してから、もう一度ダブルクリックしてください。")
+                log("中継を入れ替えられませんでした。古い版が動いている可能性があります。\n"
+                    "タスクマネージャーの「詳細」タブで pythonw.exe（と python.exe）を終了してから、もう一度ダブルクリックしてください。")
                 pause()
         return 0
 
