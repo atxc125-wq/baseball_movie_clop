@@ -44,7 +44,7 @@ from pathlib import Path
 ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 
-VERSION = "9"
+VERSION = "10"
 HERE = Path(__file__).resolve().parent
 SETTINGS_FILE = "board_settings.json"
 BOARD_URL = f"http://127.0.0.1:{PORT}/"
@@ -834,6 +834,16 @@ def main() -> int:
         pause()
         return 1
     interactive = sys.stdin is not None and sys.stdin.isatty()
+
+    # 初期の版がスタートアップフォルダに置いた起動用ファイルが残っていると、ログオンのたびに古い中継が先に起動して
+    # ポートを取り、新しい版が動けない。どの起動でも見つけしだい消す
+    legacy = legacy_startup_file()
+    if legacy and legacy.exists():
+        try:
+            legacy.unlink()
+            log(f"古い版の自動起動ファイルを削除しました: {legacy}")
+        except OSError as e:
+            log(f"古い版の自動起動ファイルを削除できませんでした（{e}）。手で削除してください: {legacy}")
 
     # 自動起動を設定済みの PC で、別の場所（共有フォルダなど）の kanban_relay.py をダブルクリックした
     # → 自動起動用のコピーを必ず新しくする（次のログオンで古い版が動かないように）。
