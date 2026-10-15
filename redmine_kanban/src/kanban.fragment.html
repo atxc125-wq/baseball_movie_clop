@@ -1,4 +1,4 @@
-<title>設計課タスクボード</title>
+<title>タスクボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -606,7 +606,7 @@ a.btn { text-decoration: none; display: inline-block; }
 <div class="app" id="app">
   <header class="topbar">
     <div class="brand">
-      <h1>設計課タスクボード</h1>
+      <h1>タスクボード</h1>
       <span class="today" id="today"></span>
       <span class="mode-pill" id="modePill">モック</span>
     </div>
@@ -661,7 +661,7 @@ a.btn { text-decoration: none; display: inline-block; }
   <div class="guide-page" role="dialog" aria-labelledby="guideTitle">
     <div class="close"><button class="btn" type="button" id="guideClose">閉じる</button></div>
     <article>
-      <p class="eyebrow">設計課タスクボード 使い方ガイド</p>
+      <p class="eyebrow">タスクボード 使い方ガイド</p>
       <h1 id="guideTitle">計画のメンテが面倒すぎたので、ボードにしました。</h1>
       <p class="byline">つくったひと より ／ 読む時間 約5分</p>
 
@@ -885,7 +885,7 @@ const CONFIG = {
     { id: 4, name: '渡辺' },
     { id: 5, name: '中村' },
     { id: 6, name: '小林' },
-    { id: 1, name: '山本（課長）' },
+    { id: 1, name: '山本（上司）' },
   ],
   // 対象バージョンの一覧を取るプロジェクト（識別子または ID）。
   // 未整理チケットもこのプロジェクトに絞る。null なら見える範囲すべて
@@ -1047,7 +1047,7 @@ function createMockApi(getMockUserId) {
   for (const [id, uid, subject, parent, ver, st, deadline, plan, upd] of rows) {
     db.set(id, {
       id, subject: buildTitle(subject, deadline === null ? null : addDays(t, deadline)),
-      project: { id: 1, name: '設計課' },
+      project: { id: 1, name: 'チーム' },
       assigned_to: uid ? { id: uid, name: users[uid] } : undefined,
       parent: parent ? { id: parent } : undefined,
       fixed_version: ver ? { ...V[ver] } : undefined,
@@ -1062,7 +1062,7 @@ function createMockApi(getMockUserId) {
   for (const [id, subject, day, minutes, body] of mails) {
     const created = new Date(addDays(t, day).getTime() + minutes * 60000).toISOString();
     db.set(id, {
-      id, subject, project: { id: 1, name: '設計課' },
+      id, subject, project: { id: 1, name: 'チーム' },
       status: { id: 1, name: '未着手' }, done_ratio: 0,
       description: body, due_date: null, created_on: created, updated_on: created,
     });
@@ -1092,7 +1092,7 @@ function createMockApi(getMockUserId) {
         while (left > 0) {
           const hrs = Math.min(left, [1, 2, 2.5, 3, 4][rnd(5)]);
           const issue = mine[rnd(mine.length)];
-          entries.push({ id: entries.length + 1, project: { id: 1, name: '設計課' }, issue: { id: issue.id }, user: { id: uid, name: users[uid] },
+          entries.push({ id: entries.length + 1, project: { id: 1, name: 'チーム' }, issue: { id: issue.id }, user: { id: uid, name: users[uid] },
             activity: { id: 9, name: '設計' }, hours: hrs, comments: '', spent_on: isoDate(day) });
           left -= hrs;
         }
@@ -1126,7 +1126,7 @@ function createMockApi(getMockUserId) {
     async createTimeEntry({ issueId, hours, spentOn, comments }) {
       await wait(150);
       const uid = getMockUserId();
-      const e = { id: entries.length + 1, project: { id: 1, name: '設計課' }, issue: { id: issueId }, user: { id: uid, name: users[uid] },
+      const e = { id: entries.length + 1, project: { id: 1, name: 'チーム' }, issue: { id: issueId }, user: { id: uid, name: users[uid] },
         activity: { id: 9, name: '設計' }, hours, comments: comments || '', spent_on: spentOn };
       entries.push(e);
       return clone(e);
@@ -1174,7 +1174,7 @@ function createMockApi(getMockUserId) {
       const id = Math.max(...db.keys()) + 1;
       const now = new Date().toISOString();
       const issue = {
-        id, subject: fields.subject, project: { id: 1, name: '設計課' },
+        id, subject: fields.subject, project: { id: 1, name: 'チーム' },
         parent: fields.parent_issue_id ? { id: fields.parent_issue_id } : undefined,
         assigned_to: fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined,
         fixed_version: fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined,
@@ -2428,7 +2428,7 @@ function renderRelayPanel() {
        h('ol', { class: 'steps' },
          h('li', {}, h('span', {}, 'kanban_relay.py と kanban.html を同じフォルダに置きます。')),
          h('li', {}, h('span', {}, 'kanban_relay.py をダブルクリックします。初回だけ API キーの入力と、自動起動するかの確認があります。')),
-         h('li', {}, h('span', {}, 'ボードがブラウザで自動的に開きます。次回からはデスクトップの「設計課タスクボード」から開けます。'))),
+         h('li', {}, h('span', {}, 'ボードがブラウザで自動的に開きます。次回からはデスクトップの「タスクボード」から開けます。'))),
        h('div', { class: 'links' },
          h('a', { class: 'btn primary', href: relayBase() + '/', target: '_blank', rel: 'noopener' }, '起動済みならここから開く'),
          tryMock)];
