@@ -44,7 +44,7 @@ from pathlib import Path
 ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 
-VERSION = "5"
+VERSION = "6"
 HERE = Path(__file__).resolve().parent
 SETTINGS_FILE = "board_settings.json"
 BOARD_URL = f"http://127.0.0.1:{PORT}/"
@@ -607,7 +607,8 @@ def restart() -> None:
         SERVER.server_close()
     flags = 0x00000008 if os.name == "nt" else 0  # DETACHED_PROCESS
     subprocess.Popen([pythonw(), str(HERE / "kanban_relay.py")], cwd=str(HERE), creationflags=flags,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=os.name != "nt")  # 起動した画面を閉じても止まらないように
     os._exit(0)
 
 
@@ -691,7 +692,8 @@ def start_in_background() -> bool:
         return ask_running_to_restart()
     flags = 0x00000008 if os.name == "nt" else 0  # DETACHED_PROCESS
     subprocess.Popen([pythonw(), str(APP_DIR / "kanban_relay.py")], cwd=str(APP_DIR), creationflags=flags,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=os.name != "nt")  # 起動した画面を閉じても止まらないように
     for _ in range(80):  # Redmine から設定を読むので最大 20 秒待つ
         time.sleep(0.25)
         if running_dir():
@@ -757,12 +759,25 @@ def main() -> int:
         return 1
     interactive = sys.stdin is not None and sys.stdin.isatty()
 
+    # 自動起動を設定済みの PC で、別の場所（共有フォルダなど）の kanban_relay.py をダブルクリックした
+    # → 自動起動用のコピーを必ず新しくする（次のログオンで古い版が動かないように）。
+    #   更新の取り込み元も、update_dir の指定がなければこの場所に向け直す
+    from_elsewhere = (interactive and not args.setup and HERE != APP_DIR.resolve()
+                      and (APP_DIR / "kanban_relay.py").exists())
+    updated: list[str] = []
+    if from_elsewhere:
+        updated = copy_if_changed(HERE, APP_DIR)
+        if not str(SETTINGS.get("update_dir") or "").strip():
+            SOURCE_FILE.write_text(str(HERE), encoding="utf-8")
+        if updated:
+            log("自動起動用のコピーを新しい版にしました: " + "、".join(updated))
+
     if already_running() and not args.setup:
         if interactive:
             # 共有フォルダの新しい版をダブルクリックした → 動いている中継を入れ替えて再起動
             # ファイルが同じでも再起動する（board_settings.json や Redmine のメンバーを読み直すため）
             current = running_dir()
-            changed = copy_if_changed(HERE, current) if current else []
+            changed = sorted(set(updated + (copy_if_changed(HERE, current) if current else [])))
             log("中継を再起動しています…")
             if ask_running_to_restart():
                 log("新しい版（" + "、".join(changed) + "）に入れ替えて、再起動しました。" if changed
@@ -773,6 +788,18 @@ def main() -> int:
                 log("中継を再起動できませんでした。古い版が動いている可能性があります。\n"
                     "タスクマネージャーの「詳細」タブで pythonw.exe を終了してから、もう一度ダブルクリックしてください。")
                 pause()
+        return 0
+
+    # 中継が止まっていた → このフォルダからではなく、自動起動用のコピーを画面なしで起動する
+    # （ここで動かすと、この画面を閉じたときに止まり、次のログオンとも別の版になるため）
+    if from_elsewhere and load_key():
+        log("ボードを起動しています…")
+        if start_in_background():
+            log(f"準備ができました。ボードを開きます（{BOARD_URL}）。この画面は閉じて大丈夫です。")
+            webbrowser.open(BOARD_URL)
+        else:
+            log(f"起動に時間がかかっています。少し待ってからボードを開いてください。（記録: {LOG_FILE}）")
+        pause()
         return 0
 
     # 自動起動のコピーは、起動時に共有フォルダの新しい版を取り込む
@@ -945,7 +972,7 @@ BOARD_HTML = [
     "PZHPaO7UP46chZfQGmY1Ak164T6prERKc6faDdRPB4oCmdrrhy6Qp/s66uPaDZY+UgyY/w3WmJYRRQgwePGm+K2Uq8nWS1NLh7Jt",
     "t0n9hmSQiVC2tVO1Dc1adQeVbiEJMFsipSzrRHH3Q2PJ/5aUZbvXLxyrz38Mi2ljcO6mhcGColbMw1TJCUAG03ZzoakqHplbzVTy",
     "k7B9CsFuDd3j+UwtNIC+xF1P4s8W2H4nYsBLXnt53/+0/jF3zlqfP7F6bgmIB/nHwun6/GViKqwBIV0xW2yevsypJxHCE+kKukEz",
-    "QAM164XX97y5d/iFd/a9stfaZYWS8WRfNBGPJnqsRDLduyM0YHV3W6NT+UI2NjmNLBC2pM3FM82LXzcvLWByzMNfI8GDdja3UJ//",
+    "QAM164XX97y5d/iFd/a9stfaZYWS8WRfNBGPJnqteCrduyM0YHV3W6NT+UI2NjmNLBC2pM3FM82LXzcvLWByzMNfI8GDdja3UJ//",
     "BjWaY4vIKcVmyOCU9fkTWODLe2s3T8HARRcEQnaRRQZa0xe3Jy3nvr0WaYHz3BTdI3urcZQ2XQS7cedh49EVaBy6w9Coyh3L5Bir",
     "y1cxWQBwCsujj3laBIYB/J97LEhLTRWNGRqp1uwaEEw1bQ0Sfc1YeKdeooskc9oKwR5h9dO55rEToS5LXDoIb2vlbFm8sCiRBFqD",
     "Z7s0CEkFIf6ULKmqZ8uwcMTb4Oo9qnpSr9+yetJTP6Xqpzqqn/LU71X1+zqq3+ep36fq93dUv99Tf4eq31g+uXLvCN47vPx548Sl",
@@ -1338,7 +1365,7 @@ BOARD_HTML = [
     "yBTFi22UHcj9eQU/7CvzL8gvXLEAah1iTUIMmEIRIw7A7zmzeYPT3vffN8KgeOdjZ6Ki6E0YIUA8UE1otmrP1xqUzG7esjBhd5yD",
     "LcvHbNbcvixNnMDA5ypDPwPJOtGUtAgjpPlk7LOvOL9dN7fttkQqh65lCBQGvgyFoyLbY/Fs58cX715ZRJK7mLfZZYUQ7gO1Yfh3",
     "GSe7nMhmIBxUkDJiU5I9vRLJI2GJAAQk2EKFroqIJQAlPNFz2kNprU1UeDo+pnAAhkM2K9X1HqUqNc6kKzIufecH8LksbVKi5Y8L",
-    "CEVcWXv5q9UXz3AOGYnEtLygUMqrWdMj/G+eXMk0rke3UXLZx8xfh5vVY/BfyHXw2Kb/BFgKRG8=",
+    "CEVcWXv5q9UXz3AOGYnEtLygUMqrWdMj/G+eXMk0rke3UXLZx8xfh5vVY/BfyHXw2Kb/BOecRHI=",
 ]
 # --- BOARD_HTML_END ---
 
