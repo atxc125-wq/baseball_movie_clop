@@ -352,9 +352,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .panel { min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
 .dash .panel-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .dash h2 { margin: 0; font-size: 17px; }
-.dash .seg { margin-left: auto; display: flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
-.dash .seg button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
-.dash .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
+.dash .seg, .hours .seg { margin-left: auto; display: flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.dash .seg button, .hours .seg button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
+.dash .seg button[aria-pressed="true"], .hours .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
 .dash .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
 .dash .legend i { display: inline-block; width: 14px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
 .dash .sw-late { background: var(--late-bg); box-shadow: inset 3px 0 var(--late); }
@@ -430,6 +430,44 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .together .left { font-size: 12px; color: var(--ink-2); }
 .dash .together .left b { color: var(--ink); font-weight: 400; }
 .dash .panel h3 { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
+/* ---------- 工数 ---------- */
+.toast.ask { background: var(--surface); color: var(--ink); border: 1px solid var(--accent); flex-wrap: wrap; max-width: min(560px, calc(100vw - 32px)); }
+.toast.ask .q { flex: 1 1 100%; }
+.toast.ask .q b { font-weight: 700; }
+.toast.ask .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
+.toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
+.toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
+.dialog.hours { width: min(820px, 100%); }
+.hours .seg { align-self: flex-start; }
+.hours .day-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.hours .day-head input[type="date"], .hours select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+.hours .total { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.hours .total b { font-family: var(--font-num); font-size: 18px; color: var(--ink); font-weight: 500; }
+.hours .total .tr { width: 140px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.hours .total .fl { height: 100%; background: var(--accent); }
+.hours .total .fl.over { background: var(--soon); }
+.hrows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.hrow .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hrow .t .sj { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .t .sub { font-size: 11px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; }
+.hrow .done-h { font-size: 12px; color: var(--ink-2); white-space: nowrap; font-family: var(--font-num); }
+.hrow .add { display: flex; gap: 4px; align-items: center; }
+.hrow .add button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 3px 7px; font-family: var(--font-num); font-size: 12px; }
+.hrow .add button:hover { border-color: var(--accent); color: var(--accent); }
+.hrow .add input { width: 64px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 4px 6px; font-family: var(--font-num); font-size: 13px; text-align: right; }
+.hrow .add input:not(:placeholder-shown) { border-color: var(--accent); background: var(--accent-soft); }
+.hours .addline { display: flex; gap: 8px; align-items: center; }
+.hours .addline select { flex: 1 1 auto; min-width: 0; }
+.htable-wrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
+.htable { border-collapse: collapse; width: 100%; font-size: 13px; }
+.htable th, .htable td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.htable th:first-child, .htable td:first-child { text-align: left; white-space: normal; }
+.htable thead th { position: sticky; top: 0; background: var(--surface-2); font-size: 12px; color: var(--ink-2); }
+.htable tfoot td { font-weight: 700; background: var(--surface-2); }
+.htable td.zero { color: var(--ink-3); }
+.htable .kind { display: block; font-size: 11px; color: var(--ink-3); }
 .btn-mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
 
 @media (max-width: 860px) {
@@ -455,6 +493,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <select id="mockUser"></select>
       </label>
       <button class="btn primary" id="newTaskBtn" type="button">＋ 新規タスク</button>
+      <button class="btn" id="hoursBtn" type="button" title="作業時間の記録と月の集計">工数</button>
       <button class="btn" id="reloadBtn" type="button">再読み込み</button>
       <button class="btn" id="settingsBtn" type="button">接続設定</button>
     </div>
@@ -489,6 +528,10 @@ a.btn { text-decoration: none; display: inline-block; }
   <form class="dialog triage editor" id="editorForm" novalidate aria-label="チケットの編集"></form>
 </div>
 
+<div class="overlay" id="hoursDlg" hidden>
+  <div class="dialog hours" id="hoursBody" role="dialog" aria-label="工数"></div>
+</div>
+
 <div class="overlay" id="settings" hidden>
   <form class="dialog" id="settingsForm" aria-labelledby="settingsTitle">
     <h2 id="settingsTitle">接続設定</h2>
@@ -513,6 +556,10 @@ a.btn { text-decoration: none; display: inline-block; }
         <p class="hint">キーはこのブラウザの中だけに保存されます。</p>
       </div>
     </div>
+    <div class="field">
+      <span class="label">工数</span>
+      <label><input type="checkbox" id="askHours"> 進捗を動かしたときに、作業時間を聞く（押さなければ記録しません）</label>
+    </div>
     <p class="test-result" id="testResult" hidden></p>
     <p class="hint" id="versionInfo"></p>
     <div class="dialog-actions">
@@ -528,7 +575,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-15 11:52'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-15 12:17'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -578,6 +625,9 @@ const CONFIG = {
   defaultMode: 'relay', // 'relay' | 'mock' | 'live'
   // タグの色は名前から自動で決まる（同じ名前は常に同じ色）。固定したい場合だけここに書く: { '05_開発業務_EV電池ケース': 1 }
   versionColors: {},
+  // 工数: 進捗を動かしたときに出す時間の選択肢（時間）と、1日の所定時間
+  hourChoices: [0.5, 1, 2, 4],
+  hoursPerDay: 8,
   // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
   versionCategories: ['01_市場問題_', '02_供給問題_', '03_業務改善_', '03_風土改革_', '04_モジュール開発_',
     '05_開発業務_', '06_MBD開発_', '07_工場困りごと_', '08_原価低減_'],
@@ -744,7 +794,45 @@ function createMockApi(getMockUserId) {
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
   const closedIds = new Set([8, 9]);
+  // 作業時間: 先月の頭から昨日まで、平日に 2〜3 件ずつ（決まった並びの疑似乱数）
+  const entries = [];
+  {
+    let seed = 7;
+    const rnd = n => { seed = (seed * 9301 + 49297) % 233280; return Math.floor((seed / 233280) * n); };
+    const byUser = uid => [...db.values()].filter(i => i.assigned_to && i.assigned_to.id === uid && i.fixed_version);
+    for (let day = new Date(t.getFullYear(), t.getMonth() - 1, 1); day < t; day = addDays(day, 1)) {
+      if (day.getDay() === 0 || day.getDay() === 6) continue;
+      for (const uid of [1, 2, 3, 4, 5, 6]) {
+        const mine = byUser(uid);
+        if (!mine.length || rnd(10) < 2) continue;   // 2割の日は記録なし（つけ忘れ）
+        let left = [8, 7.5, 6, 4][rnd(4)];
+        while (left > 0) {
+          const hrs = Math.min(left, [1, 2, 2.5, 3, 4][rnd(5)]);
+          const issue = mine[rnd(mine.length)];
+          entries.push({ id: entries.length + 1, project: { id: 1, name: '設計課' }, issue: { id: issue.id }, user: { id: uid, name: users[uid] },
+            activity: { id: 9, name: '設計' }, hours: hrs, comments: '', spent_on: isoDate(day) });
+          left -= hrs;
+        }
+      }
+    }
+  }
   return {
+    async timeEntries({ from, to, userId }) {
+      await wait(200);
+      return entries.filter(e => e.spent_on >= from && e.spent_on <= to && (!userId || e.user.id === userId)).map(clone);
+    },
+    async createTimeEntry({ issueId, hours, spentOn, comments }) {
+      await wait(150);
+      const uid = getMockUserId();
+      const e = { id: entries.length + 1, project: { id: 1, name: '設計課' }, issue: { id: issueId }, user: { id: uid, name: users[uid] },
+        activity: { id: 9, name: '設計' }, hours, comments: comments || '', spent_on: spentOn };
+      entries.push(e);
+      return clone(e);
+    },
+    async issuesTouchedOn(userId, date) {
+      await wait(120);
+      return [...db.values()].filter(i => i.assigned_to && i.assigned_to.id === userId && isoDate(new Date(i.updated_on)) === date).map(clone);
+    },
     async currentUser() { await wait(120); const id = getMockUserId(); return { id, name: users[id] }; },
     async issuesFor(userId) {
       await wait();
@@ -860,7 +948,38 @@ function createRedmineApi(baseUrl, apiKey) {
     }
   }
   const versionCache = new Map();
+  let activityId;   // undefined = まだ調べていない / null = 指定しない（Redmine の既定に任せる）
+  async function defaultActivity() {
+    if (activityId !== undefined) return activityId;
+    try {
+      const j = await req('/enumerations/time_entry_activities.json');
+      const list = (j.time_entry_activities || []).filter(a => a.active !== false);
+      activityId = (list.find(a => a.is_default) || list[0] || {}).id || null;
+    } catch (_) { activityId = null; }
+    return activityId;
+  }
   return {
+    async timeEntries({ from, to, userId }) {
+      const scope = CONFIG.projectId ? `project_id=${encodeURIComponent(CONFIG.projectId)}&` : '';
+      const who = userId ? `user_id=${userId}&` : '';
+      const out = [];
+      for (let offset = 0; ; ) {
+        const j = await req(`/time_entries.json?${scope}${who}from=${from}&to=${to}&limit=100&offset=${offset}`);
+        out.push(...j.time_entries);
+        offset += j.time_entries.length;
+        if (!j.time_entries.length || offset >= j.total_count) return out;
+      }
+    },
+    async createTimeEntry({ issueId, hours, spentOn, comments }) {
+      const activity = await defaultActivity();
+      const body = { issue_id: issueId, hours, spent_on: spentOn, comments: comments || '' };
+      if (activity) body.activity_id = activity;
+      const j = await req('/time_entries.json', { method: 'POST', body: JSON.stringify({ time_entry: body }) });
+      return j.time_entry;
+    },
+    async issuesTouchedOn(userId, date) {
+      return allIssues(`assigned_to_id=${userId}&status_id=*&updated_on=${encodeURIComponent(`><${date}|${date}`)}`);
+    },
     async currentUser() {
       const j = await req('/users/current.json');
       return { id: j.user.id, name: `${j.user.lastname} ${j.user.firstname}` };
@@ -892,8 +1011,10 @@ function createRedmineApi(baseUrl, apiKey) {
       return issue.journals || [];
     },
     async issuesByIds(ids) {
-      if (!ids.length) return [];
-      return allIssues(`issue_id=${ids.join(',')}&status_id=*`);
+      // URL が長くなりすぎないよう 50 件ずつ
+      const out = [];
+      for (let k = 0; k < ids.length; k += 50) out.push(...await allIssues(`issue_id=${ids.slice(k, k + 50).join(',')}&status_id=*`));
+      return out;
     },
     async inboxIssues() {
       // 「担当なし」と「バージョンなし」は API で OR 指定できないので 2 回取って合わせる
@@ -972,7 +1093,7 @@ function createRedmineApi(baseUrl, apiKey) {
  * ===================================================================== */
 const STORE_KEY = 'designBoard.settings.v2';
 function loadSettings() {
-  const fallback = { mode: CONFIG.defaultMode, url: '', key: '', mockUserId: 2 };
+  const fallback = { mode: CONFIG.defaultMode, url: '', key: '', mockUserId: 2, askHours: true };
   try { return { ...fallback, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; } catch (_) { return fallback; }
 }
 function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (_) { /* 保存できなくても動作は続ける */ } }
@@ -2037,6 +2158,7 @@ async function changeStatus(id, statusId, { undoable = false } = {}) {
     const undo = undoable ? () => changeStatus(id, prev.status.id) : null;
     toast(`#${id} を「${next.name}」にしました`, { action: undo && { label: '元に戻す', run: undo } });
     if (issue.parent) syncParentsAndReport(issue.parent.id);
+    if (settings.askHours !== false && issue.assigned_to && issue.assigned_to.id === state.me.id && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
   } catch (e) {
     issue.status = prev.status;
     issue.done_ratio = prev.done_ratio;
@@ -2131,6 +2253,210 @@ async function sweepParents() {
   const uniq = [...new Map(changed.map(([id, name]) => [id, name]))];
   if (uniq.length) toast(`親チケット ${uniq.length} 件のステータスを子に合わせました`);
   if (failed.length) toast(`親チケット ${failed.length} 件はステータスを合わせられませんでした（権限やワークフローを確認してください）`, { error: true });
+}
+
+/* =====================================================================
+ * 9c. 工数（Redmine の「作業時間」に記録する）
+ *   ・進捗を動かしたら、その場で時間を 1 回押すだけで記録（押さなければ何もしない）
+ *   ・「工数」ボタン: その日に動かしたチケットへまとめて記録 / 月の集計（バージョン別、CSV 出力）
+ * ===================================================================== */
+const fmtH = n => `${Math.round(n * 100) / 100}h`;
+const hoursLabel = n => (n === CONFIG.hoursPerDay ? `1日(${n}h)` : fmtH(n));
+
+async function recordHours(issueId, hours, spentOn, comments) {
+  await api.createTimeEntry({ issueId, hours, spentOn, comments });
+}
+
+function askHours(issue, statusName) {
+  document.querySelectorAll('.toast.ask').forEach(el => el.remove());   // 聞くのは最新の 1 件だけ
+  const subject = parseTitle(issue.subject).text;
+  const el = h('div', { class: 'toast ask', role: 'status' });
+  const close = () => el.remove();
+  const pick = async hrs => {
+    close();
+    try {
+      await recordHours(issue.id, hrs, isoDate(startOfToday()), `ボードから記録（${statusName}）`);
+      toast(`#${issue.id} に ${fmtH(hrs)} を記録しました`);
+    } catch (e) { toast(`作業時間を記録できませんでした。${e.message}`, { error: true }); }
+  };
+  el.append(
+    h('span', { class: 'q' }, `#${issue.id} `, h('b', {}, subject.length > 24 ? subject.slice(0, 24) + '…' : subject), ' — 今回の作業時間は？'),
+    h('span', { class: 'chips' },
+      [...CONFIG.hourChoices, CONFIG.hoursPerDay].map(n => h('button', { type: 'button', onclick: () => pick(n) }, hoursLabel(n))),
+      h('button', { type: 'button', class: 'skip', onclick: close }, '記録しない')));
+  $('toasts').append(el);
+  setTimeout(close, 20000);
+}
+
+const hoursState = { tab: 'day', date: null, month: 0, who: 'me', group: 'version' };
+
+function openHours(tab) {
+  if (!state.me) return;
+  if (tab) hoursState.tab = tab;
+  hoursState.date = hoursState.date || isoDate(startOfToday());
+  $('hoursDlg').hidden = false;
+  renderHours();
+}
+function closeHours() { $('hoursDlg').hidden = true; }
+
+function renderHours() {
+  const body = $('hoursBody');
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': '表示の切り替え' },
+    h('button', { type: 'button', 'aria-pressed': String(hoursState.tab === 'day'), onclick: () => { hoursState.tab = 'day'; renderHours(); } }, '日々の記録'),
+    h('button', { type: 'button', 'aria-pressed': String(hoursState.tab === 'month'), onclick: () => { hoursState.tab = 'month'; renderHours(); } }, '月の集計'));
+  const content = h('div', { class: 'loading', style: 'min-height:120px' }, '読み込み中…');
+  body.replaceChildren(h('div', { class: 'head', style: 'display:flex;gap:12px;align-items:center' }, h('h2', {}, '工数'), seg), content,
+    h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: closeHours }, '閉じる')));
+  (hoursState.tab === 'day' ? renderHoursDay(content) : renderHoursMonth(content))
+    .catch(e => content.replaceWith(h('p', { class: 'test-result ng' }, `読み込めませんでした。${e.message}`)));
+}
+
+async function renderHoursDay(slot) {
+  const date = hoursState.date;
+  const me = state.me.id;
+  const [entries, touched, mine] = await Promise.all([
+    api.timeEntries({ from: date, to: date, userId: me }),
+    api.issuesTouchedOn(me, date),
+    api.issuesFor(me),
+  ]);
+  const logged = new Map();
+  for (const e of entries) if (e.issue) logged.set(e.issue.id, (logged.get(e.issue.id) || 0) + Number(e.hours));
+  const byId = new Map([...mine, ...touched].map(i => [i.id, i]));
+  const missing = [...logged.keys()].filter(id => !byId.has(id));
+  if (missing.length) for (const i of await api.issuesByIds(missing)) byId.set(i.id, i);
+  // 並べるのは「その日に動かした」か「その日に記録済み」のチケット。ほかは下の選択肢から足す
+  const shown = hoursState.extra && hoursState.extraDate === date ? hoursState.extra : (hoursState.extra = new Set(), hoursState.extraDate = date, hoursState.extra);
+  const rows = [...byId.values()].filter(i => logged.has(i.id) || touched.some(t => t.id === i.id) || shown.has(i.id)).sort(byPriority);
+  const unlogged = entries.filter(e => !e.issue).reduce((n, e) => n + Number(e.hours), 0);
+  const base = [...logged.values()].reduce((a, b) => a + b, 0) + unlogged;
+
+  const totalB = h('b', {}), fill = h('div', { class: 'fl' });
+  const inputs = [];
+  const refresh = () => {
+    const add = inputs.reduce((n, x) => n + (Number(x.value) || 0), 0);
+    const sum = base + add;
+    totalB.textContent = fmtH(sum);
+    fill.style.width = `${Math.min(1, sum / CONFIG.hoursPerDay) * 100}%`;
+    fill.classList.toggle('over', sum > CONFIG.hoursPerDay);
+  };
+  const row = i => {
+    const input = h('input', { type: 'number', min: '0', max: '24', step: '0.25', placeholder: '0', 'aria-label': `#${i.id} に追加する時間`, oninput: refresh });
+    input.dataset.id = i.id;
+    inputs.push(input);
+    const bump = n => { input.value = String((Number(input.value) || 0) + n); refresh(); };
+    return h('li', { class: 'hrow' },
+      h('div', { class: 't' },
+        h('span', { class: 'sj', title: i.subject }, parseTitle(i.subject).text),
+        h('span', { class: 'sub' }, `#${i.id}`, renderTag(i.fixed_version && i.fixed_version.name), i.status.name)),
+      h('span', { class: 'done-h' }, logged.has(i.id) ? `記録済 ${fmtH(logged.get(i.id))}` : ''),
+      h('span', { class: 'add' }, CONFIG.hourChoices.map(n => h('button', { type: 'button', onclick: () => bump(n) }, `+${n}`)), input, 'h'));
+  };
+  const others = mine.filter(i => !rows.some(r => r.id === i.id) && ['todo', 'doing', 'done'].includes(colOf(i))).sort(byPriority);
+  const addSel = h('select', { 'aria-label': 'チケットを追加' }, h('option', { value: '' }, 'ほかのチケットを追加…'),
+    others.map(i => h('option', { value: i.id }, `#${i.id} ${parseTitle(i.subject).text}`)));
+  addSel.addEventListener('change', () => { if (addSel.value) { shown.add(Number(addSel.value)); renderHours(); } });
+  const dateIn = h('input', { type: 'date', value: date, max: isoDate(startOfToday()), 'aria-label': '記録する日' });
+  dateIn.addEventListener('change', () => { if (dateIn.value) { hoursState.date = dateIn.value; renderHours(); } });
+  const msg = h('p', { class: 'error-msg', hidden: true });
+  const save = h('button', { type: 'button', class: 'btn primary', onclick: async () => {
+    const todo = inputs.map(x => ({ id: Number(x.dataset.id), hrs: Number(x.value) || 0 })).filter(x => x.hrs > 0);
+    if (!todo.length) { msg.hidden = false; msg.textContent = '追加する時間が入っていません。'; return; }
+    if (todo.some(x => x.hrs > 24)) { msg.hidden = false; msg.textContent = '1件に24時間を超える時間は入れられません。'; return; }
+    save.disabled = true;
+    const failed = [];
+    for (const x of todo) {
+      try { await recordHours(x.id, x.hrs, date, 'ボードから記録'); } catch (e) { failed.push(`#${x.id}: ${e.message}`); }
+    }
+    if (failed.length) toast(`記録できなかったものがあります。${failed.join(' / ')}`, { error: true });
+    else toast(`${todo.length} 件、合計 ${fmtH(todo.reduce((n, x) => n + x.hrs, 0))} を記録しました`);
+    renderHours();
+  } }, '記録する');
+
+  slot.replaceWith(h('div', { style: 'display:flex;flex-direction:column;gap:10px' },
+    h('div', { class: 'day-head' }, dateIn,
+      date === isoDate(startOfToday()) ? h('span', { class: 'hint' }, 'その日に進捗を動かしたチケットが並びます') : null,
+      h('span', { class: 'total' }, '合計', totalB, h('div', { class: 'tr' }, fill), `/ ${CONFIG.hoursPerDay}h`)),
+    rows.length ? h('ul', { class: 'hrows' }, rows.map(row)) : h('p', { class: 'empty' }, 'この日に動かしたチケットはありません。下から追加できます。'),
+    unlogged ? h('p', { class: 'hint' }, `チケットにひも付かない記録 ${fmtH(unlogged)} も合計に含めています。`) : null,
+    h('div', { class: 'addline' }, addSel),
+    msg,
+    h('div', { class: 'dialog-actions' }, h('span', { class: 'hint', style: 'margin-right:auto' }, '記録した時間の修正・削除は Redmine の「作業時間」画面で行えます。'), save)));
+  refresh();
+}
+
+function monthRange(offset) {
+  const t = startOfToday();
+  const first = new Date(t.getFullYear(), t.getMonth() - offset, 1);
+  const last = new Date(t.getFullYear(), t.getMonth() - offset + 1, 0);
+  return { from: isoDate(first), to: isoDate(last), label: `${first.getFullYear()}年${first.getMonth() + 1}月` };
+}
+
+async function renderHoursMonth(slot) {
+  const range = monthRange(hoursState.month);
+  const team = hoursState.who === 'team';
+  const entries = await api.timeEntries({ from: range.from, to: range.to, userId: team ? null : state.me.id });
+  const ids = [...new Set(entries.filter(e => e.issue).map(e => e.issue.id))];
+  const issues = new Map((await api.issuesByIds(ids)).map(i => [i.id, i]));
+
+  // 行 = バージョン（またはプロジェクト）、列 = メンバー
+  const groups = new Map(), people = new Map();
+  for (const e of entries) {
+    const issue = e.issue && issues.get(e.issue.id);
+    let key, label, kind = '';
+    if (hoursState.group === 'project') { key = 'p' + e.project.id; label = e.project.name; }
+    else if (issue && issue.fixed_version) {
+      const v = parseVersion(issue.fixed_version.name);
+      key = 'v' + issue.fixed_version.id; label = v.label; kind = issue.fixed_version.name;
+    } else { key = 'n' + e.project.id; label = `${e.project.name}（バージョンなし）`; }
+    if (!groups.has(key)) groups.set(key, { label, kind, name: kind || label, by: new Map(), total: 0 });
+    const g = groups.get(key);
+    const hrs = Number(e.hours);
+    g.by.set(e.user.id, (g.by.get(e.user.id) || 0) + hrs);
+    g.total += hrs;
+    if (!people.has(e.user.id)) people.set(e.user.id, (CONFIG.members.find(m => m.id === e.user.id) || {}).name || e.user.name);
+  }
+  const order = CONFIG.members.map(m => m.id);
+  const cols = [...people.keys()].sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999));
+  const rows = [...groups.values()].sort((a, b) => {
+    const pa = parseVersion(a.kind).prio ?? 999, pb = parseVersion(b.kind).prio ?? 999;
+    return pa - pb || a.name.localeCompare(b.name, 'ja');
+  });
+  const colTotal = id => rows.reduce((n, r) => n + (r.by.get(id) || 0), 0);
+  const all = rows.reduce((n, r) => n + r.total, 0);
+  const cell = v => h('td', { class: v ? '' : 'zero' }, v ? (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, '') : '–');
+
+  const csv = () => {
+    const q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = [[hoursState.group === 'project' ? 'プロジェクト' : 'バージョン', ...cols.map(id => people.get(id)), '合計'].map(q).join(',')];
+    for (const r of rows) lines.push([q(r.name), ...cols.map(id => r.by.get(id) || 0), Math.round(r.total * 100) / 100].join(','));
+    lines.push([q('合計'), ...cols.map(colTotal), Math.round(all * 100) / 100].join(','));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `kousu_${range.from.slice(0, 7)}${team ? '_team' : ''}.csv` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const sel = (value, options, onchange) => {
+    const s = h('select', {}, options.map(([v, l]) => h('option', { value: v, selected: String(v) === String(value) }, l)));
+    s.addEventListener('change', () => { onchange(s.value); renderHours(); });
+    return s;
+  };
+
+  slot.replaceWith(h('div', { style: 'display:flex;flex-direction:column;gap:10px' },
+    h('div', { class: 'day-head' },
+      sel(hoursState.month, [0, 1, 2, 3].map(n => [n, monthRange(n).label]), v => { hoursState.month = Number(v); }),
+      sel(hoursState.who, [['me', '自分'], ['team', 'チーム全員']], v => { hoursState.who = v; }),
+      sel(hoursState.group, [['version', 'バージョン別'], ['project', 'プロジェクト別']], v => { hoursState.group = v; }),
+      h('span', { class: 'total' }, '合計', h('b', {}, fmtH(all)))),
+    rows.length
+      ? h('div', { class: 'htable-wrap' }, h('table', { class: 'htable' },
+          h('thead', {}, h('tr', {}, h('th', {}, hoursState.group === 'project' ? 'プロジェクト' : 'バージョン'), cols.map(id => h('th', {}, people.get(id))), h('th', {}, '合計'))),
+          h('tbody', {}, rows.map(r => h('tr', {},
+            h('td', {}, r.label, r.kind ? h('span', { class: 'kind' }, r.kind) : null), cols.map(id => cell(r.by.get(id))), cell(r.total)))),
+          h('tfoot', {}, h('tr', {}, h('td', {}, '合計'), cols.map(id => cell(colTotal(id))), cell(all)))))
+      : h('p', { class: 'empty' }, `${range.label}の記録はまだありません。`),
+    h('div', { class: 'dialog-actions' },
+      h('span', { class: 'hint', style: 'margin-right:auto' }, team ? '他の人の記録が見えない場合は、Redmine の「作業時間の閲覧」権限を確認してください。' : ''),
+      h('button', { type: 'button', class: 'btn', disabled: !rows.length, onclick: csv }, 'CSV で保存'))));
 }
 
 /* =====================================================================
@@ -2244,6 +2570,7 @@ function openSettings() {
   $('redmineUrl').value = settings.url;
   $('apiKey').value = settings.key;
   $('testResult').hidden = true;
+  $('askHours').checked = settings.askHours !== false;
   $('settings').hidden = false;
   $({ relay: 'modeRelay', live: 'modeLive', mock: 'modeMock' }[settings.mode] || 'modeMock').focus();
 }
@@ -2251,11 +2578,14 @@ function closeSettings() { $('settings').hidden = true; }
 
 $('settingsBtn').addEventListener('click', openSettings);
 $('newTaskBtn').addEventListener('click', () => { if (state.me) openNewTask(); });
+$('hoursBtn').addEventListener('click', () => openHours());
+$('hoursDlg').addEventListener('click', e => { if (e.target === $('hoursDlg')) closeHours(); });
 $('cancelSettings').addEventListener('click', closeSettings);
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('editor').hidden) closeEditor();
+  if (!$('hoursDlg').hidden) closeHours();
+  else if (!$('editor').hidden) closeEditor();
   else if (!$('settings').hidden) closeSettings();
 });
 
@@ -2291,7 +2621,7 @@ $('settingsForm').addEventListener('submit', e => {
     out.textContent = 'Redmine に接続するには URL と API キーが必要です。';
     return;
   }
-  settings = { ...settings, mode, url, key };
+  settings = { ...settings, mode, url, key, askHours: $('askHours').checked };
   saveSettings();
   closeSettings();
   boot();
