@@ -13,7 +13,8 @@ from pathlib import Path
 
 here = Path(__file__).parent
 src = (here / "src" / "kanban.fragment.html").read_text(encoding="utf-8")
-src = src.replace("__BUILD__", datetime.now().strftime("%Y-%m-%d %H:%M"))
+stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+src = src.replace("__BUILD__", stamp)
 head, body = src.split("<!--BODY-->", 1)
 html = (
     "<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n"
@@ -32,5 +33,8 @@ code, n = re.subn(
     lambda m: f"{m.group(1)}BOARD_HTML = [\n{lines}\n]\n{m.group(2)}",
     code, flags=re.S)
 assert n == 1, "kanban_relay.py に BOARD_HTML_BEGIN/END の目印がありません"
+# 自動更新で「古いものに戻さない」判定に使う（版番号が同じでも、埋め込んだ画面が新しいかどうか分かるように）
+code, n = re.subn(r'^BUILD = "[^"]*"', f'BUILD = "{stamp}"', code, flags=re.M)
+assert n == 1, "kanban_relay.py に BUILD = の行がありません"
 relay.write_text(code, encoding="utf-8")
 print(f"built kanban.html and embedded it in kanban_relay.py ({len(blob) // 1024} KB)")

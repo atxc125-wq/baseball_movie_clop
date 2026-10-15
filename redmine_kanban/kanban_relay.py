@@ -44,7 +44,8 @@ from pathlib import Path
 ALLOWED_ORIGINS: list[str] = []
 PORT = 8765
 
-VERSION = "10"
+VERSION = "11"
+BUILD = "2026-10-15 22:08"  # build.py が埋め込んだ画面の作成日時を入れる
 HERE = Path(__file__).resolve().parent
 SETTINGS_FILE = "board_settings.json"
 BOARD_URL = f"http://127.0.0.1:{PORT}/"
@@ -645,16 +646,31 @@ def replace_old_running(folder: Path) -> bool:
 
 def copy_if_changed(src_dir: Path, dst_dir: Path) -> list[str]:
     """kanban_relay.py と board_settings.json を、中身が違うときだけコピーする。"""
+    return copy_if_changed_names(src_dir, dst_dir, ["kanban_relay.py", SETTINGS_FILE])
+
+
+def copy_if_changed_names(src_dir: Path, dst_dir: Path, names: list[str]) -> list[str]:
     changed: list[str] = []
     if src_dir.resolve() == dst_dir.resolve():
         return changed
     dst_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("kanban_relay.py", SETTINGS_FILE):
+    for name in names:
         src, dst = src_dir / name, dst_dir / name
         if src.exists() and (not dst.exists() or src.read_bytes() != dst.read_bytes()):
             shutil.copy2(src, dst)
             changed.append(name)
     return changed
+
+
+def file_version(path: Path) -> tuple[int, str]:
+    """kanban_relay.py に書かれた (版の番号, 画面の作成日時)。読めなければ (0, "")。"""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return 0, ""
+    m = re.search(r'^VERSION = "(\d+)"', text, re.M)
+    b = re.search(r'^BUILD = "([^"]*)"', text, re.M)
+    return (int(m.group(1)) if m else 0), (b.group(1) if b else "")
 
 
 def update_source() -> Path | None:
@@ -895,7 +911,17 @@ def main() -> int:
     # 自動起動のコピーは、起動時に共有フォルダの新しい版を取り込む
     if HERE == APP_DIR.resolve():
         src = update_source()
-        if src and src.exists():
+        theirs = file_version(src / "kanban_relay.py") if src else (0, "")
+        if src and src.exists() and theirs <= (int(VERSION), BUILD):
+            # 取り込み元が同じか古い版なら py は取り込まない（設定ファイルだけ）。古い版に戻ると、
+            # ログオンのたびに古い画面になる
+            if theirs < (int(VERSION), BUILD) and (src / "kanban_relay.py").exists():
+                log(f"取り込み元の kanban_relay.py は古い版（v{theirs[0]} {theirs[1]}）なので取り込みません: {src}")
+            changed = [n for n in copy_if_changed_names(src, HERE, [SETTINGS_FILE])]
+            if changed:
+                log("共有フォルダから新しい設定を取り込みました: " + "、".join(changed))
+                SETTINGS = load_settings(HERE)
+        elif src and src.exists():
             changed = copy_if_changed(src, HERE)
             if changed:
                 log("共有フォルダから新しい版を取り込みました: " + "、".join(changed))
@@ -1090,7 +1116,7 @@ BOARD_HTML = [
     "UB1R7Emit0/lrZw3WwuLht0CxLn4SWvxDHCpzokHlLH+Bg4WB/iNNGmYYi+1lj7w861QVqJdqSrUBXjxhvitVNl6dw6k3ae6eYdJ",
     "5IYAlDepbu5lBpm2m+wOGkRC4LUOHeE7z/sxqoLQWM96U4rsHavnj7cWPwKesTY4z4ZlsKAWV0qAkRLPkI/2NPw0xdCn4TTzjVId",
     "rOkIGO/oqS/l3cgoHioZexr/bbKes1IJYJm/f2X3/7b+vvChtbp4cvlDwLGbyCaXziC2IO9kfRPJh7l/58wl5J1LJxHCU+kKnn/J",
-    "Aw641ouv7Xxj18SLf9j9u13WmBVJJ9PD8VQynhqyUuncUDYyag0OWpOzpXIhUZ9DTo+EcOxs58KXQAtIL4e/RLQHXXhhqbX4NeqP",
+    "Aw641ouv7Xxj18SLf9j9u13WmBVJJ9PD8VQynhqy0ulcciQyag0OWpOzpXIhUZ9DTo+EcOxs58KXQAtIL4e/RLQHXXhhqbX4NeqP",
     "x4+hQBCGqiEQiLJuL39+b+XGaRi46IKYkDFy0EFrOg9DFDsidKOln63duyzSuRe5qfaxCzh5R8kgJtjtOw/bjy5D49AdhkZV7lgm",
     "Y1y+fQVvGwSGaPm0X1+LwBdBzHGPBWqppaIxQyNN13YBYZo5aw/h10HA8JyVGiAFJGdFwCJb/nihc/xkZIBQGmwmeOvWCjXxwqI8",
     "Drj5Mj+gQUgrCMnfyJKqOgWhibfh1TOqelqv37V62lc/q+pn+6qf9dUfUvWH+6o/7Ks/rOqP9FV/xFd/q6rfvn3q8b0jwKzbtz9t",
@@ -1695,7 +1721,7 @@ BOARD_HTML = [
     "qm06s2mdg0AClrLar1bJD3b12LucvmTp7QcXTmnYPdhUnStfrJ1cgB5CsgoUlWqN8kS5SrCVbUPCNLl7rtaYDtKx5szodLnVq7aN",
     "uGZPUhj8AbasZc9JkgI3VGcbu+QrTG+3TG27LVFGgiDyVrqE5xuiRqPA8Vg83fn29Y2ri7jlLqUddr1CiGIBWRf5dw4nOxfpwwBX",
     "DTGFAyn8I7poNAuzzl0WJa83sEzUWvKiA3YQzlimq7RmdohgFek7acY1KjnK+Rvuk9+BBqJCbvWuJQRmw+MZt6daK4wf+e9lxCRh",
-    "vwn4i5QwmbX3FhBCbGX9zS/XXkfQ/xu3Vhe/3fhGreK3AlKRQze3CkTYJns79euXO5tjjXK99bT6C3zX4N/J1nTl6W3/Fxy6MF0=",
+    "vwn4i5QwmbX3FhBCbGX9zS/XXkfQ/xu3Vhe/3fhGreK3AlKRQze3CkTYJns79euXO5tjjXK99bT6C3zX4N/J1nTl6W3/Fxy5MF0=",
 ]
 # --- BOARD_HTML_END ---
 
