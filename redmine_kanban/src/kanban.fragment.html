@@ -546,6 +546,16 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara-pop .row input { width: 70px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 4px 6px; font-family: var(--font-num); text-align: right; }
 .bara-pop .row .gap { flex: 1; }
 .bara-pop .row button { border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 3px 8px; font-size: 12px; }
+.bara .bbody { flex: 1; min-height: 0; display: flex; }
+.bara .bbody .canvas { flex: 1; min-width: 0; }
+.bara .rail { width: 220px; flex: none; border-right: 1px solid var(--line); background: var(--surface); overflow: auto; padding: 10px 10px 16px; display: flex; flex-direction: column; gap: 6px; }
+.bara .rail h3 { margin: 0 0 2px; font-size: 12px; color: var(--ok); display: flex; justify-content: space-between; }
+.bara .rail .hint { font-size: 11px; }
+.bara .rail .done-item { border: 1px solid var(--line); border-left: 3px solid var(--ok); border-radius: 6px; padding: 4px 8px; font-size: 12px; line-height: 1.4; background: var(--surface-2); }
+.bara .rail .done-item .pt { display: block; font-size: 10px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bara .rail .done-item .nm { color: var(--ink-2); overflow-wrap: anywhere; }
+.bara .hidden-note { font-size: 11px; color: var(--ok); }
+@media (max-width: 760px) { .bara .rail { display: none; } }
 .bara .empty-scope { padding: 40px; text-align: center; color: var(--ink-3); }
 /* ---------- 使い方（ブログ風の解説） ---------- */
 .help-btn { position: relative; }
@@ -2888,7 +2898,9 @@ function bStages(list) {
 }
 
 function bFlow(parentId) {
-  const list = parentId == null ? bTop() : bKids(parentId);
+  const all = parentId == null ? bTop() : bKids(parentId);
+  const list = all.filter(i => !bHidden(i.id));
+  if (all.length && !list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, `中の仕事はすべて完了（${all.length}件、左の欄に表示）`);
   if (!list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, parentId == null ? 'タスクがありません。右上の ＋ タスク で追加' : 'ここに箱をドラッグ、または ＋（下）で追加');
   return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, bStages(list).map(col => h('div', { class: 'stage' }, col.map(bNode))));
 }
@@ -2918,6 +2930,7 @@ function bBox(issue, isHeader) {
       due && due.hasDeadline ? h('span', { class: 'dl ' + due.cls, title: due.text },
         due.level ? due.text.replace(/ \d+\/\d+\(.\)$/, '') : `締切 ${due.text.match(/\d+\/\d+/)[0]}`) : null,
       isHeader ? h('span', {}, `子 ${bKids(issue.id).length}`) : null,
+      isHeader && bHideDone() && bKids(issue.id).some(k => bAllDone(k.id)) ? h('span', { class: 'hidden-note' }, `完了 ${bKids(issue.id).filter(k => bAllDone(k.id)).length} 件を隠し中`) : null,
       h('span', { class: `st ${st}` }, stText)),
     h('div', { class: 'bar' }, h('i', { style: `width:${ratio}%` })),
     issue.temp ? null : bEst(issue, isHeader, leaves),
@@ -3003,7 +3016,8 @@ function bScopeOptions() {
 }
 
 function bCritical() {
-  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length).map(i => i.id);
+  // 完了を隠しているときは「残りの仕事」だけで数える
+  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length && !(bHideDone() && bStatus(i) === 'done')).map(i => i.id);
   const set = new Set(leaves);
   const ends = (id, first) => {
     const L = bLeaves(id).map(l => l.id);
@@ -3030,6 +3044,18 @@ function bCritical() {
 }
 
 const BARA_CRIT_KEY = 'designBoard.baraCrit';
+const BARA_HIDE_KEY = 'designBoard.baraHideDone';
+function bHideDone() { try { return localStorage.getItem(BARA_HIDE_KEY) !== '0'; } catch (_) { return true; } }
+// 完了済み = 末端なら完了、枠なら中の仕事がすべて完了（範囲の親チケットそのものは隠さない）
+function bAllDone(id) { const i = B.issues.get(id); return !i.temp && bLeaves(id).every(l => !l.temp && bStatus(l) === 'done'); }
+function bHidden(id) {
+  if (!bHideDone()) return false;
+  for (let x = B.issues.get(id), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) {
+    if (B.scope.kind === 'issue' && x.id === B.scope.id) return false;
+    if (bAllDone(x.id)) return true;
+  }
+  return false;
+}
 function bCritOn() { try { return localStorage.getItem(BARA_CRIT_KEY) !== '0'; } catch (_) { return true; } }
 
 function renderBara() {
@@ -3043,6 +3069,8 @@ function renderBara() {
     B.selected = null; B.collapsed.delete(B.scope.id);
     bReload();
   });
+  const hide = h('input', { type: 'checkbox', checked: bHideDone() });
+  hide.addEventListener('change', () => { try { localStorage.setItem(BARA_HIDE_KEY, hide.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } renderBara(); });
   const crit = h('input', { type: 'checkbox', checked: bCritOn() });
   crit.addEventListener('change', () => { try { localStorage.setItem(BARA_CRIT_KEY, crit.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } bDrawArrows(); });
   const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length);
@@ -3050,7 +3078,7 @@ function renderBara() {
   const sum = h('span', { class: 'sumbar' },
     h('span', {}, '予定 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.estimated_hours || 0), 0)))),
     h('span', {}, '実績 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.spent_hours || 0), 0)))),
-    cp.hours != null && cp.n > 2 ? h('span', { title: '並行してできる仕事を除いた、順番にしかできない仕事の予定工数の合計' }, '一番長い流れ ',
+    cp.hours != null && cp.n > 2 ? h('span', { title: '並行してできる仕事を除いた、順番にしかできない仕事の予定工数の合計' }, bHideDone() ? '残りの一番長い流れ ' : '一番長い流れ ',
       h('b', { class: 'crit-v' }, `${fmtH(cp.hours)}（約${Math.round((cp.hours / CONFIG.hoursPerDay) * 10) / 10}日）`)) : null);
   const add = h('button', { type: 'button', class: 'btn primary', onclick: () => bAddTop() }, '＋ タスク');
   const inner = h('div', { class: 'inner' });
@@ -3058,7 +3086,9 @@ function renderBara() {
   const scroll = root.querySelector('.canvas');
   const keep = scroll ? [scroll.scrollLeft, scroll.scrollTop] : [0, 0];
   root.replaceChildren(
-    h('div', { class: 'btop' }, scopeSel, h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, crit, '一番長い流れを赤く'), sum, h('span', { class: 'sp' }), add),
+    h('div', { class: 'btop' }, scopeSel,
+      h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, hide, '完了を隠す'),
+      h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, crit, '一番長い流れを赤く'), sum, h('span', { class: 'sp' }), add),
     h('div', { class: 'bhelp' },
       h('span', {}, h('b', {}, '＋（左・右・下）'), ' 前・後・中（子）の仕事を追加'),
       h('span', {}, h('b', {}, '箱をドラッグ'), ' 相手の左端＝前／右端＝後／真ん中＝中に入れる'),
@@ -3067,7 +3097,7 @@ function renderBara() {
       h('span', {}, h('b', {}, 'ダブルクリック'), ' 名前を変える'),
       h('span', {}, h('b', {}, '✎'), ' 担当・締切などを編集'),
       h('span', {}, '前後のつながりは Redmine の「先行」として保存され、ガントチャートにも出ます')),
-    canvas);
+    h('div', { class: 'bbody' }, bRail(), canvas));
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'arrows');
   const top = B.scope.kind === 'issue' && B.issues.has(B.scope.id)
@@ -3079,6 +3109,21 @@ function renderBara() {
   bBindCanvas(inner);
   const editing = inner.querySelector('.bx .sj input');   // 描いた直後に入力欄へ（打ち始めの1文字目を取りこぼさない）
   if (editing) { editing.focus(); editing.select(); }
+}
+
+// 完了を隠しているとき、隠した仕事を左の欄に小さく並べる（何が終わったかは見えるように）
+function bRail() {
+  if (!bHideDone()) return null;
+  const done = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length && bStatus(i) === 'done' && bHidden(i.id))
+    .sort((a, b) => (b.updated_on || '').localeCompare(a.updated_on || ''));
+  if (!done.length) return null;
+  const parentName = i => (i.parent && B.issues.get(i.parent.id) ? parseTitle(B.issues.get(i.parent.id).subject).text : '');
+  return h('aside', { class: 'rail', 'aria-label': '完了した仕事' },
+    h('h3', {}, h('span', {}, '✓ 完了'), h('span', {}, `${done.length} 件`)),
+    h('p', { class: 'hint' }, '新しく終わった順。「完了を隠す」を外すと元の場所に出ます'),
+    done.map(i => h('div', { class: 'done-item', title: `#${i.id} ${i.subject}` },
+      parentName(i) ? h('span', { class: 'pt' }, parentName(i)) : null,
+      h('span', { class: 'nm' }, parseTitle(i.subject).text))));
 }
 
 function bAnchor(id) {
