@@ -584,6 +584,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara .rail .done-item .nm { color: var(--ink-2); overflow-wrap: anywhere; }
 .bara .hidden-note { font-size: 11px; color: var(--ok); }
 @media (max-width: 760px) { .bara .rail { display: none; } }
+.bara .add-here { border: 1.5px dashed var(--line); background: transparent; color: var(--ink-3); border-radius: 8px; padding: 6px 14px; font-size: 12px; width: 200px; text-align: left; }
+.bara .add-here:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .bara .empty-scope { padding: 40px; text-align: center; color: var(--ink-3); }
 /* ---------- 使い方（ブログ風の解説） ---------- */
 .help-btn { position: relative; }
@@ -824,6 +826,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <li><strong>中の仕事（子）</strong>は親の<strong>枠の中</strong>に入ります</li>
         <li><strong>順番</strong>は左から右への<strong>矢印</strong>。並行できる仕事は縦に並びます</li>
         <li>箱の <span class="ui">＋</span>（左・右・下）で前・後・中の仕事を追加</li>
+        <li>枠のいちばん下の <span class="ui">＋ ここに追加</span> で、同じ階層に（つながりのない）仕事を追加</li>
         <li>箱をドラッグして、相手の左端なら前、右端なら後、真ん中なら中に入れる</li>
         <li><span class="ui">予定工数 ＋</span> で予定時間を入れると、<strong>一番長い流れ</strong>（順番にしかできない仕事の合計）が赤く出ます</li>
       </ul>
@@ -901,7 +904,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-16 10:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-16 10:27'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -3181,12 +3184,18 @@ function bFlow(parentId) {
   const list = all.filter(i => !bHidden(i.id));
   if (all.length && !list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, `中の仕事はすべて完了（${all.length}件、左の欄に表示）`);
   if (!list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, parentId == null ? 'タスクがありません。右上の ＋ タスク で追加' : 'ここに箱をドラッグ、または ＋（下）で追加');
-  return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, bStages(list).map(({ issue, col, row }) => {
+  const placed = bStages(list);
+  // 同じ階層に、つながりのない仕事を足すボタン（枠の中のいちばん下）
+  const add = h('button', { type: 'button', class: 'add-here', title: 'この階層に、前後のつながりのない仕事を追加',
+    onclick: e => { e.stopPropagation(); if (parentId == null) bAddTop(); else bAddNear(parentId, 'child'); } }, '＋ ここに追加');
+  add.style.gridColumn = '1';
+  add.style.gridRow = String(Math.max(0, ...placed.map(x => x.row)) + 2);
+  return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, placed.map(({ issue, col, row }) => {
     const el = bNode(issue);
     el.style.gridColumn = String(col + 1);
     el.style.gridRow = String(row + 1);
     return el;
-  }));
+  }), add);
 }
 function bNode(issue) {
   if (!bKids(issue.id).length) return bBox(issue, false);
@@ -3583,6 +3592,7 @@ function renderBara() {
     h('div', { class: 'btop', style: 'padding-top:0;border-bottom:0' }, schedGroup),
     h('div', { class: 'bhelp' },
       h('span', {}, h('b', {}, '＋（左・右・下）'), ' 前・後・中（子）の仕事を追加'),
+      h('span', {}, h('b', {}, '＋ ここに追加'), ' 同じ階層に、つながりのない仕事を追加'),
       h('span', {}, h('b', {}, '箱をドラッグ'), ' 相手の左端＝前／右端＝後／真ん中＝中に入れる'),
       h('span', {}, h('b', {}, '⤳ をドラッグ'), ' 矢印だけつなぐ'),
       h('span', {}, h('b', {}, '矢印をクリック'), ' 外す'),
@@ -3702,8 +3712,10 @@ function bAddNear(id, where) {
   bDropTemp();
   const base = B.issues.get(id);
   const parentId = where === 'child' ? id : base.parent && B.issues.has(base.parent.id) ? base.parent.id : null;
+  // 担当者の範囲では、その人の仕事として足す（親の枠の担当は別の人のことがある）
+  const scopeMember = B.scope.kind === 'user' ? CONFIG.members.find(m => m.id === B.scope.id) : null;
   const t = { id: -1, temp: true, subject: '', parent: parentId ? { id: parentId } : null, status: { id: statusForColumn('todo') },
-    assigned_to: base.assigned_to || (state.me && { id: state.me.id, name: state.me.name }), fixed_version: base.fixed_version, project: base.project };
+    assigned_to: scopeMember || base.assigned_to || (state.me && { id: state.me.id, name: state.me.name }), fixed_version: base.fixed_version, project: base.project };
   B.temp = { issue: t, rel: where === 'before' ? { id: 'tmp', from: -1, to: id } : where === 'after' ? { id: 'tmp', from: id, to: -1 } : null,
     parentIdForCreate: where === 'child' ? id : base.parent ? base.parent.id : null };
   if (where === 'child') B.collapsed.delete(id);
