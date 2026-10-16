@@ -3129,6 +3129,17 @@ async function bLoadSpent() {
   if (run === bSpentRun && todo.length && state.view === BARA && !B.busy && B.editing == null && !bPop) renderBara();
 }
 
+// 並び順: 'flow' = つながりの長い流れを上に（そのあとバージョン番号 → 締切）/ 'deadline' = 締切が近い順
+const BARA_SORT_KEY = 'designBoard.baraSort';
+function bSortMode() { try { return localStorage.getItem(BARA_SORT_KEY) || 'flow'; } catch (_) { return 'flow'; } }
+// 締切 = 件名の【M/D】、なければ作業完了予定。枠は自分と中の仕事のうち、いちばん近い締切（完了した仕事は見ない）
+function bDeadlineOf(issue) {
+  const own = i => parseTitle(i.subject).deadline || parseDate(i.due_date);
+  const dates = [own(issue), ...(bKids(issue.id).length ? bLeaves(issue.id).filter(l => !l.temp && bStatus(l) !== 'done').map(own) : [])].filter(Boolean);
+  return dates.length ? Math.min(...dates.map(d => d.getTime())) : Infinity;
+}
+function bByDeadline(a, b) { return (bDeadlineOf(a) - bDeadlineOf(b)) || byPriority(a, b); }
+
 function bStages(list) {
   const ids = new Set(list.map(i => i.id));
   const lift = id => { for (let x = B.issues.get(id), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) if (ids.has(x.id)) return x.id; return null; };
@@ -3147,7 +3158,8 @@ function bStages(list) {
   for (const i of [...list].sort(byPriority)) rank(i.id);
   // 行（レーン）を決める: つながった仕事は同じ行に横一列で並べ、分かれた先だけ下の行に出す（矢印が交差しないように）
   const byId = new Map(list.map(i => [i.id, i]));
-  const succ = id => [...new Set(edges.filter(([a]) => a === id).map(([, b]) => b))].map(x => byId.get(x)).sort(byPriority);
+  const cmp = bSortMode() === 'deadline' ? bByDeadline : byPriority;
+  const succ = id => [...new Set(edges.filter(([a]) => a === id).map(([, b]) => b))].map(x => byId.get(x)).sort(cmp);
   const used = new Map();   // 列 → 使っている行
   const laneOf = new Map();
   const free = (col, lane) => { while ((used.get(col) || new Set()).has(lane)) lane++; return lane; };
@@ -3165,9 +3177,11 @@ function bStages(list) {
   const reach = new Map();
   const count = (id, seen = new Set()) => { if (seen.has(id)) return 0; seen.add(id); let n = 1; for (const s of succ(id)) n += count(s.id, seen); return n; };
   for (const i of list) reach.set(i.id, count(i.id));
-  const roots = [...list].filter(i => rank(i.id) === 0).sort((a, b) => (reach.get(b.id) - reach.get(a.id)) || byPriority(a, b));
+  const roots = [...list].filter(i => rank(i.id) === 0).sort(bSortMode() === 'deadline'
+    ? (a, b) => bByDeadline(a, b) || (reach.get(b.id) - reach.get(a.id))
+    : (a, b) => (reach.get(b.id) - reach.get(a.id)) || byPriority(a, b));
   for (const r of roots) place(r, nextLane);
-  for (const i of [...list].sort(byPriority)) place(i, nextLane);   // 輪になっていて根がないもの
+  for (const i of [...list].sort(cmp)) place(i, nextLane);   // 輪になっていて根がないもの
   // 使っていない行を詰める
   const lanes = [...new Set(laneOf.values())].sort((a, b) => a - b);
   return list.map(i => ({ issue: i, col: rank(i.id), row: lanes.indexOf(laneOf.get(i.id)) }));
@@ -3553,6 +3567,10 @@ function renderBara() {
     B.selected = null; B.collapsed.delete(B.scope.id);
     bReload();
   });
+  const sortSel = h('select', { 'aria-label': '並び順', title: '上から並べる順番' },
+    h('option', { value: 'flow', selected: bSortMode() === 'flow' }, '並び: つながり優先'),
+    h('option', { value: 'deadline', selected: bSortMode() === 'deadline' }, '並び: 締切が近い順'));
+  sortSel.addEventListener('change', () => { try { localStorage.setItem(BARA_SORT_KEY, sortSel.value); } catch (_) { /* 保存できなくても続ける */ } renderBara(); });
   const hide = h('input', { type: 'checkbox', checked: bHideDone() });
   hide.addEventListener('change', () => { try { localStorage.setItem(BARA_HIDE_KEY, hide.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } renderBara(); });
   const crit = h('input', { type: 'checkbox', checked: bCritOn() });
@@ -3580,7 +3598,7 @@ function renderBara() {
   const scroll = root.querySelector('.canvas');
   const keep = scroll ? [scroll.scrollLeft, scroll.scrollTop] : [0, 0];
   root.replaceChildren(
-    h('div', { class: 'btop' }, scopeSel,
+    h('div', { class: 'btop' }, scopeSel, sortSel,
       h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, hide, '完了を隠す'),
       h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, crit, '一番長い流れを赤く'), sum, h('span', { class: 'sp' }), add),
     h('div', { class: 'btop', style: 'padding-top:0;border-bottom:0' }, schedGroup),
