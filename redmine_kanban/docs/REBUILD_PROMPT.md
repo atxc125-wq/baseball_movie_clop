@@ -1294,7 +1294,16 @@ ALLOWED_API = [
     ("GET", re.compile(r"^/issues/\d+\.json$")),
     ("PUT", re.compile(r"^/issues/\d+\.json$")),
     ("POST", re.compile(r"^/issues\.json$")),                          # 新規タスク
-    ("GET", re.compile(r"^/projects/[\w\-]
+    ("GET", re.compile(r"^/projects/[\w\-]+/versions\.json$")),
+    ("POST", re.compile(r"^/projects/[\w\-]+/versions\.json$")),     # バージョンの新規作成
+    ("GET", re.compile(r"^/issue_statuses\.json$")),
+    ("GET", re.compile(r"^/time_entries\.json$")),                    # 工数の集計
+    ("POST", re.compile(r"^/time_entries\.json$")),                   # 工数の記録
+    ("GET", re.compile(r"^/enumerations/time_entry_activities\.json$")),  # 作業分類（既定のものを使う）
+    ("GET", re.compile(r"^/issues/\d+/relations\.json$")),             # 課題バラシ: 前後のつながり
+    ("POST", re.compile(r"^/issues/\d+/relations\.json$")),
+    ("DELETE", re.compile(r"^/relations/\d+\.json$")),
+]
 ```
 
 ## 付録 E. build.py 全文
