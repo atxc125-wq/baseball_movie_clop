@@ -796,7 +796,7 @@ a.btn { text-decoration: none; display: inline-block; }
       </ol>
 
       <h2 id="g-new"><span class="no">05</span>新規タスク・みんなでやる仕事</h2>
-      <p>右上の <span class="ui pri">＋ 新規タスク</span> から作れます。バージョンが無ければ、その場で <span class="ui">＋ 新しいバージョン</span> も作れます（「番号_カテゴリ_個別名」の形になります。開発業務だけは「05_開発業務-個別名」）。</p>
+      <p>右上の <span class="ui pri">＋ 新規タスク</span> から作れます。バージョンが無ければ、その場で <span class="ui">＋ 新しいバージョン</span> も作れます（「番号_カテゴリ-個別名」の形になります。例：05_開発業務-EV電池ケース）。</p>
       <p>E-ラーニングのように<strong>全員がやる仕事</strong>は、担当を複数チェックすると人数分のチケットができます。「まとめ用の親チケット」を付けておくと、全体タブの「みんなでやる仕事」で、誰が終わって誰がまだかが分かります。</p>
 
       <h2 id="g-hours"><span class="no">06</span>工数入力は「押すだけ」</h2>
@@ -951,8 +951,8 @@ const CONFIG = {
   // 課題バラシの日程計算で休みにする日（土日は自動で休み）。例: ['2026-12-29', '2026-12-30']
   holidays: [],
   // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
-  versionCategories: ['01_市場問題_', '02_供給問題_', '03_業務改善_', '03_風土改革_', '04_モジュール開発_',
-    '05_開発業務-', '06_MBD開発_', '07_工場困りごと_', '08_原価低減_'],
+  versionCategories: ['01_市場問題-', '02_供給問題-', '03_業務改善-', '03_風土改革-', '04_モジュール開発-',
+    '05_開発業務-', '06_MBD開発-', '07_工場困りごと-', '08_原価低減-'],
 };
 /*__SERVER_CONFIG__*/ // 中継プログラムがここで board_settings.json と Redmine から読んだ設定を差し込む
 
@@ -2283,8 +2283,8 @@ function issueFields(issue, prefix, opts = {}) {
       field('件名', el.subject, true),
       el.preview,
       h('div', { class: 'grid2' },
-        field('対象バージョン', versionControl, true, el.version.id),
-        field(opts.multi ? '担当（複数選ぶと人数分のチケットを作ります）' : '担当', el.assignee, true, prefix + 'Assignee')),
+        field('対象バージョン', versionControl, !opts.optional, el.version.id),
+        field(opts.multi ? (opts.optional ? '担当（空のままなら「未整理」に入ります。複数選ぶと人数分を作ります）' : '担当（複数選ぶと人数分のチケットを作ります）') : '担当', el.assignee, !opts.optional, prefix + 'Assignee')),
       opts.multi ? el.group : null,
       h('div', { class: 'field' }, h('label', { for: el.desc.id }, descLabel), el.desc, el.links),
     ].filter(Boolean),   // replaceChildren に null を渡すと「null」と出るので除く
@@ -2293,13 +2293,14 @@ function issueFields(issue, prefix, opts = {}) {
       el.error.textContent = '';
       const fail = (msg, x) => { el.error.textContent = msg; x.focus(); return false; };
       if (!el.subject.value.trim()) return fail('件名を入力してください。', el.subject);
+      if (opts.optional) return true;   // 新規タスク: 担当・バージョンは空でもよい（未整理に入る）
       if (!el.version.value) return fail('対象バージョンを選んでください。', el.version);
       if (!assignees().length) return fail('担当を選んでください。', opts.multi ? el.assignee.querySelector('input') : el.assignee);
       return true;
     },
     collect: () => ({
       subject: buildTitle(el.subject.value.trim(), deadlineDate()),
-      fixed_version_id: Number(el.version.value),
+      ...(el.version.value ? { fixed_version_id: Number(el.version.value) } : {}),
       assigned_to_id: assignees()[0],
       description: el.desc.value,
       due_date: el.plan.value || null,
@@ -2431,13 +2432,14 @@ async function openNewTask() {
   const assignee = CONFIG.members.find(m => m.id === state.view) || (state.me && { id: state.me.id, name: state.me.name });
   const draft = { id: null, subject: '', description: '', due_date: null, project: { id: projectId }, assigned_to: assignee };
   const form = $('editorForm');
-  const f = issueFields(draft, 'e', { multi: true });
+  const f = issueFields(draft, 'e', { multi: true, optional: true });
   const submit = h('button', { type: 'submit', class: 'btn primary' }, '登録');
-  f.el.assignee.addEventListener('change', () => { const n = f.assignees().length; submit.textContent = n > 1 ? `${n} 人分を登録` : '登録'; });
+  const label = () => { const n = f.assignees().length; return n > 1 ? `${n} 人分を登録` : n === 0 ? '未整理に登録' : '登録'; };
+  f.el.assignee.addEventListener('change', () => { submit.textContent = label(); });
 
   form.replaceChildren(
     h('div', { class: 'head' }, h('h2', {}, '新規タスク')),
-    h('p', { class: 'meta' }, h('span', {}, '登録すると担当者のボードの「未着手」に入ります')),
+    h('p', { class: 'meta' }, h('span', {}, '登録すると担当者のボードの「未着手」に入ります。担当かバージョンを空にすると「未整理」に入ります（あとで誰かが振り分け）')),
     ...f.rows('説明'),
     f.el.error,
     h('div', { class: 'actions' },
@@ -2450,6 +2452,23 @@ async function openNewTask() {
     const fields = f.collect();
     const ids = f.assignees();
     submit.disabled = true; submit.textContent = '登録中…';
+    // 担当なし（またはバージョンなし）→ とりあえず 1 件作って「未整理」へ
+    if (!ids.length || (!fields.fixed_version_id && ids.length === 1)) {
+      const todo = statusForColumn('todo');
+      const one = { ...fields, ...(ids[0] ? { assigned_to_id: ids[0] } : {}), ...(todo ? { status_id: todo } : {}) };
+      if (!ids.length) delete one.assigned_to_id;
+      try {
+        const c = await api.createIssue(projectId, one);
+        closeEditor();
+        await loadInbox().catch(() => {});
+        render();
+        toast(`#${c.id} を「未整理」に登録しました。あとで担当とバージョンを決めて振り分けてください`);
+      } catch (err) {
+        f.el.error.textContent = `登録できませんでした。${err.message}`;
+        submit.disabled = false; submit.textContent = label();
+      }
+      return;
+    }
     let parentId = null;
     if (f.grouped()) {
       try {
@@ -2474,6 +2493,7 @@ async function openNewTask() {
   };
 
   form.dataset.id = '';
+  submit.textContent = label();
   $('editor').hidden = false;
   f.el.subject.focus();
 }
@@ -2522,6 +2542,7 @@ async function openEditor(id) {
       const before = issue.assigned_to && issue.assigned_to.id;
       f.applyTo(issue, fields);
       issue.updated_on = new Date().toISOString();
+      state.editorSaved = true;
       closeEditor();
       renderBoard();
       const moved = issue.assigned_to && issue.assigned_to.id !== before;
@@ -2540,7 +2561,8 @@ async function openEditor(id) {
 
 function closeEditor() {
   $('editor').hidden = true;
-  if (state.view === BARA) renderBara();
+  // 課題バラシから開いて保存したときは読み直す（担当・バージョンが変わると範囲から外れることがあるため）
+  if (state.view === BARA) { if (state.editorSaved) { state.editorSaved = false; bReload(); } else renderBara(); }
   const card = document.querySelector(`.card[data-id="${$('editorForm').dataset.id || ''}"]`);
   if (card) card.focus();
 }
@@ -3556,8 +3578,8 @@ function renderBara() {
       h('span', {}, h('b', {}, '箱をドラッグ'), ' 相手の左端＝前／右端＝後／真ん中＝中に入れる'),
       h('span', {}, h('b', {}, '⤳ をドラッグ'), ' 矢印だけつなぐ'),
       h('span', {}, h('b', {}, '矢印をクリック'), ' 外す'),
-      h('span', {}, h('b', {}, 'ダブルクリック'), ' 名前を変える'),
-      h('span', {}, h('b', {}, '✎'), ' 担当・締切などを編集'),
+      h('span', {}, h('b', {}, 'ダブルクリック / ✎'), ' 編集画面（担当・締切・説明など）'),
+      h('span', {}, h('b', {}, 'F2'), ' 名前だけ変える'),
       h('span', {}, '前後のつながりは Redmine の「先行」として保存され、ガントチャートにも出ます')),
     h('div', { class: 'bbody' }, bRail(), canvas));
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -3759,7 +3781,9 @@ function bDrop(id, target, zone) {
 }
 function bOpenEditor(id) {
   const issue = B.issues.get(id);
+  if (!issue || issue.temp) return;
   state.issues.set(id, issue);   // 編集画面はボードのチケットを編集する作りなので、同じものを渡す
+  state.editorSaved = false;
   openEditor(id);
 }
 
@@ -3830,10 +3854,11 @@ function bBindCanvas(inner) {
     B.selected = id; renderBara();
     const again = $('bara').querySelector(`.bx[data-id="${id}"]`); if (again) again.focus();
   });
+  // ダブルクリック: 編集画面（担当・締切・説明など）。名前だけ変えるなら F2
   inner.addEventListener('dblclick', e => {
     const box = e.target.closest('.bx');
-    if (!box || e.target.closest('button') || Number(box.dataset.id) < 0) return;
-    B.editing = Number(box.dataset.id); renderBara();
+    if (!box || e.target.closest('button, input') || Number(box.dataset.id) < 0) return;
+    bOpenEditor(Number(box.dataset.id));
   });
 }
 function bStartLink(e, fromId) {
