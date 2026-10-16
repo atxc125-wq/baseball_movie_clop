@@ -510,6 +510,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara .bx .meta .st.done { background: var(--ok-bg); color: var(--ok); }
 .bara .bx .meta .st-btn { border: 1px solid transparent; font-size: 11px; cursor: pointer; line-height: 1.5; }
 .bara .bx .meta .st-btn:hover { border-color: var(--accent); }
+.bara .bx .meta .who-btn { border: 1px solid transparent; background: none; padding: 0 3px; border-radius: 4px; font-size: 11px; color: var(--ink-2); cursor: pointer; }
+.bara .bx .meta .who-btn:hover { border-color: var(--accent); color: var(--accent); }
 .bara .bx .vtag { display: flex; margin: -2px 64px -2px 0; min-width: 0; }
 .bara .bx .vtag .tag { margin-left: 0; font-size: 10px; padding: 0 6px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .bara .bx .meta .dl.late { color: var(--late); font-weight: 700; } .bara .bx .meta .dl.soon { color: var(--soon); font-weight: 700; }
@@ -893,7 +895,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-16 06:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-16 09:07'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -3063,7 +3065,11 @@ function bBox(issue, isHeader) {
     h('div', { class: 'sj' }, B.editing === issue.id ? bEditInput(issue) : parseTitle(issue.subject).text),
     h('div', { class: 'meta' },
       issue.temp ? null : h('span', {}, `#${issue.id}`),
-      h('span', { class: 'who' }, issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] : '担当なし'),
+      issue.temp
+        ? h('span', { class: 'who' }, issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] : '担当なし')
+        : h('button', { type: 'button', class: 'who who-btn', title: '担当を変える', 'aria-haspopup': 'dialog',
+            onclick: e => { e.stopPropagation(); bOpenWho(issue, e.currentTarget); }, onpointerdown: e => e.stopPropagation() },
+            issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] : '担当なし', ' ▾'),
       due && due.hasDeadline ? h('span', { class: 'dl ' + due.cls, title: due.text },
         due.level ? due.text.replace(/ \d+\/\d+\(.\)$/, '') : `締切 ${due.text.match(/\d+\/\d+/)[0]}`) : null,
       isHeader ? h('span', {}, `子 ${bKids(issue.id).length}`) : null,
@@ -3147,6 +3153,30 @@ function bOpenStatus(issue, anchor) {
   bPop.style.top = `${r.bottom + 6 + bPop.offsetHeight > innerHeight ? r.top - bPop.offsetHeight - 6 : r.bottom + 6}px`;
   const first = bPop.querySelector('button'); if (first) first.focus();
 }
+// 担当の変更（担当者名を押すとメンバーの一覧を出す）
+function bOpenWho(issue, anchor) {
+  bCloseEst();
+  const cur = issue.assigned_to ? issue.assigned_to.id : null;
+  const pick = id => { bCloseEst(); if (id !== cur) bSetWho(issue, id); };
+  bPop = h('div', { class: 'bara-pop', role: 'dialog', 'aria-label': '担当' },
+    h('span', { class: 'ttl' }, `担当 — ${parseTitle(issue.subject).text}`),
+    h('div', { class: 'chips' }, CONFIG.members.map(m => h('button', { type: 'button', 'aria-pressed': String(m.id === cur), onclick: () => pick(m.id) }, m.name))),
+    h('div', { class: 'row' }, h('span', { class: 'gap' }), h('button', { type: 'button', onclick: () => pick(null) }, '担当を外す')));
+  bPop.addEventListener('pointerdown', e => e.stopPropagation());
+  document.body.append(bPop);
+  const r = anchor.getBoundingClientRect();
+  bPop.style.left = `${Math.max(8, Math.min(r.left, innerWidth - bPop.offsetWidth - 8))}px`;
+  bPop.style.top = `${r.bottom + 6 + bPop.offsetHeight > innerHeight ? r.top - bPop.offsetHeight - 6 : r.bottom + 6}px`;
+  const first = bPop.querySelector('button[aria-pressed="true"]') || bPop.querySelector('button'); if (first) first.focus();
+}
+function bSetWho(issue, memberId) {
+  const before = issue.assigned_to ? issue.assigned_to.id : null;
+  const name = memberId ? (CONFIG.members.find(m => m.id === memberId) || { name: `ID ${memberId}` }).name : null;
+  return bRun(() => api.updateIssue(issue.id, { assigned_to_id: memberId || '' }),
+    name ? `#${issue.id} の担当を${name}さんにしました` : `#${issue.id} の担当を外しました`,
+    () => api.updateIssue(issue.id, { assigned_to_id: before || '' }));
+}
+
 async function bSetStatus(issue, statusId) {
   const before = issue.status.id;
   const next = statusById[statusId];
