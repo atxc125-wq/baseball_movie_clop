@@ -901,7 +901,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-16 09:21'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-16 10:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -2686,6 +2686,8 @@ async function boot() {
     if (settings.mode !== 'relay') return;
     state.redmineUrl = info.redmine_url;
     renderChrome();
+    // 共有フォルダに新しい版がある（中継は自動では入れ替えない）
+    if (info.update_available) toast(`新しい版 ${info.update_available} が共有フォルダにあります。共有フォルダの kanban_relay.py をダブルクリックすると更新されます`, { action: { label: 'OK', run: () => {} } });
     $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
   }
   try {

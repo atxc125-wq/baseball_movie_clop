@@ -2680,6 +2680,8 @@ async function boot() {
     if (settings.mode !== 'relay') return;
     state.redmineUrl = info.redmine_url;
     renderChrome();
+    // 共有フォルダに新しい版がある（中継は自動では入れ替えない）
+    if (info.update_available) toast(`新しい版 ${info.update_available} が共有フォルダにあります。共有フォルダの kanban_relay.py をダブルクリックすると更新されます`, { action: { label: 'OK', run: () => {} } });
     $('board').replaceChildren(h('div', { class: 'loading' }, '読み込み中…'));
   }
   try {
