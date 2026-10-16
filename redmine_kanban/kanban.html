@@ -488,7 +488,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara svg.arrows g:hover path.line { stroke: var(--late); stroke-width: 2.6; stroke-dasharray: 5 3; }
 .bara svg.arrows .head { fill: var(--ink-3); }
 .bara svg.arrows .head.crit { fill: var(--late); }
-.bara .flow { display: flex; gap: 44px; align-items: flex-start; }
+.bara .flow { display: grid; gap: 14px 44px; align-items: start; justify-items: start; }
 .bara .stage { display: flex; flex-direction: column; gap: 14px; }
 .bara .flow.empty-flow { min-height: 54px; min-width: 220px; border: 1.5px dashed var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--ink-3); font-size: 12px; padding: 8px; }
 .bara .frame { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 0 14px 14px; position: relative; }
@@ -517,6 +517,13 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara .frame > .bx .sj::before { content: "▾ "; color: var(--ink-3); }
 .bara .frame.collapsed > .bx .sj::before { content: "▸ "; }
 .bara .outside { font-size: 11px; color: var(--soon); }
+.bara .ext { display: flex; flex-direction: column; gap: 2px; font-size: 11px; line-height: 1.4; }
+.bara .ext span { border-radius: 4px; padding: 1px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bara .ext .wait { background: var(--soon-bg); color: var(--soon); }
+.bara .ext .ok { background: var(--ok-bg); color: var(--ok); }
+.bara .ext .next { background: var(--surface-2); color: var(--ink-2); }
+.bara .frame.ctx > .bx { background: var(--surface-2); }
+.bara .frame.ctx > .bx .sj::after { content: "（この人の分だけ表示）"; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 6px; }
 .bara .est-row { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
 .bara .est { border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2); font-family: var(--font-num); white-space: nowrap; }
 .bara button.est:hover { border-color: var(--accent); color: var(--accent); }
@@ -875,7 +882,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-15 23:35'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-16 01:50'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1095,7 +1102,7 @@ function createMockApi(getMockUserId) {
   for (const [id, est] of [[4521, 16], [4522, 12], [4523, 4], [4573, 2], [4610, 8], [4611, 6], [4613, 4], [4614, 4], [4572, 4], [4120, null]]) {
     if (est != null) db.get(id).estimated_hours = est;
   }
-  let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572]]
+  let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572], [4522, 4611], [4614, 4521], [4210, 4211], [4211, 4214], [4533, 4211]]
     .map(([from, to], k) => ({ id: 900 + k, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null }));
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
@@ -2879,6 +2886,7 @@ async function loadBara() {
   }
   let list;
   if (B.scope.kind === 'version') list = await api.issuesInVersion(B.scope.id);
+  else if (B.scope.kind === 'user') list = await api.issuesFor(B.scope.id);
   else {
     // 親チケットから子、孫…とたどる
     list = [await api.getIssue(B.scope.id)];
@@ -2897,8 +2905,15 @@ async function loadBara() {
   const details = [];
   for (let k = 0; k < list.length; k += 6) details.push(...await Promise.all(list.slice(k, k + 6).map(i => api.issueDetail(i.id))));
   B.issues = new Map(details.filter(i => colOf(i) !== 'cancelled').map(i => [i.id, i]));
-  const rels = new Map();
-  B.outside = new Map();
+  // 担当者ごとの表示: その人のタスクが入っている親（プロジェクト側の枠）も、文脈として読み込む（チケットは増やさない）
+  if (B.scope.kind === 'user') {
+    for (let depth = 0; depth < 4; depth++) {
+      const missing = [...new Set([...B.issues.values()].filter(i => i.parent && !B.issues.has(i.parent.id)).map(i => i.parent.id))];
+      if (!missing.length) break;
+      for (const ctx of await api.issuesByIds(missing)) B.issues.set(ctx.id, { ...ctx, ctx: true });
+    }
+  }
+  const rels = new Map(), outside = new Map();
   for (const i of details) for (const r of i.relations || []) {
     let from, to;
     if (r.relation_type === 'precedes') { from = r.issue_id; to = r.issue_to_id; }
@@ -2906,10 +2921,21 @@ async function loadBara() {
     else continue;
     if (cancelled.has(from) || cancelled.has(to)) continue;   // 中止したものとのつながりは数えない
     if (B.issues.has(from) && B.issues.has(to)) rels.set(r.id, { id: r.id, from, to });
-    else { const inside = B.issues.has(from) ? from : to; if (B.issues.has(inside)) B.outside.set(inside, (B.outside.get(inside) || 0) + 0.5); }
+    else outside.set(r.id, { id: r.id, from, to });
   }
   B.rels = [...rels.values()];
-  for (const [k, v] of B.outside) B.outside.set(k, Math.ceil(v));
+  // 範囲の外の仕事とのつながりは、相手の件名・担当まで出す（「伊藤さんの○○待ち」が分かるように）
+  B.outside = new Map();
+  const otherIds = [...new Set([...outside.values()].map(r => (B.issues.has(r.from) ? r.to : r.from)))];
+  const others = new Map();
+  if (otherIds.length) { try { for (const o of await api.issuesByIds(otherIds)) others.set(o.id, o); } catch (_) { /* 読めなければ番号だけ出す */ } }
+  for (const r of outside.values()) {
+    const inside = B.issues.has(r.from) ? r.from : r.to, otherId = inside === r.from ? r.to : r.from;
+    const other = others.get(otherId);
+    if (other && colOf(other) === 'cancelled') continue;
+    if (!B.outside.has(inside)) B.outside.set(inside, []);
+    B.outside.get(inside).push({ rel: r, dir: inside === r.to ? 'before' : 'after', other: other || { id: otherId, subject: `#${otherId}`, status: { id: 0 } } });
+  }
   B.temp = null; B.editing = null;
 }
 
@@ -2918,17 +2944,43 @@ function bStages(list) {
   const lift = id => { for (let x = B.issues.get(id), g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) if (ids.has(x.id)) return x.id; return null; };
   const rels = [...B.rels, ...(B.temp && B.temp.rel ? [B.temp.rel] : [])];   // 名前を入れている途中の箱も、前後の位置に出す
   const edges = rels.map(r => [lift(r.from), lift(r.to)]).filter(([a, b]) => a != null && b != null && a !== b);
-  const memo = new Map();
-  const rank = (id, guard = 0) => {
+  const memo = new Map(), onPath = new Set();
+  // 枠どうしのつながりは輪になることがある（A の中 → B の中、B の中 → A の中）。たどっている途中には戻らない
+  const rank = id => {
     if (memo.has(id)) return memo.get(id);
-    if (guard > 50) return 0;
-    const preds = edges.filter(([, b]) => b === id).map(([a]) => a);
-    const v = preds.length ? Math.max(...preds.map(p => rank(p, guard + 1))) + 1 : 0;
+    onPath.add(id);
+    const preds = edges.filter(([a, b]) => b === id && !onPath.has(a)).map(([a]) => a);
+    const v = preds.length ? Math.max(...preds.map(rank)) + 1 : 0;
+    onPath.delete(id);
     memo.set(id, v); return v;
   };
-  const cols = [];
-  for (const i of [...list].sort(byPriority)) (cols[rank(i.id)] = cols[rank(i.id)] || []).push(i);
-  return cols.filter(Boolean);
+  for (const i of [...list].sort(byPriority)) rank(i.id);
+  // 行（レーン）を決める: つながった仕事は同じ行に横一列で並べ、分かれた先だけ下の行に出す（矢印が交差しないように）
+  const byId = new Map(list.map(i => [i.id, i]));
+  const succ = id => [...new Set(edges.filter(([a]) => a === id).map(([, b]) => b))].map(x => byId.get(x)).sort(byPriority);
+  const used = new Map();   // 列 → 使っている行
+  const laneOf = new Map();
+  const free = (col, lane) => { while ((used.get(col) || new Set()).has(lane)) lane++; return lane; };
+  let nextLane = 0;
+  const place = (issue, want) => {
+    if (laneOf.has(issue.id)) return;
+    const col = rank(issue.id), lane = free(col, want);
+    laneOf.set(issue.id, lane);
+    if (!used.has(col)) used.set(col, new Set());
+    used.get(col).add(lane);
+    nextLane = Math.max(nextLane, lane + 1);
+    succ(issue.id).forEach((s, k) => place(s, k === 0 ? lane : Math.max(lane + 1, nextLane)));
+  };
+  // 長くつながっている流れほど上の行に。つながりのない単独の仕事は最後（下）にまとめる
+  const reach = new Map();
+  const count = (id, seen = new Set()) => { if (seen.has(id)) return 0; seen.add(id); let n = 1; for (const s of succ(id)) n += count(s.id, seen); return n; };
+  for (const i of list) reach.set(i.id, count(i.id));
+  const roots = [...list].filter(i => rank(i.id) === 0).sort((a, b) => (reach.get(b.id) - reach.get(a.id)) || byPriority(a, b));
+  for (const r of roots) place(r, nextLane);
+  for (const i of [...list].sort(byPriority)) place(i, nextLane);   // 輪になっていて根がないもの
+  // 使っていない行を詰める
+  const lanes = [...new Set(laneOf.values())].sort((a, b) => a - b);
+  return list.map(i => ({ issue: i, col: rank(i.id), row: lanes.indexOf(laneOf.get(i.id)) }));
 }
 
 function bFlow(parentId) {
@@ -2936,12 +2988,17 @@ function bFlow(parentId) {
   const list = all.filter(i => !bHidden(i.id));
   if (all.length && !list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, `中の仕事はすべて完了（${all.length}件、左の欄に表示）`);
   if (!list.length) return h('div', { class: 'flow empty-flow', 'data-parent': parentId ?? 'top' }, parentId == null ? 'タスクがありません。右上の ＋ タスク で追加' : 'ここに箱をドラッグ、または ＋（下）で追加');
-  return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, bStages(list).map(col => h('div', { class: 'stage' }, col.map(bNode))));
+  return h('div', { class: 'flow', 'data-parent': parentId ?? 'top' }, bStages(list).map(({ issue, col, row }) => {
+    const el = bNode(issue);
+    el.style.gridColumn = String(col + 1);
+    el.style.gridRow = String(row + 1);
+    return el;
+  }));
 }
 function bNode(issue) {
   if (!bKids(issue.id).length) return bBox(issue, false);
   const isCollapsed = B.collapsed.has(issue.id) && !(B.scope.kind === 'issue' && B.scope.id === issue.id);
-  return h('div', { class: 'frame' + (isCollapsed ? ' collapsed' : ''), 'data-frame': issue.id }, bBox(issue, true), isCollapsed ? null : bFlow(issue.id));
+  return h('div', { class: 'frame' + (isCollapsed ? ' collapsed' : '') + (issue.ctx ? ' ctx' : ''), 'data-frame': issue.id }, bBox(issue, true), isCollapsed ? null : bFlow(issue.id));
 }
 function bLeaves(id) { const k = bKids(id); return k.length ? k.flatMap(c => bLeaves(c.id)) : [B.issues.get(id)]; }
 
@@ -2968,7 +3025,15 @@ function bBox(issue, isHeader) {
       h('span', { class: `st ${st}` }, stText)),
     h('div', { class: 'bar' }, h('i', { style: `width:${ratio}%` })),
     issue.temp ? null : bEst(issue, isHeader, leaves),
-    B.outside.get(issue.id) ? h('span', { class: 'outside' }, `範囲の外とのつながり ${B.outside.get(issue.id)}`) : null,
+    B.outside.get(issue.id) ? h('div', { class: 'ext' }, B.outside.get(issue.id).map(({ dir, other }) => {
+      const who = other.assigned_to ? other.assigned_to.name.split(/[ 　]/)[0] : '';
+      const name = parseTitle(other.subject).text;
+      const label = `${who ? who + '「' : '「'}${name.length > 14 ? name.slice(0, 14) + '…' : name}」`;
+      const done = other.status && statusById[other.status.id] && isDoneCol(colOf(other));
+      return dir === 'before'
+        ? h('span', { class: done ? 'ok' : 'wait', title: `#${other.id} ${other.subject}（この仕事の前）` }, done ? `✓ 済: ${label}` : `⏳ 待ち: ${label}`)
+        : h('span', { class: 'next', title: `#${other.id} ${other.subject}（この仕事の後）` }, `→ 次: ${label}`);
+    })) : null,
     issue.temp ? null : [
       isRoot ? null : knob('l', '前の仕事を追加', '+', () => bAddNear(issue.id, 'before')),
       isRoot ? null : knob('r', '後の仕事を追加', '+', () => bAddNear(issue.id, 'after')),
@@ -3036,8 +3101,11 @@ function bEditInput(issue) {
 
 function bScopeOptions() {
   const versions = [...state.versions].sort((a, b) => (parseVersion(a.name).prio ?? 999) - (parseVersion(b.name).prio ?? 999) || a.name.localeCompare(b.name, 'ja'));
-  const opts = versions.map(v => h('option', { value: `v${v.id}` }, `バージョン: ${v.name}`));
-  const parents = [...B.issues.values()].filter(i => !i.temp && bKids(i.id).length);
+  const opts = [
+    ...versions.map(v => h('option', { value: `v${v.id}` }, `バージョン: ${v.name}`)),
+    ...CONFIG.members.map(m => h('option', { value: `u${m.id}` }, `担当者: ${m.name}`)),
+  ];
+  const parents = B.scope && B.scope.kind === 'user' ? [] : [...B.issues.values()].filter(i => !i.temp && bKids(i.id).length);
   if (B.scope && B.scope.kind === 'issue' && !parents.some(p => p.id === B.scope.id)) {
     const root = B.issues.get(B.scope.id);
     opts.unshift(h('option', { value: `i${B.scope.id}` }, `親チケット: ${root ? parseTitle(root.subject).text : '#' + B.scope.id}`));
@@ -3096,10 +3164,10 @@ function renderBara() {
   const root = $('bara');
   if (!B.scope) { root.replaceChildren(h('p', { class: 'empty-scope' }, '対象バージョンがありません。')); return; }
   const scopeSel = h('select', { 'aria-label': 'バラす範囲' }, bScopeOptions());
-  scopeSel.value = `${B.scope.kind === 'version' ? 'v' : 'i'}${B.scope.id}`;
+  scopeSel.value = `${{ version: 'v', issue: 'i', user: 'u' }[B.scope.kind]}${B.scope.id}`;
   scopeSel.addEventListener('change', () => {
     const v = scopeSel.value;
-    B.scope = { kind: v[0] === 'v' ? 'version' : 'issue', id: Number(v.slice(1)) };
+    B.scope = { kind: { v: 'version', i: 'issue', u: 'user' }[v[0]], id: Number(v.slice(1)) };
     B.selected = null; B.collapsed.delete(B.scope.id);
     bReload();
   });
@@ -3182,8 +3250,15 @@ function bDrawArrows(cp) {
     const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
     const x1 = ra.right - base.left, y1 = ra.top - base.top + Math.min(ra.height / 2, 30);
     const x2 = rb.left - base.left - 6, y2 = rb.top - base.top + Math.min(rb.height / 2, 30);
-    const dx = x2 > x1 ? Math.max(30, (x2 - x1) / 2) : Math.min(90, 30 + (x1 - x2) / 8);
-    const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    let d;
+    if (x2 > x1 + 10) {
+      const dx = Math.max(30, (x2 - x1) / 2);
+      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    } else {
+      // 右から左へ戻る矢印は、箱を横切らないよう下を回す
+      const yb = Math.max(ra.bottom, rb.bottom) - base.top + 14;
+      d = `M${x1},${y1} C${x1 + 30},${y1} ${x1 + 30},${yb} ${x1},${yb} L${x2},${yb} C${x2 - 30},${yb} ${x2 - 30},${y2} ${x2},${y2}`;
+    }
     const g = document.createElementNS(NS, 'g');
     const mk = (cls, dd) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', dd); p.setAttribute('class', cls); return p; };
     const title = document.createElementNS(NS, 'title'); title.textContent = `#${r.from} → #${r.to}（クリックで外す）`;
@@ -3252,7 +3327,8 @@ function bAddTop() {
   const base = parentId ? B.issues.get(parentId) : null;
   const ver = state.versions.find(v => v.id === (B.scope.kind === 'version' ? B.scope.id : base && base.fixed_version && base.fixed_version.id));
   const t = { id: -1, temp: true, subject: '', parent: parentId ? { id: parentId } : null, status: { id: statusForColumn('todo') },
-    assigned_to: state.me && { id: state.me.id, name: state.me.name }, fixed_version: ver ? { id: ver.id, name: ver.name } : null, project: base && base.project };
+    assigned_to: B.scope.kind === 'user' ? (CONFIG.members.find(m => m.id === B.scope.id) || null) : state.me && { id: state.me.id, name: state.me.name },
+    fixed_version: ver ? { id: ver.id, name: ver.name } : null, project: base && base.project };
   B.temp = { issue: t, rel: null, parentIdForCreate: parentId };
   B.issues.set(-1, t);
   B.editing = -1; B.selected = -1;
