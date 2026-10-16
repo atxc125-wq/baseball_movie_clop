@@ -503,6 +503,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara .bx .meta .st { margin-left: auto; padding: 0 6px; border-radius: 4px; background: var(--surface-2); }
 .bara .bx .meta .st.doing { background: var(--accent-soft); color: var(--accent); }
 .bara .bx .meta .st.done { background: var(--ok-bg); color: var(--ok); }
+.bara .bx .meta .st-btn { border: 1px solid transparent; font-size: 11px; cursor: pointer; line-height: 1.5; }
+.bara .bx .meta .st-btn:hover { border-color: var(--accent); }
+.bara .bx .vtag { display: flex; margin: -2px 64px -2px 0; min-width: 0; }
+.bara .bx .vtag .tag { margin-left: 0; font-size: 10px; padding: 0 6px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .bara .bx .meta .dl.late { color: var(--late); font-weight: 700; } .bara .bx .meta .dl.soon { color: var(--soon); font-weight: 700; }
 .bara .bx .bar { height: 3px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
 .bara .bx .bar i { display: block; height: 100%; background: var(--accent); }
@@ -3048,6 +3052,8 @@ function bBox(issue, isHeader) {
     class: `bx ${st}${B.selected === issue.id ? ' sel' : ''}${isRoot ? ' root' : ''}${issue.saving ? ' saving' : ''}`, tabindex: '0',
     draggable: B.editing === issue.id || isRoot || issue.temp ? 'false' : 'true', 'data-id': issue.id, 'aria-label': issue.subject,
   },
+    // 担当者・親チケットの範囲ではバージョンがまちまちなので、何の仕事か分かるようにタグを出す
+    B.scope.kind !== 'version' && issue.fixed_version && !issue.temp ? h('div', { class: 'vtag' }, renderTag(issue.fixed_version.name)) : null,
     h('div', { class: 'sj' }, B.editing === issue.id ? bEditInput(issue) : parseTitle(issue.subject).text),
     h('div', { class: 'meta' },
       issue.temp ? null : h('span', {}, `#${issue.id}`),
@@ -3056,7 +3062,10 @@ function bBox(issue, isHeader) {
         due.level ? due.text.replace(/ \d+\/\d+\(.\)$/, '') : `締切 ${due.text.match(/\d+\/\d+/)[0]}`) : null,
       isHeader ? h('span', {}, `子 ${bKids(issue.id).length}`) : null,
       isHeader && bHideDone() && bKids(issue.id).some(k => bAllDone(k.id)) ? h('span', { class: 'hidden-note' }, `完了 ${bKids(issue.id).filter(k => bAllDone(k.id)).length} 件を隠し中`) : null,
-      h('span', { class: `st ${st}` }, stText)),
+      isHeader || issue.temp
+        ? h('span', { class: `st ${st}` }, stText)
+        : h('button', { type: 'button', class: `st ${st} st-btn`, title: 'ステータスを変える', 'aria-haspopup': 'dialog',
+            onclick: e => { e.stopPropagation(); bOpenStatus(issue, e.currentTarget); }, onpointerdown: e => e.stopPropagation() }, stText, ' ▾')),
     h('div', { class: 'bar' }, h('i', { style: `width:${ratio}%` })),
     issue.temp ? null : bEst(issue, isHeader, leaves),
     issue.temp || isHeader || !B.plan ? null : bSchedLine(issue),
@@ -3110,6 +3119,45 @@ function bEst(issue, isHeader, leaves) {
 
 let bPop = null;
 function bCloseEst() { if (bPop) { bPop.remove(); bPop = null; } }
+// ステータスの変更（箱は大きくせず、ステータスの表示を押すと選択肢を出す）
+function bOpenStatus(issue, anchor) {
+  bCloseEst();
+  const cur = issue.status.id;
+  const pick = st => { bCloseEst(); if (st.id !== cur) bSetStatus(issue, st.id); };
+  const opt = st => h('button', { type: 'button', 'aria-pressed': String(st.id === cur), onclick: () => pick(st) },
+    st.col === 'doing' ? `${st.ratio}%` : st.name);
+  const by = col => CONFIG.statuses.filter(x => x.col === col).sort((a, b) => (a.ratio ?? 0) - (b.ratio ?? 0));
+  const approvedLocked = !isManager();
+  bPop = h('div', { class: 'bara-pop', role: 'dialog', 'aria-label': 'ステータス' },
+    h('span', { class: 'ttl' }, `ステータス — ${parseTitle(issue.subject).text}`),
+    h('div', { class: 'chips' }, [...by('todo'), ...by('doing')].map(opt)),
+    h('div', { class: 'chips' }, [...by('done'), ...(approvedLocked && colOf(issue) !== 'approved' ? [] : by('approved'))].map(opt)),
+    h('div', { class: 'row' }, h('span', { class: 'gap' }), ...by('cancelled').map(st => h('button', { type: 'button', onclick: () => pick(st) }, st.name))),
+    approvedLocked ? h('span', { class: 'hint', style: 'font-size:11px' }, '「上司完了」は上司だけが付けられます') : null);
+  bPop.addEventListener('pointerdown', e => e.stopPropagation());
+  document.body.append(bPop);
+  const r = anchor.getBoundingClientRect();
+  bPop.style.left = `${Math.max(8, Math.min(r.left - 120, innerWidth - bPop.offsetWidth - 8))}px`;
+  bPop.style.top = `${r.bottom + 6 + bPop.offsetHeight > innerHeight ? r.top - bPop.offsetHeight - 6 : r.bottom + 6}px`;
+  const first = bPop.querySelector('button'); if (first) first.focus();
+}
+async function bSetStatus(issue, statusId) {
+  const before = issue.status.id;
+  const next = statusById[statusId];
+  const fields = { status_id: statusId };
+  if (CONFIG.syncDoneRatio && next.ratio != null) fields.done_ratio = next.ratio;
+  const parentId = issue.parent && issue.parent.id;
+  await bRun(async () => {
+    await api.updateIssue(issue.id, fields);
+    if (parentId) await syncParentsAndReport(parentId);   // 親チケットも子に合わせる（ボードと同じ）
+  }, `#${issue.id} を「${next.name}」にしました`, async () => {
+    const b = statusById[before];
+    await api.updateIssue(issue.id, { status_id: before, ...(CONFIG.syncDoneRatio && b && b.ratio != null ? { done_ratio: b.ratio } : {}) });
+  });
+  // 自分の仕事を進めたら、ボードと同じく作業時間を聞く
+  if (settings.askHours !== false && issue.assigned_to && state.me && issue.assigned_to.id === state.me.id && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
+}
+
 function bOpenEst(issue, anchor) {
   bCloseEst();
   const set = v => { bCloseEst(); bSetEst(issue, v); };
