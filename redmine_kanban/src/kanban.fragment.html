@@ -1177,7 +1177,11 @@ function createMockApi(getMockUserId) {
         .filter(i => !closedIds.has(i.status.id) || new Date(i.updated_on) >= since)
         .map(clone);
     },
-    async issuesByIds(ids) { await wait(80); return ids.map(id => db.get(id)).filter(Boolean).map(clone); },
+    async issuesByIds(ids, include) {
+      await wait(80);
+      return ids.map(id => db.get(id)).filter(Boolean).map(i => (include === 'relations'
+        ? { ...clone(i), relations: clone(rels.filter(r => r.issue_id === i.id || r.issue_to_id === i.id)) } : clone(i)));
+    },
     async teamIssues() {
       await wait(250);
       const since = addDays(t, -CONFIG.approvedDays);
@@ -1260,12 +1264,19 @@ function createRedmineApi(baseUrl, apiKey) {
   const base = baseUrl.replace(/\/+$/, '');
   async function req(path, options = {}) {
     let res;
+    const isGet = !options.method || options.method === 'GET';
+    const send = () => fetch(base + path, {
+      ...options,
+      headers: { ...(apiKey ? { 'X-Redmine-API-Key': apiKey } : {}), 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
     try {
-      res = await fetch(base + path, {
-        ...options,
-        headers: { ...(apiKey ? { 'X-Redmine-API-Key': apiKey } : {}), 'Content-Type': 'application/json', ...(options.headers || {}) },
-      });
+      res = await send();
+      // 読むだけの問い合わせは、一時的な失敗（中継・プロキシの 502/503/504）なら 1 回だけやり直す
+      if (isGet && [502, 503, 504].includes(res.status)) { await new Promise(r => setTimeout(r, 600)); res = await send(); }
     } catch (e) {
+      if (isGet) { try { await new Promise(r => setTimeout(r, 600)); res = await send(); } catch (_) { res = null; } }
+    }
+    if (!res) {
       // fetch 自体が失敗するのは、ほぼ CORS 拒否かネットワーク遮断（中継なら中継が止まっている）
       throw new Error(apiKey
         ? 'Redmine に接続できませんでした。Redmine 側で CORS が許可されていないか、ネットワークで遮断されています。'
@@ -1361,10 +1372,10 @@ function createRedmineApi(baseUrl, apiKey) {
       const { issue } = await req(`/issues/${id}.json?include=journals`);
       return issue.journals || [];
     },
-    async issuesByIds(ids) {
-      // URL が長くなりすぎないよう 50 件ずつ
+    async issuesByIds(ids, include) {
+      // URL が長くなりすぎないよう 50 件ずつ。include=relations で前後のつながりも一緒に取れる
       const out = [];
-      for (let k = 0; k < ids.length; k += 50) out.push(...await allIssues(`issue_id=${ids.slice(k, k + 50).join(',')}&status_id=*`));
+      for (let k = 0; k < ids.length; k += 50) out.push(...await allIssues(`issue_id=${ids.slice(k, k + 50).join(',')}&status_id=*${include ? `&include=${include}` : ''}`));
       return out;
     },
     async inboxIssues() {
@@ -2906,9 +2917,13 @@ async function loadBara() {
   }
   const cancelled = new Set(list.filter(i => colOf(i) === 'cancelled').map(i => i.id));
   list = list.filter(i => colOf(i) !== 'cancelled');
-  // 前後のつながりと実績工数は 1 件ずつの詳細にしかないので、まとめて取る（同時 6 件まで）
-  const details = [];
-  for (let k = 0; k < list.length; k += 6) details.push(...await Promise.all(list.slice(k, k + 6).map(i => api.issueDetail(i.id))));
+  // 前後のつながりは、一覧の問い合わせにまとめて含めて取る（50 件ごとに 1 回）。
+  // 古い Redmine で一覧にはつながりが付かない場合だけ、1 件ずつ取る（同時 4 件まで）
+  let details = await api.issuesByIds(list.map(i => i.id), 'relations');
+  if (list.length && !details.every(i => Array.isArray(i.relations))) {
+    details = [];
+    for (let k = 0; k < list.length; k += 4) details.push(...await Promise.all(list.slice(k, k + 4).map(i => api.issueDetail(i.id))));
+  }
   B.issues = new Map(details.filter(i => colOf(i) !== 'cancelled').map(i => [i.id, i]));
   // 担当者ごとの表示: その人のタスクが入っている親（プロジェクト側の枠）も、文脈として読み込む（チケットは増やさない）
   if (B.scope.kind === 'user') {
@@ -2942,6 +2957,20 @@ async function loadBara() {
     B.outside.get(inside).push({ rel: r, dir: inside === r.to ? 'before' : 'after', other: other || { id: otherId, subject: `#${otherId}`, status: { id: 0 } } });
   }
   B.temp = null; B.editing = null;
+  bLoadSpent();
+}
+
+// 実績工数は 1 件ずつの詳細にしかないので、画面を出したあと裏で読む（失敗しても画面は止めない）
+let bSpentRun = 0;
+async function bLoadSpent() {
+  const run = ++bSpentRun;
+  const todo = [...B.issues.values()].filter(i => !i.ctx && i.spent_hours == null && !bKids(i.id).length).map(i => i.id);
+  for (let k = 0; k < todo.length; k += 3) {
+    const got = await Promise.all(todo.slice(k, k + 3).map(id => api.issueDetail(id).catch(() => null)));
+    if (run !== bSpentRun) return;   // 範囲を切り替えた
+    for (const d of got) if (d && B.issues.has(d.id)) B.issues.get(d.id).spent_hours = d.spent_hours || 0;
+  }
+  if (run === bSpentRun && todo.length && state.view === BARA && !B.busy && B.editing == null && !bPop) renderBara();
 }
 
 function bStages(list) {
