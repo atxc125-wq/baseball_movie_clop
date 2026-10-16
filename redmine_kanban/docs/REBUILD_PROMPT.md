@@ -4,6 +4,7 @@
 > - いちばん確実なのは、このプロンプトと一緒に次のソースを添付することです: `src/kanban.fragment.html`、`kanban_relay.py`（`# --- BOARD_HTML_BEGIN` より上だけで可）、`build.py`、`board_settings.example.json`、`setup.bat`、`README.md`。
 >   その場合は「添付のソースを正とし、本書と食い違ったらソースに合わせる」と伝えてください。
 > - ソースを渡せない場合も、末尾の付録（CSS 全文・画面の HTML 全文・初期設定・中継する API の一覧）をそのまま使えば、見た目は同じになります。
+> - 長すぎて入らない場合: 本文（「付録について」まで）をプロンプトに入れ、付録 A・B の代わりに `docs/board.css` と `docs/board_body.html` を添付してください（中身は同じ）。
 > - 実在の人名・社内 URL・API キーは入っていません（見本データの人名は架空）。
 
 ---

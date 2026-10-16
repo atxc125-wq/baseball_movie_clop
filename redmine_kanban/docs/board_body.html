@@ -1,0 +1,249 @@
+<!-- タスクボードの画面の HTML 全文（<body> の中身、<script> より前。クラス名・id を変えない） -->
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>タスクボード</h1>
+      <span class="today" id="today"></span>
+      <span class="mode-pill" id="modePill">モック</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <label class="mock-user" id="mockUserWrap" for="mockUser">モックの操作ユーザー
+        <select id="mockUser"></select>
+      </label>
+      <button class="btn primary" id="newTaskBtn" type="button">＋ 新規タスク</button>
+      <button class="btn" id="hoursBtn" type="button" title="作業時間の記録と月の集計">工数</button>
+      <button class="btn" id="reloadBtn" type="button">再読み込み</button>
+      <button class="btn" id="settingsBtn" type="button">接続設定</button>
+      <button class="btn help-btn" id="guideBtn" type="button" title="このボードの使い方">使い方</button>
+    </div>
+  </header>
+
+  <div class="subbar">
+    <div class="tabs" role="tablist" id="tabs" aria-label="表示するメンバー"></div>
+    <div class="summary" id="summary" aria-live="polite"></div>
+  </div>
+
+  <div class="board-wrap">
+    <main class="board" id="board"><div class="loading">読み込み中…</div></main>
+    <div class="dash" id="dash" hidden></div>
+    <div class="bara" id="bara" hidden></div>
+    <div class="inbox" id="inbox" hidden>
+      <section class="col" aria-label="未整理のチケット">
+        <header class="col-head">
+          <h2>未整理</h2>
+          <span class="sub">担当またはバージョンが未設定</span>
+          <span class="count" id="inboxCount">0</span>
+        </header>
+        <div class="col-body" style="padding:0"><ul class="mail-list" id="mailList"></ul></div>
+      </section>
+      <form class="triage" id="triage" novalidate></form>
+    </div>
+  </div>
+</div>
+
+<div class="cancel-zone" id="cancelZone" hidden>ここにドロップすると「中止」</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="overlay" id="editor" hidden>
+  <form class="dialog triage editor" id="editorForm" novalidate aria-label="チケットの編集"></form>
+</div>
+
+<div class="overlay" id="hoursDlg" hidden>
+  <div class="dialog hours" id="hoursBody" role="dialog" aria-label="工数"></div>
+</div>
+
+<div class="overlay guide" id="guide" hidden>
+  <div class="guide-page" role="dialog" aria-labelledby="guideTitle">
+    <div class="close"><button class="btn" type="button" id="guideClose">閉じる</button></div>
+    <article>
+      <p class="eyebrow">タスクボード 使い方ガイド</p>
+      <h1 id="guideTitle">計画のメンテが面倒すぎたので、ボードにしました。</h1>
+      <p class="byline">つくったひと より ／ 読む時間 約5分</p>
+
+      <p class="lead">
+        Redmine でチケットを探して、開いて、進捗を選んで、保存して……。正直、これが毎日の地味なストレスでした。<br>
+        「計画を守る」より「計画を<strong>直す</strong>」ほうに時間を取られていた気がします。<br>
+        なので、<strong>見る・動かす・終わらせる</strong>をワンクリックでできるボードを作りました。中身は今までどおり Redmine です。
+      </p>
+
+      <nav class="toc" aria-label="目次">
+        <b>目次</b>
+        <ol>
+          <li><a href="#g-why">なぜボードにしたのか</a></li>
+          <li><a href="#g-daily">毎日の使い方（ここだけ読めばOK）</a></li>
+          <li><a href="#g-deadline">締切と予定のルール</a></li>
+          <li><a href="#g-inbox">メールで来た仕事の振り分け</a></li>
+          <li><a href="#g-new">新規タスク・みんなでやる仕事</a></li>
+          <li><a href="#g-hours">工数入力は「押すだけ」</a></li>
+          <li><a href="#g-bara">課題バラシ</a></li>
+          <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
+          <li><a href="#g-faq">困ったとき</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="g-why"><span class="no">01</span>なぜボードにしたのか</h2>
+      <p>Redmine は記録としては優秀です。ただ、<strong>日々の更新</strong>がとにかく面倒でした。</p>
+      <div class="ba">
+        <div class="before"><b>これまで</b>
+          <ul>
+            <li>自分のチケットを検索して一覧を出す</li>
+            <li>1件ずつ開いて進捗をプルダウンで選ぶ</li>
+            <li>親チケットの進捗も手で合わせる</li>
+            <li>月末に工数を思い出しながら入力</li>
+            <li>誰が忙しいかは聞いてみないと分からない</li>
+          </ul>
+        </div>
+        <div class="after"><b>これから</b>
+          <ul>
+            <li>開けば自分の仕事が優先順に並んでいる</li>
+            <li>進捗はボタンをポンと押すだけ</li>
+            <li>親チケットは子に合わせて自動で更新</li>
+            <li>工数は進捗を押したついでに1クリック</li>
+            <li>「全体」タブでチームの状況が一目で分かる</li>
+          </ul>
+        </div>
+      </div>
+      <p>ボードで動かした内容は、その場で Redmine に書き込まれます。ボード専用のデータはないので、Redmine 側で見ても同じです。</p>
+
+      <h2 id="g-daily"><span class="no">02</span>毎日の使い方（ここだけ読めばOK）</h2>
+      <p>開くと<strong>自分のタブ</strong>が選ばれた状態で始まります。列は左から右へ流れます。</p>
+      <div class="mini-cols">
+        <div><b>未着手</b>これから</div>
+        <div><b>進行中</b>0〜80%</div>
+        <div><b>担当完了</b>自分の作業は終わり</div>
+        <div><b>上司完了</b>確認したら上司が移動</div>
+      </div>
+      <ol>
+        <li><strong>始めたら</strong> カードを「進行中」へドラッグ。</li>
+        <li><strong>進んだら</strong> カード下の <span class="ui">0</span> <span class="ui">20</span> <span class="ui">40</span> <span class="ui">60</span> <span class="ui">80</span> を押す。</li>
+        <li><strong>終わったら</strong> 「担当完了」へドラッグ。あとは上司が確認して「上司完了」に動かします。</li>
+        <li><strong>やらなくなったら</strong> ドラッグ中に下に出る「中止」の帯へ落とす。チケットは消えません。</li>
+      </ol>
+      <p>カードをクリックすると、件名・締切・担当・説明を直せます。コメントを書けば Redmine の履歴にも残ります。</p>
+      <h3>やる順番は、上下に並べ替えるだけ</h3>
+      <p>「未着手」「進行中」の列の中でカードを上下にドラッグすると、<strong>その順番で日程が決まります</strong>。上から順に、予定工数の分だけ詰めて、開始日と作業完了予定を Redmine に入れます（進行中 → 未着手の順）。</p>
+      <p>課題バラシでつないだ「前の仕事」がまだ終わっていなければ、その後ろにずれます。並べた順番は次に開いたときもそのまま。間違えたら「元に戻す」で戻せます。</p>
+      <p>上の「並び」を <span class="ui">締切が近い順</span> にすると、締切の近いものから表示します。<span class="ui">この順番で日程を決める</span> を押せば、その順番がそのまま作業順になります。</p>
+      <div class="mini-card">
+        <div class="pc">フロントバンパー設計 › 補強構造の検討</div>
+        <b>ビーム断面の強度解析</b>
+        <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
+      </div>
+      <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>並び順のルール</h3>
+      <p>バージョン名の先頭の番号が小さいほど上に来ます（<span class="ui">01_市場問題</span> がいちばん急ぎ）。同じ番号なら締切が近い順です。</p>
+
+      <h2 id="g-deadline"><span class="no">03</span>締切と予定のルール</h2>
+      <table>
+        <tr><th>どこに書く</th><th>意味</th></tr>
+        <tr><td>件名の先頭の <strong>【10/24】</strong></td><td><strong>本来の締切</strong>（お客さん・関係部署との約束）</td></tr>
+        <tr><td>Redmine の <strong>期日</strong></td><td><strong>作業完了予定</strong>（自分の見込み）</td></tr>
+      </table>
+      <p>締切を過ぎると<strong>赤</strong>、3日以内だと<strong>黄色</strong>になります。作業完了予定が締切より後ろだと「予定が締切超え」と出るので、早めに相談してください。</p>
+      <p class="note"><b>ポイント：</b>締切と予定の差が「余裕（バッファ）」です。全体ボードでは、この余裕をどれだけ使ったかで、仕事ごとの危なさを見ています。</p>
+
+      <h2 id="g-inbox"><span class="no">04</span>メールで来た仕事の振り分け</h2>
+      <p>メールから自動で作られたチケット（担当やバージョンが空のもの）は<strong>「未整理」タブ</strong>に集まります。誰が振り分けてもOKです。</p>
+      <ol>
+        <li>左の一覧からチケットを選ぶ</li>
+        <li>締切・件名・バージョン・担当を入れて <span class="ui pri">整理して登録</span></li>
+        <li>仕事ではないメール（懇親会のお知らせなど）は <span class="ui">タスクではない</span> で「中止」に</li>
+        <li>大きい仕事は <span class="ui">課題バラシで分解する</span> で、その場で中身に分ける</li>
+      </ol>
+
+      <h2 id="g-new"><span class="no">05</span>新規タスク・みんなでやる仕事</h2>
+      <p>右上の <span class="ui pri">＋ 新規タスク</span> から作れます。バージョンが無ければ、その場で <span class="ui">＋ 新しいバージョン</span> も作れます（「番号_カテゴリ-個別名」の形になります。例：05_開発業務-EV電池ケース）。</p>
+      <p>E-ラーニングのように<strong>全員がやる仕事</strong>は、担当を複数チェックすると人数分のチケットができます。「まとめ用の親チケット」を付けておくと、全体タブの「みんなでやる仕事」で、誰が終わって誰がまだかが分かります。</p>
+
+      <h2 id="g-hours"><span class="no">06</span>工数入力は「押すだけ」</h2>
+      <div class="ba">
+        <div class="before"><b>これまで</b>月末にカレンダーとメールを見返して、思い出しながら入力。正直つらい。</div>
+        <div class="after"><b>これから</b>進捗ボタンを押すと右下に時間が出るので、近いものを1回押すだけ。</div>
+      </div>
+      <p>出てくるのは <span class="ui">0.5h</span> <span class="ui">1h</span> <span class="ui">2h</span> <span class="ui">4h</span> <span class="ui">1日</span> <span class="ui">記録しない</span>。押さなければ何も記録されません。</p>
+      <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
+      <ul>
+        <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>
+        <li><strong>月の集計</strong>：バージョン別・人別の合計時間。<span class="ui">CSV で保存</span> して月末の工数入力にそのまま使えます。</li>
+      </ul>
+      <p class="note"><b>ゆるく行きましょう：</b>きっちり正確じゃなくて大丈夫。月末に思い出すより、ずっと実態に近い数字になります。聞かれたくない人は「接続設定」でオフにできます。</p>
+
+      <h2 id="g-bara"><span class="no">07</span>課題バラシ</h2>
+      <p>ガントチャートの「前後のつながり」が見える良さを、もっと手軽に使えるようにした画面です。</p>
+      <ul>
+        <li><strong>中の仕事（子）</strong>は親の<strong>枠の中</strong>に入ります</li>
+        <li><strong>順番</strong>は左から右への<strong>矢印</strong>。並行できる仕事は縦に並びます</li>
+        <li>箱の <span class="ui">＋</span>（左・右・下）で前・後・中の仕事を追加</li>
+        <li>枠のいちばん下の <span class="ui">＋ ここに追加</span> で、同じ階層に（つながりのない）仕事を追加</li>
+        <li>箱をドラッグして、相手の左端なら前、右端なら後、真ん中なら中に入れる</li>
+        <li><span class="ui">予定工数 ＋</span> で予定時間を入れると、<strong>一番長い流れ</strong>（順番にしかできない仕事の合計）が赤く出ます</li>
+      </ul>
+      <p>矢印は Redmine の「先行」として保存されるので、ガントチャートにも同じ矢印が出ます。前の仕事が遅れると、後ろの仕事の日程も Redmine が自動でずらします。</p>
+
+      <h2 id="g-dash"><span class="no">08</span>全体ボード（朝会・Teams用）</h2>
+      <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
+      <ul>
+        <li><strong>上の数字</strong>：締切超過・今週の締切・2週間で完了した数・見直しが必要な仕事</li>
+        <li><strong>積み木</strong>：いま抱えている仕事の量（多い順）。締切が危ないものは名前が出ます</li>
+        <li><strong>タイムライン</strong>：これまでの2週間で終わった数と、これからの2週間の締切の数</li>
+        <li><strong>仕事ごとの状況</strong>：進捗に対して余裕をどれだけ使ったかで「順調・注意・見直し」</li>
+      </ul>
+      <p>責めるための画面ではありません。<strong>早めに助けを出すための画面</strong>です。赤いものを見つけたら、遠慮なく声をかけてください（かけます）。</p>
+
+      <h2 id="g-faq"><span class="no">09</span>困ったとき</h2>
+      <table>
+        <tr><th>こんなとき</th><th>こうする</th></tr>
+        <tr><td>ボードが開かない</td><td>共有フォルダの <strong>kanban_relay.py</strong> をダブルクリック。自動で起動してボードが開きます。</td></tr>
+        <tr><td>新しい機能が出てこない</td><td>共有フォルダの kanban_relay.py をダブルクリック（古い版から入れ替わります）。<span class="ui">接続設定</span> の一番下で版を確認できます。</td></tr>
+        <tr><td>「更新できませんでした」と出る</td><td>Redmine 側の権限で止められています。メッセージをそのまま、つくったひとに送ってください。</td></tr>
+        <tr><td>表示が古い気がする</td><td>右上の <span class="ui">再読み込み</span>。Redmine で直接変えた分も取り込みます。</td></tr>
+        <tr><td>「上司完了」に動かせない</td><td>仕様です。担当完了まで動かしてもらえれば、上司が確認して動かします。</td></tr>
+      </table>
+
+      <div class="end">
+        <strong>おわりに</strong><br>
+        ボードは道具なので、使いにくいところはどんどん直します。「ここが面倒」「こうだったらいいのに」は気軽に言ってください。<br>
+        計画を直す時間を減らして、設計に時間を使いましょう。
+      </div>
+    </article>
+  </div>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <form class="dialog" id="settingsForm" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle">接続設定</h2>
+    <div class="field">
+      <span class="label">データの取得元</span>
+      <div class="radios">
+        <label><input type="radio" name="mode" id="modeRelay" value="relay"> 中継プログラム経由（通常はこれ）</label>
+        <label><input type="radio" name="mode" id="modeMock" value="mock"> モック（ダミーデータ）</label>
+        <label><input type="radio" name="mode" id="modeLive" value="live"> 直接接続</label>
+      </div>
+    </div>
+    <p class="hint" id="relayHint">このPCで動いている中継プログラムを通して Redmine を読み書きします。API キーは中継プログラムに保存されています。</p>
+    <div id="directFields" hidden>
+      <p class="hint">Redmine 側で CORS が許可されている場合だけ使えます。</p>
+      <div class="field">
+        <label for="redmineUrl">Redmine の URL</label>
+        <input type="text" id="redmineUrl" placeholder="https://redmine.example.com" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="apiKey">自分の API キー</label>
+        <input type="password" id="apiKey" placeholder="Redmine の「個人設定」→「APIアクセスキー」" autocomplete="off">
+        <p class="hint">キーはこのブラウザの中だけに保存されます。</p>
+      </div>
+    </div>
+    <div class="field">
+      <span class="label">工数</span>
+      <label><input type="checkbox" id="askHours"> 進捗を動かしたときに、作業時間を聞く（押さなければ記録しません）</label>
+    </div>
+    <p class="test-result" id="testResult" hidden></p>
+    <p class="hint" id="versionInfo"></p>
+    <div class="dialog-actions">
+      <button class="btn" type="button" id="testBtn">接続テスト</button>
+      <button class="btn" type="button" id="cancelSettings">閉じる</button>
+      <button class="btn primary" type="submit">保存して再読み込み</button>
+    </div>
+  </form>
+</div>
