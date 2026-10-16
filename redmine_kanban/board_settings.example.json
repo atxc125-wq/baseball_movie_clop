@@ -17,6 +17,9 @@
     "urgentPriority": 1,
     "dueSoonDays": 3,
     "approvedDays": 14,
-    "versionColors": {}
+    "versionColors": {},
+    "hoursPerDay": 8,
+    "_holidays の書き方": "課題バラシの日程計算で休みにする日（土日は自動で休み）。例: [\"2026-12-29\", \"2026-12-30\"]",
+    "holidays": []
   }
 }

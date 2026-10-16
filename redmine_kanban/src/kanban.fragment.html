@@ -518,6 +518,13 @@ a.btn { text-decoration: none; display: inline-block; }
 .bara .ext .ok { background: var(--ok-bg); color: var(--ok); }
 .bara .ext .next { background: var(--surface-2); color: var(--ink-2); }
 .bara .frame.ctx > .bx { background: var(--surface-2); }
+.bara .sched { font-size: 11px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.bara .sched.unsaved b { color: var(--accent); }
+.bara .sched .tag-s { font-size: 10px; border-radius: 4px; padding: 0 5px; background: var(--accent-soft); color: var(--accent); }
+.bara .sched .tag-s.late { background: var(--late-bg); color: var(--late); }
+.bara .sched .tag-s.muted { background: var(--surface-2); color: var(--ink-3); }
+.bara .btop input[type="date"] { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+.bara .btop .grp { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
 .bara .frame.ctx > .bx .sj::after { content: "（この人の分だけ表示）"; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 6px; }
 .bara .est-row { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
 .bara .est { border: 1px solid var(--line); background: var(--surface-2); border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2); font-family: var(--font-num); white-space: nowrap; }
@@ -929,6 +936,8 @@ const CONFIG = {
   // 工数: 進捗を動かしたときに出す時間の選択肢（時間）と、1日の所定時間
   hourChoices: [0.5, 1, 2, 4],
   hoursPerDay: 8,
+  // 課題バラシの日程計算で休みにする日（土日は自動で休み）。例: ['2026-12-29', '2026-12-30']
+  holidays: [],
   // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
   versionCategories: ['01_市場問題_', '02_供給問題_', '03_業務改善_', '03_風土改革_', '04_モジュール開発_',
     '05_開発業務_', '06_MBD開発_', '07_工場困りごと_', '08_原価低減_'],
@@ -1230,6 +1239,7 @@ function createMockApi(getMockUserId) {
       if ('subject' in fields) issue.subject = fields.subject;
       if ('description' in fields) issue.description = fields.description;
       if ('due_date' in fields) issue.due_date = fields.due_date || null;
+      if ('start_date' in fields) issue.start_date = fields.start_date || null;
       if ('assigned_to_id' in fields) issue.assigned_to = fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined;
       if (fields.notes) (issue.journals = issue.journals || []).push({ notes: fields.notes, created_on: new Date().toISOString() });
       if ('fixed_version_id' in fields) issue.fixed_version = fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined;
@@ -1418,6 +1428,7 @@ function createRedmineApi(baseUrl, apiKey) {
         ['description', '説明', issue.description],
         ['parent_issue_id', '親チケット', issue.parent && issue.parent.id],
         ['estimated_hours', '予定工数', issue.estimated_hours],
+        ['start_date', '開始日', issue.start_date],
       ];
       const ignored = checks.filter(([k, , now]) => k in fields && norm(fields[k]) !== norm(now)).map(([, label]) => label);
       if (ignored.length) {
@@ -3019,6 +3030,7 @@ function bBox(issue, isHeader) {
       h('span', { class: `st ${st}` }, stText)),
     h('div', { class: 'bar' }, h('i', { style: `width:${ratio}%` })),
     issue.temp ? null : bEst(issue, isHeader, leaves),
+    issue.temp || isHeader || !B.plan ? null : bSchedLine(issue),
     B.outside.get(issue.id) ? h('div', { class: 'ext' }, B.outside.get(issue.id).map(({ dir, other }) => {
       const who = other.assigned_to ? other.assigned_to.name.split(/[ 　]/)[0] : '';
       const name = parseTitle(other.subject).text;
@@ -3036,6 +3048,18 @@ function bBox(issue, isHeader) {
       knob('ed', '詳しく編集（担当・締切など）', '✎', () => bOpenEditor(issue.id)),
       isRoot || isHeader ? null : knob('x', '中止にする（チケットは残ります）', '×', () => bCancel(issue.id)),
     ]);
+}
+
+function bSchedLine(issue) {
+  const r = B.plan.get(issue.id);
+  if (!r) return null;
+  const { deadline } = parseTitle(issue.subject);
+  const late = deadline && r.due > deadline;
+  return h('div', { class: 'sched' + (r.changed ? ' unsaved' : ''), title: r.changed ? `Redmine は今: 開始 ${issue.start_date || '未設定'} / 期日 ${issue.due_date || '未設定'}` : '' },
+    h('b', {}, `📅 ${jpDate(r.start)}〜${jpDate(r.due)}`),
+    r.changed ? h('span', { class: 'tag-s' }, '未反映') : null,
+    late ? h('span', { class: 'tag-s late' }, '締切超え') : null,
+    r.noEst ? h('span', { class: 'tag-s muted' }, '工数未入力→1日') : null);
 }
 
 function bEst(issue, isHeader, leaves) {
@@ -3111,10 +3135,8 @@ function bScopeOptions() {
   return opts;
 }
 
-function bCritical() {
-  // 完了を隠しているときは「残りの仕事」だけで数える
-  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length && !(bHideDone() && bStatus(i) === 'done')).map(i => i.id);
-  const set = new Set(leaves);
+// 末端の仕事どうしのつながり。枠から出る矢印は「枠の中で最後の仕事」から、枠へ入る矢印は「枠の中で最初の仕事」へ、とみなす
+function bLeafEdges(set) {
   const ends = (id, first) => {
     const L = bLeaves(id).map(l => l.id);
     if (L.length === 1 && L[0] === id) return L;
@@ -3122,6 +3144,14 @@ function bCritical() {
   };
   const edges = [];
   for (const r of B.rels) for (const a of ends(r.from, false)) for (const b of ends(r.to, true)) if (set.has(a) && set.has(b) && a !== b) edges.push({ a, b, rel: r.id });
+  return edges;
+}
+
+function bCritical() {
+  // 完了を隠しているときは「残りの仕事」だけで数える
+  const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length && !(bHideDone() && bStatus(i) === 'done')).map(i => i.id);
+  const set = new Set(leaves);
+  const edges = bLeafEdges(set);
   const byHours = leaves.some(id => (B.issues.get(id).estimated_hours || 0) > 0);
   const w = id => (byHours ? B.issues.get(id).estimated_hours || 0 : 1);
   const memo = new Map(), onPath = new Set();
@@ -3137,6 +3167,101 @@ function bCritical() {
   let top = { len: 0, n: 0, path: [] };
   for (const id of leaves) { const x = longest(id); if (x.len > top.len) top = x; }
   return { edges: new Set(top.n > 2 ? top.path : []), hours: byHours ? top.len : null, n: top.n };
+}
+
+/* ---- 日程の自動計算（予定工数と前後のつながりから、開始日と作業完了予定を決める） ----
+ *  ・前の仕事がない先頭の仕事: 自分の開始日（なければ上の「着手」の日、ふつうは今日）から
+ *  ・前の仕事がある仕事: 前の仕事がすべて終わった翌営業日から（範囲の外の仕事の期日も見る）
+ *  ・期間 = 予定工数 ÷ 1日の時間 を営業日に切り上げ（未入力は 1 日）。進行中は残りの分だけ、今日から
+ *  ・完了した仕事は動かさない。土日と CONFIG.holidays は休み
+ */
+const isOffDay = d => d.getDay() === 0 || d.getDay() === 6 || (CONFIG.holidays || []).includes(isoDate(d));
+function nextWorkday(d) { let x = new Date(d); while (isOffDay(x)) x = addDays(x, 1); return x; }
+function addWorkdays(d, n) { let x = nextWorkday(d); for (let k = 0; k < n; k++) x = nextWorkday(addDays(x, 1)); return x; }
+const BARA_START_KEY = 'designBoard.baraStart';
+function bStartFrom() {
+  const today = startOfToday();
+  const d = B.startFrom ? parseDate(B.startFrom) : today;
+  return d < today ? today : d;
+}
+function bSchedule() {
+  const today = startOfToday();
+  const leaves = [...B.issues.values()].filter(i => !i.temp && !i.ctx && !bKids(i.id).length);
+  const set = new Set(leaves.map(i => i.id));
+  const edges = bLeafEdges(set);
+  const memo = new Map(), onPath = new Set();
+  const calc = id => {
+    if (memo.has(id)) return memo.get(id);
+    const i = B.issues.get(id);
+    if (bStatus(i) === 'done') { memo.set(id, null); return null; }
+    onPath.add(id);
+    let after = null;   // この日より後に始める
+    for (const e of edges.filter(x => x.b === id && !onPath.has(x.a))) {
+      const p = calc(e.a);
+      if (p && (!after || p.due > after)) after = p.due;
+    }
+    for (const o of B.outside.get(id) || []) {
+      if (o.dir !== 'before' || isDoneCol(colOf(o.other)) || !o.other.due_date) continue;
+      const d = parseDate(o.other.due_date);
+      if (!after || d > after) after = d;
+    }
+    onPath.delete(id);
+    const est = i.estimated_hours;
+    const hpd = CONFIG.hoursPerDay || 8;
+    let start, due;
+    if (bStatus(i) === 'doing') {
+      // 進行中: 開始日はそのまま、終わりは今日から残りの分。ただし前の仕事が終わっていなければその翌営業日から
+      // （Redmine は先行の仕事の期日より前の開始日を受け付けない）
+      const left = Math.max(1, Math.ceil(((est || hpd) * (1 - bRatio(i) / 100)) / hpd));
+      if (after && addDays(after, 1) > today) {
+        start = nextWorkday(addDays(after, 1));
+        due = addWorkdays(start, left - 1);
+      } else {
+        start = i.start_date ? parseDate(i.start_date) : nextWorkday(today);
+        due = addWorkdays(nextWorkday(today), left - 1);
+        if (due < start) due = start;
+      }
+    } else {
+      const own = !after && i.start_date ? parseDate(i.start_date) : null;   // 先頭の仕事は自分の開始日があればそれ
+      let from = after ? addDays(after, 1) : (own || bStartFrom());
+      if (from < today) from = today;
+      start = nextWorkday(from);
+      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1);
+    }
+    const r = { start, due, noEst: est == null, head: !after };
+    memo.set(id, r);
+    return r;
+  };
+  const out = new Map();
+  for (const i of leaves) {
+    const r = calc(i.id);
+    if (!r) continue;
+    const s = isoDate(r.start), d = isoDate(r.due);
+    out.set(i.id, { ...r, startIso: s, dueIso: d, changed: s !== (i.start_date || '') || d !== (i.due_date || '') });
+  }
+  return out;
+}
+// 指定した仕事と、その後ろにつながる仕事（工数を変えたときに動く範囲）
+function bDownstream(id) {
+  const set = new Set([...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length).map(i => i.id));
+  const edges = bLeafEdges(set);
+  const out = new Set([id]), st = [id];
+  while (st.length) { const x = st.pop(); for (const e of edges.filter(y => y.a === x)) if (!out.has(e.b)) { out.add(e.b); st.push(e.b); } }
+  return out;
+}
+const BARA_AUTO_KEY = 'designBoard.baraAutoSchedule';
+function bAutoSchedule() { try { return localStorage.getItem(BARA_AUTO_KEY) !== '0'; } catch (_) { return true; } }
+// 計算した日程を Redmine に書く。開始日の早い順に書く（前の仕事の期日を先に直さないと、Redmine が後ろの開始日を受け付けない）
+function bApplySchedule(only, label) {
+  const plan = bSchedule();
+  const targets = [...plan.entries()].filter(([id, r]) => r.changed && (!only || only.has(id))).sort((a, b) => a[1].start - b[1].start || a[1].due - b[1].due);
+  if (!targets.length) { if (!only) toast('日程はすでに計算どおりです'); return Promise.resolve(); }
+  const before = targets.map(([id]) => { const i = B.issues.get(id); return [id, { start_date: i.start_date || null, due_date: i.due_date || null }]; });
+  return bRun(async () => {
+    for (const [id, r] of targets) await api.updateIssue(id, { start_date: r.startIso, due_date: r.dueIso });
+  }, `${label || ''}${targets.length} 件の開始日・作業完了予定を反映しました`, async () => {
+    for (const [id, f] of [...before].reverse()) await api.updateIssue(id, f);
+  });
 }
 
 const BARA_CRIT_KEY = 'designBoard.baraCrit';
@@ -3171,6 +3296,16 @@ function renderBara() {
   crit.addEventListener('change', () => { try { localStorage.setItem(BARA_CRIT_KEY, crit.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } bDrawArrows(); });
   const leaves = [...B.issues.values()].filter(i => !i.temp && !bKids(i.id).length);
   const cp = bCritical();
+  B.plan = bSchedule();
+  const pending = [...B.plan.values()].filter(r => r.changed).length;
+  const startIn = h('input', { type: 'date', value: isoDate(bStartFrom()), min: isoDate(startOfToday()), title: '前の仕事がない先頭の仕事で、開始日が入っていないものはこの日から始める' });
+  startIn.addEventListener('change', () => { B.startFrom = startIn.value || null; renderBara(); });
+  const auto = h('input', { type: 'checkbox', checked: bAutoSchedule() });
+  auto.addEventListener('change', () => { try { localStorage.setItem(BARA_AUTO_KEY, auto.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } });
+  const applyBtn = h('button', { type: 'button', class: 'btn' + (pending ? ' primary' : ''), disabled: !pending,
+    title: '表示している範囲の、計算した日程（📅）を Redmine の開始日・期日に書き込む', onclick: () => bApplySchedule(null) }, pending ? `日程を反映（${pending}件）` : '日程は反映済み');
+  const schedGroup = h('span', { class: 'grp' }, '着手', startIn,
+    h('label', { class: 'grp', title: '予定工数を入れたとき、その仕事と後ろにつながる仕事の日程を自動で Redmine に書く' }, auto, '工数を入れたら日程も反映'), applyBtn);
   const sum = h('span', { class: 'sumbar' },
     h('span', {}, '予定 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.estimated_hours || 0), 0)))),
     h('span', {}, '実績 ', h('b', {}, fmtH(leaves.reduce((n, l) => n + (l.spent_hours || 0), 0)))),
@@ -3185,6 +3320,7 @@ function renderBara() {
     h('div', { class: 'btop' }, scopeSel,
       h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, hide, '完了を隠す'),
       h('label', { class: 'chk', style: 'display:inline-flex;gap:6px;align-items:center;font-size:13px' }, crit, '一番長い流れを赤く'), sum, h('span', { class: 'sp' }), add),
+    h('div', { class: 'btop', style: 'padding-top:0;border-bottom:0' }, schedGroup),
     h('div', { class: 'bhelp' },
       h('span', {}, h('b', {}, '＋（左・右・下）'), ' 前・後・中（子）の仕事を追加'),
       h('span', {}, h('b', {}, '箱をドラッグ'), ' 相手の左端＝前／右端＝後／真ん中＝中に入れる'),
@@ -3351,11 +3487,13 @@ function bRename(issue, text) {
   return bRun(() => api.updateIssue(issue.id, { subject: buildTitle(text, deadline) }), '名前を変えました',
     () => api.updateIssue(issue.id, { subject: before }));
 }
-function bSetEst(issue, v) {
+async function bSetEst(issue, v) {
   const before = issue.estimated_hours ?? null;
-  return bRun(() => api.updateIssue(issue.id, { estimated_hours: v }),
+  await bRun(() => api.updateIssue(issue.id, { estimated_hours: v }),
     v == null ? `#${issue.id} の予定工数を消しました` : `#${issue.id} の予定工数を ${fmtH(v)} にしました`,
     () => api.updateIssue(issue.id, { estimated_hours: before }));
+  // 工数が変わった仕事と、その後ろにつながる仕事だけ日程を書き直す（ほかの仕事の手入力の日程は触らない）
+  if (bAutoSchedule() && B.issues.has(issue.id)) await bApplySchedule(bDownstream(issue.id), '日程も自動で直しました: ');
 }
 function bCancel(id) {
   const issue = B.issues.get(id);
