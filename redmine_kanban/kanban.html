@@ -165,6 +165,9 @@ button { cursor: pointer; }
 }
 .card:hover { border-color: var(--ink-3); }
 .card.dragging { opacity: .4; }
+.card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
+.col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .start { font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .card.saving::after {
   content: "保存中…"; position: absolute; right: 8px; bottom: 6px;
   font-size: 10px; color: var(--accent);
@@ -768,6 +771,9 @@ a.btn { text-decoration: none; display: inline-block; }
         <li><strong>やらなくなったら</strong> ドラッグ中に下に出る「中止」の帯へ落とす。チケットは消えません。</li>
       </ol>
       <p>カードをクリックすると、件名・締切・担当・説明を直せます。コメントを書けば Redmine の履歴にも残ります。</p>
+      <h3>やる順番は、上下に並べ替えるだけ</h3>
+      <p>「未着手」「進行中」の列の中でカードを上下にドラッグすると、<strong>その順番で日程が決まります</strong>。上から順に、予定工数の分だけ詰めて、開始日と作業完了予定を Redmine に入れます（進行中 → 未着手の順）。</p>
+      <p>課題バラシでつないだ「前の仕事」がまだ終わっていなければ、その後ろにずれます。並べた順番は次に開いたときもそのまま。間違えたら「元に戻す」で戻せます。</p>
       <div class="mini-card">
         <div class="pc">フロントバンパー設計 › 補強構造の検討</div>
         <b>ビーム断面の強度解析</b>
@@ -895,7 +901,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-16 09:07'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-16 09:14'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1618,6 +1624,7 @@ function renderCard(issue) {
     h('h3', { class: 'subject' }, parseTitle(issue.subject).text),
     h('div', { class: 'card-foot' },
       h('span', { class: 'num' }, url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, `#${issue.id}`) : `#${issue.id}`),
+      col === 'todo' && queueKey(issue, 'todo') ? h('span', { class: 'start', title: '並び順から決めた開始日' }, `着手 ${jpDate(parseDate(issue.start_date))}`) : null,
       due.plan ? h('span', { class: 'plan' + (due.over ? ' over' : ''), title: 'Redmine の期日（作業完了予定）' }, due.over ? `${due.plan} 締切超え` : due.plan) : null,
       h('span', { class: `due ${due.cls}` }, due.text)),
     progress);
@@ -1636,6 +1643,121 @@ function byPriority(a, b) {
   return 0;
 }
 
+/* ---------- 自分の作業順（列の中で上下に並び替える）----------
+ *  並び順は Redmine の開始日・作業完了予定（期日）として保存する。
+ *  未着手: 開始日が今日以降のもの（並び替えで日程を決めたもの）を開始日順に上へ。ほかはその後ろに いつもの順（バージョン番号 → 締切）
+ *  進行中: もう始まっているので 作業完了予定の順。期日がないものは後ろに いつもの順
+ *  （Redmine は新しいチケットに作成日を開始日として入れるので、「開始日がある」だけでは並び替えたものと区別できない）
+ */
+function queueKey(issue, colKey) {
+  const today = isoDate(startOfToday());
+  if (colKey === 'todo') return issue.start_date && issue.start_date >= today ? issue.start_date : null;
+  if (colKey === 'doing') return issue.due_date || null;
+  return null;
+}
+function sortColumn(items, colKey) {
+  if (colKey === 'approved') return items.sort((a, b) => b.updated_on.localeCompare(a.updated_on));
+  if (colKey !== 'todo' && colKey !== 'doing') return items.sort(byPriority);
+  return items.sort((a, b) => {
+    const ka = queueKey(a, colKey), kb = queueKey(b, colKey);
+    if (ka && kb) return ka < kb ? -1 : ka > kb ? 1 : byPriority(a, b);
+    if (ka) return -1;
+    if (kb) return 1;
+    return byPriority(a, b);
+  });
+}
+
+// 並べた順に、その人の仕事を詰めて日程を決める（進行中 → 未着手、上から順）。前後のつながり（先行）も守る
+async function scheduleQueue(queue) {
+  const today = startOfToday();
+  const hpd = CONFIG.hoursPerDay || 8;
+  // 前の仕事（先行）を調べる。一覧につながりが付かない Redmine では、つながりは見ない
+  let rel = [];
+  try { rel = await api.issuesByIds(queue.map(i => i.id), 'relations'); } catch (_) { rel = []; }
+  const preds = new Map();
+  for (const i of rel) for (const r of i.relations || []) {
+    const [from, to] = r.relation_type === 'precedes' ? [r.issue_id, r.issue_to_id] : r.relation_type === 'follows' ? [r.issue_to_id, r.issue_id] : [null, null];
+    if (to === i.id && from) (preds.get(to) || preds.set(to, new Set()).get(to)).add(from);
+  }
+  const inQueue = new Map(queue.map(i => [i.id, i]));
+  const outsideIds = [...new Set([...preds.values()].flatMap(s => [...s]).filter(id => !inQueue.has(id)))];
+  const outside = new Map();
+  if (outsideIds.length) { try { for (const o of await api.issuesByIds(outsideIds)) outside.set(o.id, o); } catch (_) { /* 読めなければ見ない */ } }
+  const plan = new Map(), warn = [];
+  let cursor = nextWorkday(today);
+  for (const i of queue) {
+    let after = null;
+    for (const pid of preds.get(i.id) || []) {
+      let d = null;
+      if (plan.has(pid)) d = plan.get(pid).due;
+      else if (inQueue.has(pid)) { warn.push(`#${i.id} は #${pid} の後でないと始められません`); const q = inQueue.get(pid); d = q.due_date ? parseDate(q.due_date) : null; }
+      else { const o = outside.get(pid); if (o && !isDoneCol(colOf(o)) && o.due_date) d = parseDate(o.due_date); }
+      if (d && (!after || d > after)) after = d;
+    }
+    let from = cursor;
+    if (after && addDays(after, 1) > from) from = addDays(after, 1);
+    const est = i.estimated_hours;
+    let start, due;
+    if (colOf(i) === 'doing') {
+      const left = Math.max(1, Math.ceil(((est || hpd) * (1 - (statusById[i.status.id].ratio || 0) / 100)) / hpd));
+      due = addWorkdays(nextWorkday(from), left - 1);
+      // 始まっている仕事の開始日はそのまま（前の仕事を待つ場合だけ後ろへ）
+      start = after && addDays(after, 1) > today ? nextWorkday(addDays(after, 1)) : (i.start_date ? parseDate(i.start_date) : nextWorkday(today));
+      if (start > due) start = nextWorkday(from);
+    } else {
+      start = nextWorkday(from);
+      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1);
+    }
+    plan.set(i.id, { start, due, noEst: est == null });
+    cursor = nextWorkday(addDays(due, 1));
+  }
+  return { plan, warn };
+}
+
+async function reorderCard(id, colKey, beforeId) {
+  const member = state.view;
+  const mine = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === member);
+  const column = k => sortColumn(mine.filter(i => colOf(i) === k), k);
+  const order = { doing: column('doing'), todo: column('todo') };
+  const moving = state.issues.get(id);
+  order[colKey] = order[colKey].filter(i => i.id !== id);
+  const at = beforeId == null ? order[colKey].length : order[colKey].findIndex(i => i.id === beforeId);
+  order[colKey].splice(at < 0 ? order[colKey].length : at, 0, moving);
+  const queue = [...order.doing, ...order.todo];
+  let res;
+  try { res = await scheduleQueue(queue); } catch (e) { toast(`日程を計算できませんでした。${e.message}`, { error: true }); return; }
+  const changes = queue.map(i => {
+    const r = res.plan.get(i.id);
+    const f = {};
+    if (isoDate(r.start) !== (i.start_date || '')) f.start_date = isoDate(r.start);
+    if (isoDate(r.due) !== (i.due_date || '')) f.due_date = isoDate(r.due);
+    return [i, f, { start_date: i.start_date || null, due_date: i.due_date || null }];
+  }).filter(([, f]) => Object.keys(f).length);
+  if (!changes.length) return;
+  // 先に画面を並べ替え、開始日の早い順に Redmine に書く（前の仕事の期日を先に直さないと、Redmine が後ろの開始日を受け付けない）
+  for (const [i, f] of changes) Object.assign(i, f);
+  changes.forEach(([i]) => state.saving.add(i.id));
+  renderBoard();
+  changes.sort((a, b) => (a[0].start_date || '').localeCompare(b[0].start_date || ''));
+  const done = [];
+  try {
+    for (const [i, f] of changes) { await api.updateIssue(i.id, f); done.push([i.id, f]); }
+    const before = changes.map(([i, , b]) => [i.id, b]);
+    toast(`並び順に合わせて ${changes.length} 件の日程（開始日・作業完了予定）を決めました`, { action: { label: '元に戻す', run: async () => {
+      try { for (const [cid, b] of [...before].reverse()) await api.updateIssue(cid, b); }
+      catch (e) { toast(`元に戻せませんでした。${e.message}`, { error: true }); }
+      await loadView().catch(() => {}); renderBoard();
+    } } });
+    if (res.warn.length) toast(`前後のつながりに合わない順番があります: ${res.warn.slice(0, 2).join(' / ')}`, { error: true });
+  } catch (e) {
+    toast(`日程を保存できませんでした（${done.length}/${changes.length} 件まで保存）。${e.message}`, { error: true });
+    await loadView().catch(() => {});
+  } finally {
+    changes.forEach(([i]) => state.saving.delete(i.id));
+    renderBoard();
+  }
+}
+
 function renderBoard() {
   const board = $('board');
   const scroll = {};
@@ -1645,8 +1767,7 @@ function renderBoard() {
   const visible = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === state.view);
   board.style.gridTemplateColumns = `repeat(${visibleColumns().length}, minmax(0, 1fr))`;
   board.replaceChildren(...visibleColumns().map(col => {
-    const items = visible.filter(i => colOf(i) === col.key)
-      .sort(col.key === 'approved' ? (a, b) => b.updated_on.localeCompare(a.updated_on) : byPriority);
+    const items = sortColumn(visible.filter(i => colOf(i) === col.key), col.key);
     const locked = col.managerOnly && !isManager();
     return h('section', { class: 'col', 'data-col': col.key, 'aria-label': col.title },
       h('header', { class: 'col-head' },
@@ -3770,21 +3891,34 @@ board.addEventListener('dragstart', e => {
 // ドロップ後に描き直すと元のカードが消えて dragend が来ないことがあるので、終わりの片付けをまとめる
 function endDrag() {
   dragId = null;
-  board.querySelectorAll('.dragging, .drag-over, .drag-denied').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied'));
+  board.querySelectorAll('.dragging, .drag-over, .drag-denied, .drop-before, .drop-end').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied', 'drop-before', 'drop-end'));
   $('cancelZone').hidden = true;
   $('cancelZone').classList.remove('drag-over');
 }
 board.addEventListener('dragend', () => {
   dragId = null;
-  board.querySelectorAll('.dragging, .drag-over, .drag-denied').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied'));
+  board.querySelectorAll('.dragging, .drag-over, .drag-denied, .drop-before, .drop-end').forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-denied', 'drop-before', 'drop-end'));
   $('cancelZone').hidden = true;
   $('cancelZone').classList.remove('drag-over');
 });
+// 同じ列の中で上下に動かしたときの差し込み位置（この下にあるいちばん近いカード。なければ列の最後）
+function dropBefore(col, y) {
+  const cards = [...col.querySelectorAll('.card:not(.dragging)')];
+  const hit = cards.find(c => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+  return hit || null;
+}
 board.addEventListener('dragover', e => {
   const col = e.target.closest && e.target.closest('.col');
   if (!col || dragId == null) return;
   e.preventDefault();
   board.querySelectorAll('.col.drag-over').forEach(c => c !== col && c.classList.remove('drag-over'));
+  board.querySelectorAll('.drop-before, .drop-end').forEach(el => el.classList.remove('drop-before', 'drop-end'));
+  const issue = state.issues.get(dragId);
+  if (issue && colOf(issue) === col.dataset.col && ['todo', 'doing'].includes(col.dataset.col)) {
+    const hit = dropBefore(col, e.clientY);
+    if (hit) hit.classList.add('drop-before'); else col.querySelector('.col-body').classList.add('drop-end');
+    return;
+  }
   col.classList.add('drag-over');
 });
 board.addEventListener('dragleave', e => {
@@ -3796,6 +3930,14 @@ board.addEventListener('drop', e => {
   if (!col || dragId == null) return;
   e.preventDefault();
   const id = dragId;
+  const issue = state.issues.get(id);
+  if (issue && colOf(issue) === col.dataset.col && ['todo', 'doing'].includes(col.dataset.col)) {
+    const hit = dropBefore(col, e.clientY);
+    const beforeId = hit ? Number(hit.dataset.id) : null;
+    endDrag();
+    if (beforeId !== id) reorderCard(id, col.dataset.col, beforeId);
+    return;
+  }
   endDrag();
   moveToColumn(id, col.dataset.col);
 });
