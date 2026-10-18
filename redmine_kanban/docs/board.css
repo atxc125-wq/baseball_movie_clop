@@ -186,6 +186,13 @@ button { cursor: pointer; }
 .tag.t6 { background: var(--tag6-bg); color: var(--tag6-fg); }
 .subject { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
 .card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-signals { display: flex; flex-direction: column; gap: 3px; }
+.card-signals span { font-size: 11px; border-radius: 4px; padding: 1px 7px; align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-signals .wait { background: var(--soon-bg); color: var(--soon); }
+.card-signals .ready { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.card-signals .stale { background: var(--surface-2); color: var(--ink-2); border: 1px dashed var(--ink-3); }
+.col-head .wip { font-size: 11px; font-weight: 700; color: var(--soon); background: var(--soon-bg); border-radius: 4px; padding: 0 6px; }
+.col.over-wip .col-head .count { background: var(--soon-bg); color: var(--soon); }
 .num { font-family: var(--font-num); font-size: 11px; color: var(--ink-3); }
 .num a { color: inherit; text-decoration: none; }
 .num a:hover { text-decoration: underline; }
@@ -340,7 +347,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .new-version .pv { font-size: 12px; color: var(--ink-2); width: 100%; }
 /* ---------- ダッシュボード（上司だけ）: Teams の画面共有で読める大きさにする ---------- */
 .dash { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; font-size: 15px; }
-.dash .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.dash .tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .dash .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: baseline; gap: 10px; }
 .dash .tile .v { font-family: var(--font-num); font-size: 30px; line-height: 1; }
 .dash .tile .k { color: var(--ink-2); font-size: 14px; }

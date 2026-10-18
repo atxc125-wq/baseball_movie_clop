@@ -194,6 +194,13 @@ button { cursor: pointer; }
 .tag.t6 { background: var(--tag6-bg); color: var(--tag6-fg); }
 .subject { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
 .card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-signals { display: flex; flex-direction: column; gap: 3px; }
+.card-signals span { font-size: 11px; border-radius: 4px; padding: 1px 7px; align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-signals .wait { background: var(--soon-bg); color: var(--soon); }
+.card-signals .ready { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.card-signals .stale { background: var(--surface-2); color: var(--ink-2); border: 1px dashed var(--ink-3); }
+.col-head .wip { font-size: 11px; font-weight: 700; color: var(--soon); background: var(--soon-bg); border-radius: 4px; padding: 0 6px; }
+.col.over-wip .col-head .count { background: var(--soon-bg); color: var(--soon); }
 .num { font-family: var(--font-num); font-size: 11px; color: var(--ink-3); }
 .num a { color: inherit; text-decoration: none; }
 .num a:hover { text-decoration: underline; }
@@ -348,7 +355,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .new-version .pv { font-size: 12px; color: var(--ink-2); width: 100%; }
 /* ---------- ダッシュボード（上司だけ）: Teams の画面共有で読める大きさにする ---------- */
 .dash { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; font-size: 15px; }
-.dash .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.dash .tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .dash .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: baseline; gap: 10px; }
 .dash .tile .v { font-family: var(--font-num); font-size: 30px; line-height: 1; }
 .dash .tile .k { color: var(--ink-2); font-size: 14px; }
@@ -785,6 +792,13 @@ a.btn { text-decoration: none; display: inline-block; }
         <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
       </div>
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>詰まりのサイン</h3>
+      <ul>
+        <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
+        <li><strong>✓ 着手できます</strong>：前の仕事が全部終わりました。始めどきです。</li>
+        <li><strong>N日動きなし</strong>：進捗が5営業日以上動いていません。困っていたら声をかけてください。</li>
+        <li>進行中が5件を超えると、列の見出しに<strong>「上限を超えています」</strong>と出ます。広げすぎず、終わらせてから次へ。</li>
+      </ul>
       <h3>並び順のルール</h3>
       <p>バージョン名の先頭の番号が小さいほど上に来ます（<span class="ui">01_市場問題</span> がいちばん急ぎ）。同じ番号なら締切が近い順です。</p>
 
@@ -907,7 +921,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-16 12:15'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-18 22:43'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -960,6 +974,10 @@ const CONFIG = {
   // 工数: 進捗を動かしたときに出す時間の選択肢（時間）と、1日の所定時間
   hourChoices: [0.5, 1, 2, 4],
   hoursPerDay: 8,
+  // 進行中のカードで、ステータス（進捗）がこの営業日数以上動いていなければ「N日動きなし」と出す
+  staleDays: 5,
+  // 1 人の「進行中」がこの件数を超えたら列の見出しで知らせる（手を広げすぎない）
+  wipLimit: 5,
   // 課題バラシの日程計算で休みにする日（土日は自動で休み）。例: ['2026-12-29', '2026-12-30']
   holidays: [],
   // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
@@ -1049,7 +1067,7 @@ function createMockApi(getMockUserId) {
     [4532, 2, 'シール材メーカーへ仕様を問い合わせ', 4200, '03', 1, 2, 3, -2],
     [4533, 2, '締結部 FEMメッシュ作成', 4200, '03', 2, 14, 12, -1],
     [4541, 2, '歩行者頭部衝撃の試験条件を整理', 4400, '04', 7, 0, -1, -1],
-    [4542, 2, 'フードヒンジ部の変位量確認', 4400, '04', 6, 2, 0, 0],
+    [4542, 2, 'フードヒンジ部の変位量確認', 4400, '04', 6, 2, 0, -8],
     [4551, 2, 'ブラケット板厚変更の原価試算', 4300, '05', 7, 7, 5, 0],
     [4561, 2, 'CADテンプレート 図枠の改訂案', 4500, '09', 8, -4, -6, -4],
     [4562, 2, '設計変更通知の書式見直し', 4500, '09', 8, -10, -12, -10],
@@ -1130,7 +1148,7 @@ function createMockApi(getMockUserId) {
   for (const [id, est] of [[4521, 16], [4522, 12], [4523, 4], [4573, 2], [4610, 8], [4611, 6], [4613, 4], [4614, 4], [4572, 4], [4120, null]]) {
     if (est != null) db.get(id).estimated_hours = est;
   }
-  let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572], [4522, 4611], [4614, 4521], [4210, 4211], [4211, 4214], [4533, 4211]]
+  let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572], [4522, 4611], [4614, 4521], [4210, 4211], [4211, 4214], [4533, 4211], [4541, 4532]]
     .map(([from, to], k) => ({ id: 900 + k, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null }));
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
@@ -1501,6 +1519,8 @@ const state = {
   issues: new Map(), parents: new Map(), saving: new Set(),
   inbox: [], inboxSel: null, versions: [],
   team: [], doneOn: new Map(),        // ダッシュボード用: チーム全員のチケット / 完了した日の控え
+  waits: new Map(),                   // 前の仕事（先行）: チケット ID → [{ issue: 前の仕事, done }]
+  lastMove: new Map(),                // ステータスが最後に変わった日: チケット ID → { updated_on, at }
 };
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
@@ -1629,6 +1649,7 @@ function renderCard(issue) {
       h('span', { class: 'parent', title: chain.join(' › ') }, chain.length ? (chain.length > 2 ? '… › ' : '') + chain.slice(-2).join(' › ') : ''),
       renderTag(issue.fixed_version && issue.fixed_version.name)),
     h('h3', { class: 'subject' }, parseTitle(issue.subject).text),
+    cardSignals(issue),
     h('div', { class: 'card-foot' },
       h('span', { class: 'num' }, url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, `#${issue.id}`) : `#${issue.id}`),
       col === 'todo' && queueKey(issue, 'todo') ? h('span', { class: 'start', title: '並び順から決めた開始日' }, `着手 ${jpDate(parseDate(issue.start_date))}`) : null,
@@ -1796,11 +1817,13 @@ function renderBoard() {
   board.replaceChildren(...visibleColumns().map(col => {
     const items = sortColumn(visible.filter(i => colOf(i) === col.key), col.key);
     const locked = col.managerOnly && !isManager();
-    return h('section', { class: 'col', 'data-col': col.key, 'aria-label': col.title },
+    const overWip = col.key === 'doing' && CONFIG.wipLimit && items.length > CONFIG.wipLimit;
+    return h('section', { class: 'col' + (overWip ? ' over-wip' : ''), 'data-col': col.key, 'aria-label': col.title },
       h('header', { class: 'col-head' },
         h('h2', {}, col.title),
         h('span', { class: 'sub' }, col.sub),
         locked ? h('span', { class: 'lock', title: '上司だけが移動できます' }, '上司のみ') : null,
+        overWip ? h('span', { class: 'wip', title: '手を広げすぎていないか確認しましょう。終わらせてから次に着手すると、全体が早く進みます' }, `上限${CONFIG.wipLimit}件を超えています`) : null,
         h('span', { class: 'count' }, items.length)),
       h('div', { class: 'col-body' },
         items.length ? items.map(renderCard) : h('p', { class: 'empty' }, 'カードはありません')));
@@ -1840,6 +1863,10 @@ function renderSummary(visible) {
     h('span', { class: 'chip' + (soon ? ' soon' : '') }, `${CONFIG.dueSoonDays}日以内`, h('b', {}, soon)),
     h('span', { class: 'chip' + (over ? ' soon' : ''), title: '作業完了予定が締切より後になっているチケット' }, '予定が締切超え', h('b', {}, over)),
     h('span', { class: 'chip' }, '手持ち', h('b', {}, active.length)),
+    (() => { const n = visible.filter(i => (state.waits.get(i.id) || []).some(w => !w.done) && ['todo', 'doing'].includes(colOf(i))).length;
+      return h('span', { class: 'chip' + (n ? ' soon' : ''), title: '前の仕事が終わっていない仕事' }, '待ち', h('b', {}, n)); })(),
+    (() => { const n = visible.filter(isStale).length;
+      return h('span', { class: 'chip' + (n ? ' soon' : ''), title: `進捗が${CONFIG.staleDays}営業日以上動いていない進行中の仕事` }, '止まっている', h('b', {}, n)); })(),
     h('span', { class: 'chip' }, '確認待ち', h('b', {}, waiting)),
     boardSortControls());
 }
@@ -1930,6 +1957,7 @@ async function loadTeam() {
       catch (_) { state.doneOn.set(i.id, { updated_on: i.updated_on, at: i.updated_on }); }
     }));
   }
+  await loadLastMoves(state.team);   // 止まっている仕事の数（進行中だけ、変更履歴から）
 }
 
 const targetDate = i => parseTitle(i.subject).deadline || parseDate(i.due_date);
@@ -2146,7 +2174,8 @@ function renderDashboard() {
       tile(stats.reduce((n, s) => n + s.late, 0), '締切超過', true),
       tile(thisWeek, '今週の締切'),
       tile(stats.reduce((n, s) => n + s.doneTotal, 0), '2週間で完了'),
-      tile(fever.filter(r => r.zone === 'r').length, '日程の見直しが必要な仕事', true)),
+      tile(fever.filter(r => r.zone === 'r').length, '日程の見直しが必要な仕事', true),
+      tile(state.team.filter(isStale).length, `止まっている仕事（${CONFIG.staleDays}営業日以上）`, true)),
     h('div', { class: 'main' },
       h('section', { class: 'panel', 'aria-label': 'メンバーの状況' },
         h('div', { class: 'panel-head' },
@@ -2630,6 +2659,76 @@ async function dismissInbox(issue) {
 /* =====================================================================
  * 8. データ読み込み
  * ===================================================================== */
+/* ---------- 詰まりのサイン: 前の仕事待ち / 止まっている ---------- */
+// 指定日より後、今日までの営業日数
+function workdaysSince(iso) {
+  let n = 0;
+  for (let d = addDays(parseDate(iso.slice(0, 10)), 1); d <= startOfToday(); d = addDays(d, 1)) if (!isOffDay(d)) n++;
+  return n;
+}
+// ステータスが最後に変わった日（変更履歴から。なければ作成日）
+function lastStatusChange(journals, issue) {
+  let at = null;
+  for (const j of journals || []) for (const d of j.details || []) if (d.property === 'attr' && d.name === 'status_id') at = j.created_on;
+  return at || issue.created_on;
+}
+async function loadLastMoves(issues) {
+  const targets = issues.filter(i => colOf(i) === 'doing' && (state.lastMove.get(i.id) || {}).updated_on !== i.updated_on);
+  for (let k = 0; k < targets.length; k += 4) {
+    await Promise.all(targets.slice(k, k + 4).map(async i => {
+      try { state.lastMove.set(i.id, { updated_on: i.updated_on, at: lastStatusChange(await api.issueJournals(i.id), i) }); }
+      catch (_) { /* 読めなければ出さない */ }
+    }));
+  }
+}
+const staleDaysOf = i => { const m = state.lastMove.get(i.id); return colOf(i) === 'doing' && m ? workdaysSince(m.at) : 0; };
+const isStale = i => staleDaysOf(i) >= (CONFIG.staleDays || 5);
+
+// 前の仕事（先行）を調べる。一覧につながりが付かない Redmine では出さない
+async function loadWaits(issues) {
+  const open = issues.filter(i => ['todo', 'doing'].includes(colOf(i)));
+  if (!open.length) return;
+  const rel = await api.issuesByIds(open.map(i => i.id), 'relations');
+  const preds = new Map();
+  for (const i of rel) for (const r of i.relations || []) {
+    const [from, to] = r.relation_type === 'precedes' ? [r.issue_id, r.issue_to_id] : r.relation_type === 'follows' ? [r.issue_to_id, r.issue_id] : [null, null];
+    if (to === i.id && from) (preds.get(to) || preds.set(to, new Set()).get(to)).add(from);
+  }
+  const ids = [...new Set([...preds.values()].flatMap(x => [...x]))];
+  const byId = new Map(ids.length ? (await api.issuesByIds(ids)).map(o => [o.id, o]) : []);
+  for (const i of open) {
+    const list = [...(preds.get(i.id) || [])].map(id => byId.get(id)).filter(o => o && colOf(o) !== 'cancelled')
+      .map(o => ({ issue: o, done: isDoneCol(colOf(o)) }));
+    if (list.length) state.waits.set(i.id, list); else state.waits.delete(i.id);
+  }
+}
+// 画面を出したあと裏で読む（失敗しても画面は止めない）
+async function loadSignals(userId) {
+  const mine = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === userId);
+  await Promise.all([loadWaits(mine).catch(() => {}), loadLastMoves(mine).catch(() => {})]);
+  if (state.view === userId) renderBoard();
+}
+function cardSignals(issue) {
+  const col = colOf(issue);
+  const out = [];
+  const waits = state.waits.get(issue.id) || [];
+  const open = waits.filter(w => !w.done);
+  if (open.length) {
+    const o = open[0].issue;
+    const who = !o.assigned_to ? '担当なし' : issue.assigned_to && o.assigned_to.id === issue.assigned_to.id ? '自分' : o.assigned_to.name.split(/[ 　]/)[0];
+    const name = parseTitle(o.subject).text;
+    out.push(h('span', { class: 'wait', title: open.map(w => `#${w.issue.id} ${w.issue.subject}`).join('\n') },
+      `⏳ 待ち: ${who}「${name.length > 16 ? name.slice(0, 16) + '…' : name}」${open.length > 1 ? ` ほか${open.length - 1}件` : ''}`));
+  } else if (waits.length && col === 'todo') {
+    out.push(h('span', { class: 'ready', title: '前の仕事がすべて終わりました' }, '✓ 前の仕事が終わりました。着手できます'));
+  }
+  if (isStale(issue)) {
+    out.push(h('span', { class: 'stale', title: `進捗（ステータス）が最後に動いた日: ${jpDate(new Date(state.lastMove.get(issue.id).at))}` },
+      `${staleDaysOf(issue)}日動きなし`));
+  }
+  return out.length ? h('div', { class: 'card-signals' }, out) : null;
+}
+
 async function loadUser(userId) {
   const issues = await api.issuesFor(userId);
   for (const [id, i] of state.issues) if (i.assigned_to && i.assigned_to.id === userId) state.issues.delete(id);
@@ -2669,7 +2768,10 @@ async function loadView() {
     if (isManager()) sweepParents().catch(() => {});
   }
   else if (state.view === BARA) await Promise.all([loadBara(), loadInbox()]);
-  else await Promise.all([loadUser(state.view), loadInbox()]);
+  else {
+    await Promise.all([loadUser(state.view), loadInbox()]);
+    loadSignals(state.view);   // 待ち・止まっているは裏で読む
+  }
 }
 
 let relayTimer = null;

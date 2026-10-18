@@ -177,6 +177,11 @@ redmine_kanban/
 - カード: 上段に親・親の親（`… › 親 › 親`、長ければ省略）と右上にバージョンタグ、太字の件名、下段に `#番号`（Redmine へのリンク）・未着手で日程が決まっていれば「着手 M/D(曜)」・作業完了予定・締切、進行中なら進捗ボタン（0/20/40/60/80。今のものは塗り、過ぎたものは薄塗り）。締切超過のカードは左に赤線。保存中は薄く＋スピナー。
 - ドラッグで列を移動（ステータス変更、元に戻すトースト）。ドラッグ中だけ画面下に「ここにドロップすると「中止」」の帯。上司完了への移動・そこからの差し戻しは上司だけ（禁止の列は斜線表示）。**ドロップ後に描き直すと dragend が来ないことがあるので、片付けは endDrag() にまとめて drop でも呼ぶ。**
 - キーボード: カードで ← → で隣の列、Enter で編集。
+- **詰まりのサイン**（件名の下）: ① 先行の仕事が未完了なら「⏳ 待ち: 名前「件名（16字）」ほかN件」（相手が同じ担当なら「自分」）、
+  先行がすべて完了した未着手は「✓ 前の仕事が終わりました。着手できます」。② 進行中でステータスが `staleDays`（5）営業日以上変わっていなければ「N日動きなし」
+  （変更履歴の status_id 変更日。なければ作成日。日程の書き直し・コメントでは動いた扱いにしない）。どちらも画面表示のあと裏で読む
+  （つながりは `issuesByIds(ids,'relations')`、相手は `issuesByIds`、履歴は進行中だけ同時 4 件）。サマリーに「待ち」「止まっている」の件数。
+- **手持ちの上限**: 進行中が `wipLimit`（5）件を超えたら列見出しに「上限5件を超えています」（黄）と件数を黄色に。
 - **同じ列の中で上下にドラッグ = 自分の作業順**（5.6）。差し込み位置に青い線（カードの上辺、列の最後なら下に線）。
 - ステータスを変えたら、親チケットのステータスを子に合わせる（5.12）。自分のカードを進行中・担当完了にしたら工数を聞く（5.10）。
 
@@ -200,7 +205,7 @@ redmine_kanban/
 - ボタン: `タスクではない`（削除せず「中止」に。Power Automate の重複判定に使うため）、`課題バラシで分解する`（件名とバージョン必須、担当は任意。保存してそのチケットを親に課題バラシへ）、`整理して登録` / `締切なしで登録`（人数分なら「（N 人分）」）。
 
 ### 5.9 全体ボード（全員に出す。Teams の画面共有で 1 画面）
-- 上のタイル 4 つ: 締切超過 / 今週の締切 / 2週間で完了 / 日程の見直しが必要な仕事（赤）。
+- 上のタイル 5 つ: 締切超過 / 今週の締切 / 2週間で完了 / 日程の見直しが必要な仕事（赤）/ 止まっている仕事（5営業日以上、赤）。
 - 左パネル「いま抱えている仕事（多い順）」: 表示切替 `積み木` / `タイムライン`（localStorage）。
   - 積み木: 人ごとに、締切超過・間近の仕事を名前付きの積み木で最大 4 件、残りは「ほか N 件」を作業量に比例した長さで。行をクリックでその人のボード。
   - タイムライン: 過去の平日 10 日の完了数と、これからの平日 10 日の締切数（週末は金曜に含める）。
@@ -288,6 +293,7 @@ redmine_kanban/
 22. `.tag` は `margin-left:auto; max-width:55%` なので、課題バラシの箱の左上に置くときは `margin-left:0` に上書きし、右上のつまみ（64px）と重ならないようにする。
 23. 長い保存（10 件以上の PUT）の途中で再読み込みすると中途半端な状態を読む → 保存中表示を出し、終わってから読み直す。
 24. モックは本物と同じ制限（権限・422）を再現する。そうしないとモックでだけ動くものができる。
+25. 「止まっている」を Redmine の更新日で判定しない。並び替えで日程を書き直すと全部「更新」されるので、変更履歴のステータス変更日を使う。
 
 ---
 
@@ -506,6 +512,13 @@ button { cursor: pointer; }
 .tag.t6 { background: var(--tag6-bg); color: var(--tag6-fg); }
 .subject { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
 .card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-signals { display: flex; flex-direction: column; gap: 3px; }
+.card-signals span { font-size: 11px; border-radius: 4px; padding: 1px 7px; align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-signals .wait { background: var(--soon-bg); color: var(--soon); }
+.card-signals .ready { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.card-signals .stale { background: var(--surface-2); color: var(--ink-2); border: 1px dashed var(--ink-3); }
+.col-head .wip { font-size: 11px; font-weight: 700; color: var(--soon); background: var(--soon-bg); border-radius: 4px; padding: 0 6px; }
+.col.over-wip .col-head .count { background: var(--soon-bg); color: var(--soon); }
 .num { font-family: var(--font-num); font-size: 11px; color: var(--ink-3); }
 .num a { color: inherit; text-decoration: none; }
 .num a:hover { text-decoration: underline; }
@@ -660,7 +673,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .new-version .pv { font-size: 12px; color: var(--ink-2); width: 100%; }
 /* ---------- ダッシュボード（上司だけ）: Teams の画面共有で読める大きさにする ---------- */
 .dash { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; font-size: 15px; }
-.dash .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.dash .tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .dash .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: baseline; gap: 10px; }
 .dash .tile .v { font-family: var(--font-num); font-size: 30px; line-height: 1; }
 .dash .tile .k { color: var(--ink-2); font-size: 14px; }
@@ -1101,6 +1114,13 @@ a.btn { text-decoration: none; display: inline-block; }
         <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
       </div>
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>詰まりのサイン</h3>
+      <ul>
+        <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
+        <li><strong>✓ 着手できます</strong>：前の仕事が全部終わりました。始めどきです。</li>
+        <li><strong>N日動きなし</strong>：進捗が5営業日以上動いていません。困っていたら声をかけてください。</li>
+        <li>進行中が5件を超えると、列の見出しに<strong>「上限を超えています」</strong>と出ます。広げすぎず、終わらせてから次へ。</li>
+      </ul>
       <h3>並び順のルール</h3>
       <p>バージョン名の先頭の番号が小さいほど上に来ます（<span class="ui">01_市場問題</span> がいちばん急ぎ）。同じ番号なら締切が近い順です。</p>
 
@@ -1276,6 +1296,10 @@ const CONFIG = {
   // 工数: 進捗を動かしたときに出す時間の選択肢（時間）と、1日の所定時間
   hourChoices: [0.5, 1, 2, 4],
   hoursPerDay: 8,
+  // 進行中のカードで、ステータス（進捗）がこの営業日数以上動いていなければ「N日動きなし」と出す
+  staleDays: 5,
+  // 1 人の「進行中」がこの件数を超えたら列の見出しで知らせる（手を広げすぎない）
+  wipLimit: 5,
   // 課題バラシの日程計算で休みにする日（土日は自動で休み）。例: ['2026-12-29', '2026-12-30']
   holidays: [],
   // バージョンを新しく作るときに選ぶカテゴリ（バージョン名の先頭）。番号が小さいほど優先
