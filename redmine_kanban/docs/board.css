@@ -411,6 +411,15 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .bar.due.hot { background: var(--soon); }
 .dash .bar em { position: absolute; bottom: 100%; left: 0; right: 0; text-align: center; font-style: normal; font-family: var(--font-num); font-size: 12px; color: var(--ink); }
 .dash .tlrow { padding: 12px 6px 8px; border-top: 1px solid var(--line); }
+.dash .bar .lv { position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 1; padding: 2px 3px; border-radius: 3px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.dash .bar .lv.full { color: var(--ink); font-weight: 700; }
+.dash .who .lvs { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash .leaves { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.dash .leaves li { display: flex; gap: 8px; align-items: baseline; }
+.dash .leaves .d { color: var(--ink-3); font-family: var(--font-num); min-width: 6em; }
+.dash .leaves .lv { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+.dash .leaves .lv.full { color: var(--ink); font-weight: 700; }
+.dash .lv-note { font-size: 12px; color: var(--ink-2); margin: 0 0 12px; }
 .dash .tlrow .days { height: 46px; }
 /* 仕事ごとの状況 */
 .dash .cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }

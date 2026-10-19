@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "14"`（整数文字列。機能を変えたら上げる）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "15"`（整数文字列。機能を変えたら上げる）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -147,7 +147,7 @@ redmine_kanban/
 - 起動時、/ping の `update_available` があれば「新しい版 … が共有フォルダにあります。共有フォルダの kanban_relay.py をダブルクリックすると更新されます」をトーストで出す。
 
 ### 5.2 API 層（モックと Redmine で同じ関数）
-`currentUser, issuesFor(userId), teamIssues, issuesByIds(ids, include), inboxIssues, versions(projectId), withChildren(ids), childIssues(parentId), getIssue, issueDetail(id)(include=relations), issueJournals, issuesInVersion, createIssue, createVersion, updateIssue, addRelation(from,to), removeRelation, timeEntries({from,to,userId}), createTimeEntry, issuesTouchedOn(userId,date)`
+`currentUser, issuesFor(userId), teamIssues, issuesByIds(ids, include), inboxIssues, versions(projectId), withChildren(ids), childIssues(parentId), getIssue, issueDetail(id)(include=relations), issueJournals, issuesInVersion, createIssue, createVersion, updateIssue, addRelation(from,to), removeRelation, timeEntries({from,to,userId}), createTimeEntry, issuesTouchedOn(userId,date), priorities, milestones`
 - 一覧は `limit=100` でページングして全部取る。`project_id` は CONFIG.projectId があれば付ける。
 - `issuesFor`: 担当の未完了 ＋ `approvedDays` 以内に更新された完了。
 - `issuesByIds`: **50 件ずつ**（URL が長くなりすぎないように）。`include=relations` を渡せる。
@@ -156,6 +156,7 @@ redmine_kanban/
 - `updateIssue`: PUT のあと GET して、**ステータスと各項目（件名・担当・バージョン・期日・説明・親・予定工数・開始日）が本当に変わったか確かめる**。Redmine は権限やワークフローで許可されない変更をエラーにせず無視するため。ステータスが変わらなければ「Redmine がステータスの変更を受け付けませんでした（今は「…」のまま）。ワークフローで「…」→「…」が許可されているか確認してください。」、項目が反映されなければ `err.partial = true` で「反映されなかった項目があります: …」。
 - 読むだけの要求（GET）は、通信失敗か 502/503/504 なら 0.6 秒あけて 1 回だけやり直す。401 は「API キーが正しくありません (401)」、403 は「この操作の権限がありません (403)」。
 - 作業時間: `activity_id` は `/enumerations/time_entry_activities.json` の既定（なければ先頭、取れなければ付けない）。
+- `milestones`: Lychee の `/lychee/api/v1/projects/<識別子>/milestones.json`（だめなら数値 ID で）。プロジェクトが決まっていなければ null、読めなければエラーを投げる。
 - モックは本物の挙動をまねる: 非上司が「完了（確認済）」を触ると 422、親子間の先行や輪になる先行は 422、親を自分の子孫にすると 422。
 
 ### 5.3 名前のルール
@@ -211,6 +212,7 @@ redmine_kanban/
   - 積み木: 人ごとに、締切超過・間近の仕事を名前付きの積み木で最大 4 件、残りは「ほか N 件」を作業量に比例した長さで。行をクリックでその人のボード。
   - タイムライン: 過去の平日 10 日の完了数と、これからの平日 10 日の締切数（週末は金曜に含める）。
 - 右パネル: 「みんなでやる仕事」（同じ親・同じ件名のチケット群。完了 n/m とまだの人）＋「仕事ごとの状況（締切が前後2週間のタスク）」: バージョンごとに進捗率とバッファ消費（CCPM）。バッファ = 締切 − 作業完了予定。消費が 0.3 + 進捗×0.7 を超えたら「見直し」（赤）、0.1 + 進捗×0.6 を超えたら「注意」（黄）、それ以外「順調」（緑）。
+- **休みの予定**（右パネルの一番上「これからの休み（2週間）」）: 起動時に `milestones` を読み、名前に休みの言葉があるものだけを休みにする（1日: 年休|有休|有給|休暇|代休|振休|特休|夏休|冬休|全休|休み、半日: 半休|半日|午前休|午後休|AM休|PM休、「出勤」「出社」を含めば除く）。項目は name/title/subject と start_date/date/milestone_date/due_date/effective_date/end_date/target_date を順に探す（作成・更新日時は除く）。期間は土日を除いて毎日、31 日超は初日だけ。だれ: フルネーム → チームで一意の名字 →（同じ名字が複数なら）名字＋名の1文字目。「小林」の中の「林」は除く。決まらなければ「だれの休みか分からない予定: …。同じ名字の人がいるときは「田中太半休」のように…」。404 は何も出さない、それ以外のエラーは「休みの予定（Lychee のマイルストーン）を読めませんでした: …」、形が分からなければ項目名だけを出す。積み木の名前の下に「休み 10/22(木)・10/24(金)半休」、タイムラインの日の欄に「休」「半」、個人ボードのサマリーにも「休み …」。1日休みは `isOffDay(d, uid)` で担当者の作業日から外す（作業順・課題バラシの日程・余裕・止まっている日数）。半休は表示だけ。
 - **親チケットのまとめての見直し（sweepParents）は上司が全体を開いたときだけ**（メンバーは「完了（確認済）」を付けられずエラーになる）。10 分に 1 回まで、裏で。
 
 ### 5.10 工数
@@ -739,6 +741,15 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .bar.due.hot { background: var(--soon); }
 .dash .bar em { position: absolute; bottom: 100%; left: 0; right: 0; text-align: center; font-style: normal; font-family: var(--font-num); font-size: 12px; color: var(--ink); }
 .dash .tlrow { padding: 12px 6px 8px; border-top: 1px solid var(--line); }
+.dash .bar .lv { position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 1; padding: 2px 3px; border-radius: 3px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.dash .bar .lv.full { color: var(--ink); font-weight: 700; }
+.dash .who .lvs { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash .leaves { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.dash .leaves li { display: flex; gap: 8px; align-items: baseline; }
+.dash .leaves .d { color: var(--ink-3); font-family: var(--font-num); min-width: 6em; }
+.dash .leaves .lv { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+.dash .leaves .lv.full { color: var(--ink); font-weight: 700; }
+.dash .lv-note { font-size: 12px; color: var(--ink-2); margin: 0 0 12px; }
 .dash .tlrow .days { height: 46px; }
 /* 仕事ごとの状況 */
 .dash .cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
@@ -1127,6 +1138,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>休みの予定</h3>
+      <p>ガントチャートの一番上に入れている「田中半休」のようなマイルストーンを、そのまま休みとして読みます。自分の画面の上に「休み 10/22(木)」、全体タブに「これからの休み」が出ます。1日休みの日は、作業順や課題バラシで日程を決めるときに作業日から外します。同じ名字の人がいるときは「田中太半休」のように名の1文字目まで書いてください。</p>
       <h3>詰まりのサイン</h3>
       <ul>
         <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
@@ -1341,6 +1354,7 @@ ALLOWED_API = [
     ("POST", re.compile(r"^/issues/\d+/relations\.json$")),
     ("DELETE", re.compile(r"^/relations/\d+\.json$")),
     ("GET", re.compile(r"^/enumerations/issue_priorities\.json$")),     # 優先度の一覧（★優先）
+    ("GET", re.compile(r"^/lychee/api/v1/projects/[\w\-]+/milestones\.json$")),  # 休みの予定（Lychee のマイルストーン。読むだけ）
 ]
 ```
 

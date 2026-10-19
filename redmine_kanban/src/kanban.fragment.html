@@ -414,6 +414,15 @@ a.btn { text-decoration: none; display: inline-block; }
 .dash .bar.due.hot { background: var(--soon); }
 .dash .bar em { position: absolute; bottom: 100%; left: 0; right: 0; text-align: center; font-style: normal; font-family: var(--font-num); font-size: 12px; color: var(--ink); }
 .dash .tlrow { padding: 12px 6px 8px; border-top: 1px solid var(--line); }
+.dash .bar .lv { position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 1; padding: 2px 3px; border-radius: 3px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.dash .bar .lv.full { color: var(--ink); font-weight: 700; }
+.dash .who .lvs { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash .leaves { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.dash .leaves li { display: flex; gap: 8px; align-items: baseline; }
+.dash .leaves .d { color: var(--ink-3); font-family: var(--font-num); min-width: 6em; }
+.dash .leaves .lv { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+.dash .leaves .lv.full { color: var(--ink); font-weight: 700; }
+.dash .lv-note { font-size: 12px; color: var(--ink-2); margin: 0 0 12px; }
 .dash .tlrow .days { height: 46px; }
 /* 仕事ごとの状況 */
 .dash .cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
@@ -797,6 +806,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>休みの予定</h3>
+      <p>ガントチャートの一番上に入れている「田中半休」のようなマイルストーンを、そのまま休みとして読みます。自分の画面の上に「休み 10/22(木)」、全体タブに「これからの休み」が出ます。1日休みの日は、作業順や課題バラシで日程を決めるときに作業日から外します。同じ名字の人がいるときは「田中太半休」のように名の1文字目まで書いてください。</p>
       <h3>詰まりのサイン</h3>
       <ul>
         <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
@@ -1042,6 +1053,7 @@ function parseVersion(name) {
  *    issuesByIds(ids)           → 親チケット名の解決用
  *    inboxIssues()              → 担当またはバージョンが未設定の未完了チケット
  *    versions(projectId)        → 選べる対象バージョン [{ id, name }]
+ *    milestones()               → Lychee のマイルストーン（休みの予定に使う）。使えなければ null
  *    withChildren(ids)          → ids のうち子チケットを持つものの Set
  *    updateIssue(id, fields)    → PUT /issues/:id.json
  * ===================================================================== */
@@ -1249,6 +1261,18 @@ function createMockApi(getMockUserId) {
       return [...db.values()].filter(i => !closedIds.has(i.status.id) && (!i.assigned_to || !i.fixed_version)).map(clone);
     },
     async versions() { await wait(80); return clone(versionList); },
+    async milestones() {
+      await wait(60);
+      // 実際の Lychee の項目名は環境で違うかもしれないので、読む側は name/title・date/start_date などを順に探す
+      const wd = n => { let x = addDays(t, 0); for (let k = 0; k < n;) { x = addDays(x, 1); if (x.getDay() % 6) k++; } return isoDate(x); };
+      return { milestones: [
+        { id: 1, name: '高橋年休', date: wd(3) },
+        { id: 2, name: '伊藤半休', date: wd(1) },
+        { id: 3, name: '渡辺 夏休み', start_date: wd(5), end_date: wd(6) },
+        { id: 4, name: '佐藤半休', date: wd(2) },
+        { id: 5, name: 'DR審査', date: wd(4) },
+      ] };
+    },
     async priorities() {
       await wait(40);
       return [{ id: 1, name: '低め' }, { id: 2, name: '通常', is_default: true }, { id: 3, name: '高め' }, { id: 4, name: '急いで' }, { id: 5, name: '今すぐ' }];
@@ -1471,6 +1495,16 @@ function createRedmineApi(baseUrl, apiKey) {
       const j = await req('/enumerations/issue_priorities.json');
       return (j.issue_priorities || []).filter(x => x.active !== false).map(x => ({ id: x.id, name: x.name, is_default: !!x.is_default }));
     },
+    // Lychee Redmine のマイルストーン。プロジェクトが決まっていなければ null、読めなければエラー
+    async milestones() {
+      const keys = [...new Set([CONFIG.projectId, CONFIG.projectNumericId].filter(Boolean).map(String))];
+      let last = null;
+      for (const k of keys) {
+        try { return await req(`/lychee/api/v1/projects/${encodeURIComponent(k)}/milestones.json`); } catch (e) { last = e; /* 次の書き方で */ }
+      }
+      if (last) throw last;
+      return null;
+    },
     async versions(projectId) {
       const key = String(CONFIG.projectId || projectId);
       if (!versionCache.has(key)) {
@@ -1537,6 +1571,7 @@ const state = {
   team: [], doneOn: new Map(),        // ダッシュボード用: チーム全員のチケット / 完了した日の控え
   waits: new Map(),                   // 前の仕事（先行）: チケット ID → [{ issue: 前の仕事, done }]
   lastMove: new Map(),                // ステータスが最後に変わった日: チケット ID → { updated_on, at }
+  leaves: null,                       // 休みの予定（Lychee のマイルストーンから）。loadLeaves() を参照
 };
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
@@ -1722,9 +1757,10 @@ function slackOf(i) {
   const d = parseTitle(i.subject).deadline || parseDate(i.due_date);
   if (!d) return null;
   const today = startOfToday();
+  const uid = i.assigned_to && i.assigned_to.id;   // その人の休みは作業できる日に数えない
   let avail = 0;
-  if (d >= today) { for (let x = new Date(today); x <= d; x = addDays(x, 1)) if (!isOffDay(x)) avail++; }
-  else { for (let x = addDays(d, 1); x <= today; x = addDays(x, 1)) if (!isOffDay(x)) avail--; }
+  if (d >= today) { for (let x = new Date(today); x <= d; x = addDays(x, 1)) if (!isOffDay(x, uid)) avail++; }
+  else { for (let x = addDays(d, 1); x <= today; x = addDays(x, 1)) if (!isOffDay(x, uid)) avail--; }
   const hpd = CONFIG.hoursPerDay || 8;
   const ratio = colOf(i) === 'doing' ? (statusById[i.status.id].ratio || 0) / 100 : 0;
   const left = Math.max(1, Math.ceil(((i.estimated_hours || hpd) * (1 - ratio)) / hpd));
@@ -1823,7 +1859,8 @@ async function scheduleQueue(queue) {
   const outside = new Map();
   if (outsideIds.length) { try { for (const o of await api.issuesByIds(outsideIds)) outside.set(o.id, o); } catch (_) { /* 読めなければ見ない */ } }
   const plan = new Map(), warn = [];
-  let cursor = nextWorkday(today);
+  const uid = queue.length && queue[0].assigned_to ? queue[0].assigned_to.id : null;   // 並べるのは 1 人分。その人の休みを避ける
+  let cursor = nextWorkday(today, uid);
   for (const i of queue) {
     let after = null;
     for (const pid of preds.get(i.id) || []) {
@@ -1839,16 +1876,16 @@ async function scheduleQueue(queue) {
     let start, due;
     if (colOf(i) === 'doing') {
       const left = Math.max(1, Math.ceil(((est || hpd) * (1 - (statusById[i.status.id].ratio || 0) / 100)) / hpd));
-      due = addWorkdays(nextWorkday(from), left - 1);
+      due = addWorkdays(nextWorkday(from, uid), left - 1, uid);
       // 始まっている仕事の開始日はそのまま（前の仕事を待つ場合だけ後ろへ）
-      start = after && addDays(after, 1) > today ? nextWorkday(addDays(after, 1)) : (i.start_date ? parseDate(i.start_date) : nextWorkday(today));
-      if (start > due) start = nextWorkday(from);
+      start = after && addDays(after, 1) > today ? nextWorkday(addDays(after, 1), uid) : (i.start_date ? parseDate(i.start_date) : nextWorkday(today, uid));
+      if (start > due) start = nextWorkday(from, uid);
     } else {
-      start = nextWorkday(from);
-      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1);
+      start = nextWorkday(from, uid);
+      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1, uid);
     }
     plan.set(i.id, { start, due, noEst: est == null });
-    cursor = nextWorkday(addDays(due, 1));
+    cursor = nextWorkday(addDays(due, 1), uid);
   }
   return { plan, warn };
 }
@@ -1974,6 +2011,9 @@ function renderSummary(visible) {
     (() => { const n = visible.filter(isStale).length;
       return h('span', { class: 'chip' + (n ? ' soon' : ''), title: `進捗が${CONFIG.staleDays}営業日以上動いていない進行中の仕事` }, '止まっている', h('b', {}, n)); })(),
     h('span', { class: 'chip' }, '確認待ち', h('b', {}, waiting)),
+    (() => { const lv = upcomingLeaves(state.view);   // これから2週間の休み（Lychee のマイルストーンから）
+      return lv.length ? h('span', { class: 'chip leave', title: lv.map(x => `${leaveText(x)}（${x.name}）`).join('\n') },
+        '休み', h('b', {}, lv.slice(0, 3).map(leaveText).join('・') + (lv.length > 3 ? ` ほか${lv.length - 3}日` : ''))) : null; })(),
     boardSortControls()].filter(Boolean));
 }
 
@@ -2181,7 +2221,9 @@ function renderBlocks(stats) {
         `ほか${rest.length}件`, restLate ? h('span', { class: 'rest-late' }, `超過${restLate}`) : null)) : null,
     ];
     return h('div', { class: 'mrow clickable', title: `${s.member.name} のボードを開く`, onclick: () => switchView(s.member.id) },
-      h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件`)),
+      h('div', { class: 'who' }, h('b', {}, s.member.name), h('span', {}, `手持ち ${s.tasks.length} 件`),
+        (() => { const lv = upcomingLeaves(s.member.id);
+          return lv.length ? h('span', { class: 'lvs', title: lv.map(x => `${leaveText(x)}（${x.name}）`).join('\n') }, '休み ' + lv.slice(0, 2).map(leaveText).join('・') + (lv.length > 2 ? '…' : '')) : null; })()),
       s.tasks.length
         ? h('div', {}, h('div', { class: 'stack' }, blocks))
         : h('div', { class: 'empty-row' }, '抱えている仕事はありません'),
@@ -2200,10 +2242,12 @@ function renderTimeline(stats, pastDays, futureDays) {
   const wd = d => '日月火水木金土'[d.getDay()];
   const list = items => items.map(i => `#${i.id} ${parseTitle(i.subject).text}`).join('\n');
   const soonLimit = addDays(startOfToday(), CONFIG.dueSoonDays);
-  const bar = (items, cls, day, label) => {
+  const bar = (items, cls, day, label, lv) => {
     const n = items.length;
     return h('div', { class: 'bar' + (n ? ' ' + cls : ''), style: `height:${n ? 8 + (n / max) * 34 : 2}px`,
-      title: `${jpDate(day)} ${label} ${n} 件${n ? '\n' + list(items) : ''}` }, n ? h('em', {}, n) : null);
+      title: `${jpDate(day)} ${label} ${n} 件${lv ? `・${lv.name}` : ''}${n ? '\n' + list(items) : ''}` },
+      n ? h('em', {}, n) : null,
+      lv ? h('span', { class: 'lv ' + lv.kind }, lv.kind === 'half' ? '半' : '休') : null);
   };
   const header = h('div', { class: 'tl' }, h('div', {}),
     h('div', {},
@@ -2218,8 +2262,29 @@ function renderTimeline(stats, pastDays, futureDays) {
     h('div', { class: 'days' },
       s.done.map((items, k) => bar(items, 'done', pastDays[k], '完了')),
       h('div', { class: 'today' }),
-      s.due.map((items, k) => bar(items, 'due' + (futureDays[k] <= soonLimit ? ' hot' : ''), futureDays[k], '締切'))),
+      s.due.map((items, k) => bar(items, 'due' + (futureDays[k] <= soonLimit ? ' hot' : ''), futureDays[k], '締切', leaveOn(s.member.id, futureDays[k])))),
     h('div', { class: 'load' }, h('b', {}, s.late || '–'), h('span', {}, '締切超過'))))];
+}
+
+// これからの休み（Lychee のマイルストーンから）。だれの休みか決められないものも知らせる
+function renderLeaves() {
+  const L = state.leaves;
+  if (L && L.error) return [h('h2', {}, 'これからの休み'), h('p', { class: 'lv-note' }, `休みの予定（Lychee のマイルストーン）を読めませんでした: ${L.error}`)];
+  if (!L || !L.ok) return [];
+  if (L.keys) return [h('h2', {}, 'これからの休み'),
+    h('p', { class: 'lv-note' }, `マイルストーンは読めましたが、名前と日付の場所が分かりませんでした（項目: ${L.keys.join(', ')}）。この項目名を作った人に伝えてください`)];
+  const today = startOfToday(), end = addDays(today, 14);
+  const rows = L.list.filter(x => x.date >= today && x.date <= end);
+  const unclear = L.unclear.filter(ms => ms.to >= today && ms.from <= end);
+  if (!rows.length && !unclear.length) return [];
+  return [
+    h('h2', {}, 'これからの休み（2週間）'),
+    rows.length ? h('ul', { class: 'leaves' }, rows.map(x => h('li', { title: x.name },
+      h('span', { class: 'd' }, jpDate(x.date)), h('b', {}, x.member.name), h('span', { class: 'lv ' + x.kind }, x.kind === 'half' ? '半休' : '休み')))) : null,
+    unclear.length ? h('p', { class: 'lv-note' }, 'だれの休みか分からない予定: ',
+      unclear.map(ms => `${ms.name}（${jpDate(ms.from)}）`).join('、'),
+      '。同じ名字の人がいるときは「田中太半休」のように名の1文字目まで、またはフルネームで書くと見分けられます') : null,
+  ].filter(Boolean);
 }
 
 // みんなでやる仕事: 同じ親チケットの下に、同じ件名の子チケットが 2 人以上にあるもの（E-ラーニングなどのコピー）。
@@ -2292,6 +2357,7 @@ function renderDashboard() {
         h('div', { class: 'legend' }, legend),
         h('div', {}, mode === 'blocks' ? renderBlocks(stats) : renderTimeline(stats, pastDays, futureDays))),
       h('section', { class: 'panel', 'aria-label': '仕事ごとの状況' },
+        ...renderLeaves(),
         ...renderTogether(),
         h('h2', {}, '仕事ごとの状況（締切が前後2週間のタスク）'),
         fever.length
@@ -2781,11 +2847,101 @@ async function dismissInbox(issue) {
 /* =====================================================================
  * 8. データ読み込み
  * ===================================================================== */
+/* ---------- 休みの予定（Lychee のマイルストーン「田中半休」など） ----------
+ *  名前に休みの言葉が入ったマイルストーンだけを休みとして読む（「DR審査」などは無視）。
+ *  だれの休みか: フルネーム → 名字（チームに 1 人だけなら）→ 同じ名字が複数なら「田中太」のように名の 1 文字目まで。
+ *  決められないものは全体タブに「だれの休みか分からない予定」として出す。
+ *  1 日休みはその人の作業日から外す（作業順・課題バラシの日程、余裕の計算）。半休は表示だけ
+ */
+const LEAVE_HALF = /半休|半日|午前休|午後休|[AaＡａ][MmＭｍ]休|[PpＰｐ][MmＭｍ]休/;
+const LEAVE_FULL = /年休|有休|有給|休暇|代休|振休|特休|夏休|冬休|全休|休み/;
+function leaveKind(text) {
+  const t = text.replace(/\s/g, '');
+  if (/出勤|出社/.test(t)) return null;
+  return LEAVE_HALF.test(t) ? 'half' : LEAVE_FULL.test(t) ? 'full' : null;
+}
+function leaveWho(text) {
+  const t = text.replace(/\s/g, '');
+  const people = CONFIG.members.map(m => {
+    const parts = m.name.replace(/[（(][^）)]*[）)]/g, '').trim().split(/\s+/);
+    return { m, sur: parts[0], given: parts.slice(1).join('') };
+  }).filter(p => p.sur);
+  const full = people.filter(p => p.given && t.includes(p.sur + p.given));
+  if (full.length) return { members: full.map(p => p.m), unclear: false };
+  // 「小林」の中の「林」のような、ほかの名字の一部としての一致は除く
+  const hits = people.filter(p => t.includes(p.sur));
+  const real = hits.filter(p => !hits.some(q => q.sur !== p.sur && q.sur.includes(p.sur)));
+  const out = [];
+  let unclear = !real.length;
+  for (const sur of new Set(real.map(p => p.sur))) {
+    const same = real.filter(p => p.sur === sur);
+    if (same.length === 1) { out.push(same[0].m); continue; }
+    const g = same.filter(p => p.given && t.includes(sur + p.given[0]));
+    if (g.length === 1) out.push(g[0].m); else unclear = true;
+  }
+  return { members: out, unclear };
+}
+// マイルストーンの形は環境で違うかもしれないので、よくある項目名を順に探す
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
+function milestoneOf(x) {
+  const name = ['name', 'title', 'subject', 'description'].map(k => x[k]).find(v => typeof v === 'string' && v.trim());
+  const day = keys => keys.map(k => x[k]).find(v => typeof v === 'string' && ISO_DAY.test(v));
+  const start = day(['start_date', 'date', 'milestone_date', 'due_date', 'effective_date', 'end_date', 'target_date'])
+    || Object.entries(x).find(([k, v]) => !/creat|updat/.test(k) && typeof v === 'string' && ISO_DAY.test(v))?.[1];
+  const end = day(['end_date', 'due_date', 'effective_date']) || start;
+  if (!name || !start) return null;
+  let a = parseDate(start), b = parseDate(end);
+  if (b < a) [a, b] = [b, a];
+  if ((b - a) / DAY > 31) b = a;   // 長すぎる期間は休みとして扱わない
+  return { name: name.trim(), from: a, to: b };
+}
+async function loadLeaves() {
+  const L = { days: new Map(), list: [], unclear: [], keys: null, ok: false, error: null };
+  state.leaves = L;
+  let raw = null;
+  try { raw = api.milestones ? await api.milestones() : null; }
+  catch (e) { if (!/\(404\)/.test(e.message)) L.error = e.message; return; }   // 404 = Lychee がない: 何も出さない
+  if (!raw) return;
+  const items = (Array.isArray(raw) ? raw : raw.milestones || Object.values(raw).find(Array.isArray) || [])
+    .filter(x => x && typeof x === 'object');
+  L.ok = true;
+  const parsed = items.map(milestoneOf).filter(Boolean);
+  if (items.length && !parsed.length) L.keys = Object.keys(items[0]);   // 形が分からない: 項目名だけ控える（中身は見せない）
+  const from = addDays(startOfToday(), -31), to = addDays(startOfToday(), 62);
+  for (const ms of parsed) {
+    const kind = leaveKind(ms.name);
+    if (!kind || ms.to < from || ms.from > to) continue;
+    const { members, unclear } = leaveWho(ms.name);
+    if (unclear) L.unclear.push(ms);
+    for (const m of members) {
+      if (!L.days.has(m.id)) L.days.set(m.id, new Map());
+      for (let d = new Date(ms.from); d <= ms.to; d = addDays(d, 1)) {
+        if (d.getDay() % 6 === 0) continue;
+        const cur = L.days.get(m.id).get(isoDate(d));
+        if (!cur || cur.kind === 'half') L.days.get(m.id).set(isoDate(d), { kind, name: ms.name });
+        L.list.push({ date: new Date(d), member: m, kind, name: ms.name });
+      }
+    }
+  }
+  L.list.sort((a, b) => a.date - b.date || a.member.name.localeCompare(b.member.name, 'ja'));
+}
+// その人のその日の休み { kind: 'full'|'half', name } か null
+function leaveOn(uid, d) {
+  const m = state.leaves && state.leaves.days.get(uid);
+  return (m && m.get(isoDate(d))) || null;
+}
+// これから n 日の休み（その人の分）
+function upcomingLeaves(uid, n = 14) {
+  const today = startOfToday(), end = addDays(today, n);
+  return ((state.leaves && state.leaves.list) || []).filter(x => x.member.id === uid && x.date >= today && x.date <= end);
+}
+const leaveText = x => jpDate(x.date) + (x.kind === 'half' ? '半休' : '');   // 「休み」の見出しの後ろに並べる
+
 /* ---------- 詰まりのサイン: 前の仕事待ち / 止まっている ---------- */
 // 指定日より後、今日までの営業日数
-function workdaysSince(iso) {
+function workdaysSince(iso, uid) {
   let n = 0;
-  for (let d = addDays(parseDate(iso.slice(0, 10)), 1); d <= startOfToday(); d = addDays(d, 1)) if (!isOffDay(d)) n++;
+  for (let d = addDays(parseDate(iso.slice(0, 10)), 1); d <= startOfToday(); d = addDays(d, 1)) if (!isOffDay(d, uid)) n++;
   return n;
 }
 // ステータスが最後に変わった日（変更履歴から。なければ作成日）
@@ -2803,7 +2959,7 @@ async function loadLastMoves(issues) {
     }));
   }
 }
-const staleDaysOf = i => { const m = state.lastMove.get(i.id); return colOf(i) === 'doing' && m ? workdaysSince(m.at) : 0; };
+const staleDaysOf = i => { const m = state.lastMove.get(i.id); return colOf(i) === 'doing' && m ? workdaysSince(m.at, i.assigned_to && i.assigned_to.id) : 0; };
 const isStale = i => staleDaysOf(i) >= (CONFIG.staleDays || 5);
 
 // 前の仕事（先行）を調べる。一覧につながりが付かない Redmine では出さない
@@ -2956,6 +3112,7 @@ async function boot() {
     state.me = await api.currentUser();
     // 優先度の一覧（★優先に使う）。読めなければ ★ を出さない
     try { state.priorities = await api.priorities(); } catch (_) { state.priorities = []; }
+    await loadLeaves();   // 休みの予定（読めなければ出さない）
     state.issues.clear(); state.versions = [];
     state.view = state.me.id;
     await loadView();
@@ -3740,9 +3897,11 @@ function bCritical() {
  *  ・期間 = 予定工数 ÷ 1日の時間 を営業日に切り上げ（未入力は 1 日）。進行中は残りの分だけ、今日から
  *  ・完了した仕事は動かさない。土日と CONFIG.holidays は休み
  */
-const isOffDay = d => d.getDay() === 0 || d.getDay() === 6 || (CONFIG.holidays || []).includes(isoDate(d));
-function nextWorkday(d) { let x = new Date(d); while (isOffDay(x)) x = addDays(x, 1); return x; }
-function addWorkdays(d, n) { let x = nextWorkday(d); for (let k = 0; k < n; k++) x = nextWorkday(addDays(x, 1)); return x; }
+// uid を渡すと、その人の休み（1日休み。半休は数えない）も休みにする
+const isOffDay = (d, uid) => d.getDay() === 0 || d.getDay() === 6 || (CONFIG.holidays || []).includes(isoDate(d))
+  || (uid != null && (leaveOn(uid, d) || {}).kind === 'full');
+function nextWorkday(d, uid) { let x = new Date(d); while (isOffDay(x, uid)) x = addDays(x, 1); return x; }
+function addWorkdays(d, n, uid) { let x = nextWorkday(d, uid); for (let k = 0; k < n; k++) x = nextWorkday(addDays(x, 1), uid); return x; }
 const BARA_START_KEY = 'designBoard.baraStart';
 function bStartFrom() {
   const today = startOfToday();
@@ -3773,25 +3932,26 @@ function bSchedule() {
     onPath.delete(id);
     const est = i.estimated_hours;
     const hpd = CONFIG.hoursPerDay || 8;
+    const uid = i.assigned_to && i.assigned_to.id;   // 担当者の休みを避ける
     let start, due;
     if (bStatus(i) === 'doing') {
       // 進行中: 開始日はそのまま、終わりは今日から残りの分。ただし前の仕事が終わっていなければその翌営業日から
       // （Redmine は先行の仕事の期日より前の開始日を受け付けない）
       const left = Math.max(1, Math.ceil(((est || hpd) * (1 - bRatio(i) / 100)) / hpd));
       if (after && addDays(after, 1) > today) {
-        start = nextWorkday(addDays(after, 1));
-        due = addWorkdays(start, left - 1);
+        start = nextWorkday(addDays(after, 1), uid);
+        due = addWorkdays(start, left - 1, uid);
       } else {
-        start = i.start_date ? parseDate(i.start_date) : nextWorkday(today);
-        due = addWorkdays(nextWorkday(today), left - 1);
+        start = i.start_date ? parseDate(i.start_date) : nextWorkday(today, uid);
+        due = addWorkdays(nextWorkday(today, uid), left - 1, uid);
         if (due < start) due = start;
       }
     } else {
       const own = !after && i.start_date ? parseDate(i.start_date) : null;   // 先頭の仕事は自分の開始日があればそれ
       let from = after ? addDays(after, 1) : (own || bStartFrom());
       if (from < today) from = today;
-      start = nextWorkday(from);
-      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1);
+      start = nextWorkday(from, uid);
+      due = addWorkdays(start, Math.max(1, Math.ceil((est || hpd) / hpd)) - 1, uid);
     }
     const r = { start, due, noEst: est == null, head: !after };
     memo.set(id, r);
