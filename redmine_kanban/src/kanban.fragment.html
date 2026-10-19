@@ -2698,6 +2698,16 @@ async function openEditor(id) {
       h('span', {}, `ステータス: ${issue.status.name}`),
       chain.length ? h('span', {}, `親: ${chain.join(' › ')}`) : null),
     ...f.rows('説明'),
+    h('div', { class: 'field' },
+      h('span', { class: 'label' }, issue.assigned_to && state.me && issue.assigned_to.id !== state.me.id
+        ? `作業時間を記録（${issue.assigned_to.name.split(/[ 　]/)[0]}さんの仕事に、自分の作業時間として）` : '作業時間を記録（今日）'),
+      h('div', { class: 'checks' }, [...CONFIG.hourChoices, CONFIG.hoursPerDay].map(n => h('button', { type: 'button', class: 'btn-mini',
+        onclick: async e => {
+          const b = e.currentTarget; b.disabled = true;
+          try { await recordHours(issue.id, n, isoDate(startOfToday()), 'ボードから記録'); toast(`#${issue.id} に ${fmtH(n)} を記録しました（${state.me.name}）`); }
+          catch (err) { toast(`作業時間を記録できませんでした。${err.message}`, { error: true }); }
+          finally { b.disabled = false; }
+        } }, `+${hoursLabel(n)}`)))),
     fp ? h('label', { class: 'group-opt' }, flagBox, h('span', {}, '★ 優先してほしい',
       h('small', {}, `Redmine の優先度を「${fp.on.name}」にします（外すと「${fp.off.name}」）。余裕が少ない順では緊急の次に並びます`))) : null,
     h('div', { class: 'field' },
@@ -3120,6 +3130,7 @@ function openHours(tab) {
   if (!state.me) return;
   if (tab) hoursState.tab = tab;
   hoursState.date = hoursState.date || isoDate(startOfToday());
+  hoursState.team = null;   // チームの仕事の一覧は開くたびに読み直す
   $('hoursDlg').hidden = false;
   renderHours();
 }
@@ -3140,18 +3151,21 @@ function renderHours() {
 async function renderHoursDay(slot) {
   const date = hoursState.date;
   const me = state.me.id;
-  const [entries, touched, mine] = await Promise.all([
+  const [entries, touched, mine, team] = await Promise.all([
     api.timeEntries({ from: date, to: date, userId: me }),
     api.issuesTouchedOn(me, date),
     api.issuesFor(me),
+    // ほかの人の仕事にも自分の作業時間を付けられるように（手伝い・レビュー・打合せなど）。読めなくても続ける
+    hoursState.team ? Promise.resolve(hoursState.team) : api.teamIssues().then(t => (hoursState.team = t)).catch(() => []),
   ]);
   const logged = new Map();
   for (const e of entries) if (e.issue) logged.set(e.issue.id, (logged.get(e.issue.id) || 0) + Number(e.hours));
   const byId = new Map([...mine, ...touched].map(i => [i.id, i]));
-  const missing = [...logged.keys()].filter(id => !byId.has(id));
+  const shown = hoursState.extra && hoursState.extraDate === date ? hoursState.extra : (hoursState.extra = new Set(), hoursState.extraDate = date, hoursState.extra);
+  for (const t of team) if (shown.has(t.id) && !byId.has(t.id)) byId.set(t.id, t);
+  const missing = [...new Set([...logged.keys(), ...shown])].filter(id => !byId.has(id));
   if (missing.length) for (const i of await api.issuesByIds(missing)) byId.set(i.id, i);
   // 並べるのは「その日に動かした」か「その日に記録済み」のチケット。ほかは下の選択肢から足す
-  const shown = hoursState.extra && hoursState.extraDate === date ? hoursState.extra : (hoursState.extra = new Set(), hoursState.extraDate = date, hoursState.extra);
   const rows = [...byId.values()].filter(i => logged.has(i.id) || touched.some(t => t.id === i.id) || shown.has(i.id)).sort(byPriority);
   const unlogged = entries.filter(e => !e.issue).reduce((n, e) => n + Number(e.hours), 0);
   const base = [...logged.values()].reduce((a, b) => a + b, 0) + unlogged;
@@ -3173,14 +3187,30 @@ async function renderHoursDay(slot) {
     return h('li', { class: 'hrow' },
       h('div', { class: 't' },
         h('span', { class: 'sj', title: i.subject }, parseTitle(i.subject).text),
-        h('span', { class: 'sub' }, `#${i.id}`, renderTag(i.fixed_version && i.fixed_version.name), i.status.name)),
+        h('span', { class: 'sub' }, h('span', {}, `#${i.id}`), renderTag(i.fixed_version && i.fixed_version.name), h('span', {}, i.status.name),
+          i.assigned_to && i.assigned_to.id !== me ? h('span', {}, `担当: ${i.assigned_to.name.split(/[ 　]/)[0]}`) : null)),
       h('span', { class: 'done-h' }, logged.has(i.id) ? `記録済 ${fmtH(logged.get(i.id))}` : ''),
       h('span', { class: 'add' }, CONFIG.hourChoices.map(n => h('button', { type: 'button', onclick: () => bump(n) }, `+${n}`)), input, 'h'));
   };
-  const others = mine.filter(i => !rows.some(r => r.id === i.id) && ['todo', 'doing', 'done'].includes(colOf(i))).sort(byPriority);
+  const listed = i => !rows.some(r => r.id === i.id) && ['todo', 'doing', 'done'].includes(colOf(i));
+  const others = mine.filter(listed).sort(byPriority);
+  const teamOthers = team.filter(i => listed(i) && !(i.assigned_to && i.assigned_to.id === me)).sort((a, b) =>
+    ((a.assigned_to || {}).name || '').localeCompare((b.assigned_to || {}).name || '', 'ja') || byPriority(a, b));
   const addSel = h('select', { 'aria-label': 'チケットを追加' }, h('option', { value: '' }, 'ほかのチケットを追加…'),
-    others.map(i => h('option', { value: i.id }, `#${i.id} ${parseTitle(i.subject).text}`)));
+    others.length ? h('optgroup', { label: '自分の仕事' }, others.map(i => h('option', { value: i.id }, `#${i.id} ${parseTitle(i.subject).text}`))) : null,
+    teamOthers.length ? h('optgroup', { label: 'ほかの人の仕事（自分の作業時間として記録）' },
+      teamOthers.map(i => h('option', { value: i.id }, `#${i.id} ${i.assigned_to ? i.assigned_to.name.split(/[ 　]/)[0] + '：' : ''}${parseTitle(i.subject).text}`))) : null);
   addSel.addEventListener('change', () => { if (addSel.value) { shown.add(Number(addSel.value)); renderHours(); } });
+  // 一覧にないチケットは番号で
+  const numIn = h('input', { type: 'text', inputmode: 'numeric', placeholder: '#番号', 'aria-label': 'チケット番号で追加', style: 'width:90px' });
+  const addNum = async () => {
+    const id = Number(String(numIn.value).replace(/[^0-9]/g, ''));
+    if (!id) return;
+    try { await api.getIssue(id); shown.add(id); renderHours(); }
+    catch (e) { msg.hidden = false; msg.textContent = `#${id} が見つかりません。${e.message}`; }
+  };
+  numIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addNum(); } });
+  const numBtn = h('button', { type: 'button', class: 'btn-mini', onclick: addNum }, '追加');
   const dateIn = h('input', { type: 'date', value: date, max: isoDate(startOfToday()), 'aria-label': '記録する日' });
   dateIn.addEventListener('change', () => { if (dateIn.value) { hoursState.date = dateIn.value; renderHours(); } });
   const msg = h('p', { class: 'error-msg', hidden: true });
@@ -3204,7 +3234,7 @@ async function renderHoursDay(slot) {
       h('span', { class: 'total' }, '合計', totalB, h('div', { class: 'tr' }, fill), `/ ${CONFIG.hoursPerDay}h`)),
     rows.length ? h('ul', { class: 'hrows' }, rows.map(row)) : h('p', { class: 'empty' }, 'この日に動かしたチケットはありません。下から追加できます。'),
     unlogged ? h('p', { class: 'hint' }, `チケットにひも付かない記録 ${fmtH(unlogged)} も合計に含めています。`) : null,
-    h('div', { class: 'addline' }, addSel),
+    h('div', { class: 'addline' }, addSel, numIn, numBtn),
     msg,
     h('div', { class: 'dialog-actions' }, h('span', { class: 'hint', style: 'margin-right:auto' }, '記録した時間の修正・削除は Redmine の「作業時間」画面で行えます。'), save)));
   refresh();
