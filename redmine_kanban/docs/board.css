@@ -161,6 +161,12 @@ button { cursor: pointer; }
 .card.dragging { opacity: .4; }
 .card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
 .col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .flag { margin-left: auto; flex: none; border: 1px solid transparent; background: transparent; color: var(--ink-3); border-radius: 4px; padding: 0 5px; font-size: 12px; line-height: 1.6; cursor: pointer; }
+.card .flag:hover { border-color: var(--soon); color: var(--soon); }
+.card .flag.on { background: var(--soon-bg); color: var(--soon); font-weight: 700; border-color: var(--soon); }
+.card .flag + .tag { margin-left: 6px; }
+.card.flagged { box-shadow: inset 0 0 0 1px var(--soon), var(--shadow); }
+.bara .bx .meta .flag-b { color: var(--soon); font-weight: 700; }
 .card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
 .card .slack.low { background: var(--soon-bg); color: var(--soon); }
 .card .slack.neg, .card .slack.urgent { background: var(--late-bg); color: var(--late); }

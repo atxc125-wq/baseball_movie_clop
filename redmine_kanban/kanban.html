@@ -169,6 +169,12 @@ button { cursor: pointer; }
 .card.dragging { opacity: .4; }
 .card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
 .col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .flag { margin-left: auto; flex: none; border: 1px solid transparent; background: transparent; color: var(--ink-3); border-radius: 4px; padding: 0 5px; font-size: 12px; line-height: 1.6; cursor: pointer; }
+.card .flag:hover { border-color: var(--soon); color: var(--soon); }
+.card .flag.on { background: var(--soon-bg); color: var(--soon); font-weight: 700; border-color: var(--soon); }
+.card .flag + .tag { margin-left: 6px; }
+.card.flagged { box-shadow: inset 0 0 0 1px var(--soon), var(--shadow); }
+.bara .bx .meta .flag-b { color: var(--soon); font-weight: 700; }
 .card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
 .card .slack.low { background: var(--soon-bg); color: var(--soon); }
 .card .slack.neg, .card .slack.urgent { background: var(--late-bg); color: var(--late); }
@@ -795,6 +801,8 @@ a.btn { text-decoration: none; display: inline-block; }
         <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
       </div>
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>★ 優先してほしい</h3>
+      <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
       <h3>詰まりのサイン</h3>
       <ul>
         <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
@@ -924,7 +932,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-19 01:13'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-19 01:18'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1131,6 +1139,7 @@ function createMockApi(getMockUserId) {
       parent: parent ? { id: parent } : undefined,
       fixed_version: ver ? { ...V[ver] } : undefined,
       status: { id: st, name: statusById[st].name },
+      priority: { id: [4521, 4531, 4610].includes(id) ? 3 : 2, name: [4521, 4531, 4610].includes(id) ? '高め' : '通常' },
       done_ratio: statusById[st].ratio ?? 0,
       description: '',
       due_date: d(plan),
@@ -1246,6 +1255,10 @@ function createMockApi(getMockUserId) {
       return [...db.values()].filter(i => !closedIds.has(i.status.id) && (!i.assigned_to || !i.fixed_version)).map(clone);
     },
     async versions() { await wait(80); return clone(versionList); },
+    async priorities() {
+      await wait(40);
+      return [{ id: 1, name: '低め' }, { id: 2, name: '通常', is_default: true }, { id: 3, name: '高め' }, { id: 4, name: '急いで' }, { id: 5, name: '今すぐ' }];
+    },
     async createVersion(_projectId, name) {
       await wait(200);
       const v = { id: 100 + versionList.length + 50, name };
@@ -1293,6 +1306,7 @@ function createMockApi(getMockUserId) {
       if ('assigned_to_id' in fields) issue.assigned_to = fields.assigned_to_id ? { id: fields.assigned_to_id, name: users[fields.assigned_to_id] } : undefined;
       if (fields.notes) (issue.journals = issue.journals || []).push({ notes: fields.notes, created_on: new Date().toISOString() });
       if ('fixed_version_id' in fields) issue.fixed_version = fields.fixed_version_id ? { ...versionList.find(v => v.id === fields.fixed_version_id) } : undefined;
+      if ('priority_id' in fields) issue.priority = { id: fields.priority_id, name: { 1: '低め', 2: '通常', 3: '高め', 4: '急いで', 5: '今すぐ' }[fields.priority_id] };
       if ('estimated_hours' in fields) issue.estimated_hours = fields.estimated_hours ?? undefined;
       if ('parent_issue_id' in fields) {
         const p = fields.parent_issue_id || null;
@@ -1459,6 +1473,10 @@ function createRedmineApi(baseUrl, apiKey) {
       const j = await req('/issues.json', { method: 'POST', body: JSON.stringify({ issue: { project_id: projectId, ...fields } }) });
       return j.issue;
     },
+    async priorities() {
+      const j = await req('/enumerations/issue_priorities.json');
+      return (j.issue_priorities || []).filter(x => x.active !== false).map(x => ({ id: x.id, name: x.name, is_default: !!x.is_default }));
+    },
     async versions(projectId) {
       const key = String(CONFIG.projectId || projectId);
       if (!versionCache.has(key)) {
@@ -1486,6 +1504,7 @@ function createRedmineApi(baseUrl, apiKey) {
         ['parent_issue_id', '親チケット', issue.parent && issue.parent.id],
         ['estimated_hours', '予定工数', issue.estimated_hours],
         ['start_date', '開始日', issue.start_date],
+        ['priority_id', '優先度', issue.priority && issue.priority.id],
       ];
       const ignored = checks.filter(([k, , now]) => k in fields && norm(fields[k]) !== norm(now)).map(([, label]) => label);
       if (ignored.length) {
@@ -1644,12 +1663,13 @@ function renderCard(issue) {
   }
 
   return h('article', {
-    class: ['card', due.level === 2 ? 'is-late' : '', state.saving.has(issue.id) ? 'saving' : ''].join(' ').trim(),
+    class: ['card', due.level === 2 ? 'is-late' : '', isFlagged(issue) ? 'flagged' : '', state.saving.has(issue.id) ? 'saving' : ''].join(' ').trim(),
     draggable: 'true', tabindex: '0', 'data-id': issue.id,
     'aria-label': `#${issue.id} ${issue.subject}`, title: 'クリックで編集 / ドラッグで移動',
   },
     h('div', { class: 'card-top' },
       h('span', { class: 'parent', title: chain.join(' › ') }, chain.length ? (chain.length > 2 ? '… › ' : '') + chain.slice(-2).join(' › ') : ''),
+      flagButton(issue),
       renderTag(issue.fixed_version && issue.fixed_version.name)),
     h('h3', { class: 'subject' }, parseTitle(issue.subject).text),
     cardSignals(issue),
@@ -1716,11 +1736,61 @@ function slackOf(i) {
   const left = Math.max(1, Math.ceil(((i.estimated_hours || hpd) * (1 - ratio)) / hpd));
   return avail - left;
 }
+/* ---------- 優先してほしい（Redmine の「優先度」を使う） ----------
+ *  優先度の一覧は Redmine の並び順（低い → 高い）。既定（通常）より上なら ★優先。
+ *  ☆ を押すと既定の 1 つ上（ふつうは「高め」）に、外すと既定に戻す。一覧が読めなければこの機能は出さない
+ */
+function flagPriority() {
+  const list = state.priorities || [];
+  const k = list.findIndex(p => p.is_default);
+  return k >= 0 && list[k + 1] ? { off: list[k], on: list[k + 1] } : null;
+}
+function isFlagged(i) {
+  const list = state.priorities || [];
+  const k = list.findIndex(p => p.is_default);
+  if (k < 0 || !i.priority) return false;
+  return list.findIndex(p => p.id === i.priority.id) > k;
+}
+async function toggleFlag(issue) {
+  const fp = flagPriority();
+  if (!fp || state.saving.has(issue.id)) return;
+  const before = issue.priority;
+  const next = isFlagged(issue) ? fp.off : fp.on;
+  issue.priority = { id: next.id, name: next.name };
+  state.saving.add(issue.id);
+  render();
+  try {
+    await api.updateIssue(issue.id, { priority_id: next.id });
+    const undo = async () => {
+      try { await api.updateIssue(issue.id, { priority_id: before ? before.id : fp.off.id }); issue.priority = before; }
+      catch (e) { toast(`元に戻せませんでした。${e.message}`, { error: true }); }
+      render();
+    };
+    toast(isFlagged(issue) ? `#${issue.id} を「優先してほしい」にしました（優先度: ${next.name}）` : `#${issue.id} の「優先してほしい」を外しました`,
+      { action: { label: '元に戻す', run: undo } });
+  } catch (e) {
+    issue.priority = before;
+    toast(`優先度を変えられませんでした。${e.message}`, { error: true });
+  } finally {
+    state.saving.delete(issue.id);
+    render();
+  }
+}
+function flagButton(issue) {
+  if (!flagPriority()) return null;
+  const on = isFlagged(issue);
+  return h('button', { type: 'button', class: 'flag' + (on ? ' on' : ''), draggable: 'false', 'aria-pressed': String(on),
+    title: on ? `優先してほしい（優先度: ${issue.priority.name}）。押すと外す` : '優先してほしい印を付ける（Redmine の優先度を上げる）',
+    onclick: e => { e.stopPropagation(); toggleFlag(issue); } }, on ? '★ 優先' : '☆');
+}
+
 const isUrgent = i => { const v = parseVersion(i.fixed_version && i.fixed_version.name); return v.prio !== null && v.prio <= CONFIG.urgentPriority; };
 // 余裕が少ない順: 緊急（バージョン番号が urgentPriority 以下）は常に上 → 余裕の少ない順 → いつもの基本順
 function bySlack(a, b) {
   const ua = isUrgent(a), ub = isUrgent(b);
   if (ua !== ub) return ua ? -1 : 1;
+  const fa = isFlagged(a), fb = isFlagged(b);
+  if (fa !== fb) return fa ? -1 : 1;
   const sa = slackOf(a), sb = slackOf(b);
   const ka = sa === null ? Infinity : sa, kb = sb === null ? Infinity : sb;
   return (ka - kb) || byPriority(a, b);
@@ -1735,6 +1805,9 @@ function sortColumn(items, colKey) {
     if (ka && kb) return ka < kb ? -1 : ka > kb ? 1 : byPriority(a, b);
     if (ka) return -1;
     if (kb) return 1;
+    // まだ順番を決めていないカードの中では、★優先を先に
+    const fa = isFlagged(a), fb = isFlagged(b);
+    if (fa !== fb) return fa ? -1 : 1;
     return byPriority(a, b);
   });
 }
@@ -1895,17 +1968,19 @@ function renderSummary(visible) {
   const soon = infos.filter(x => x.level === 1).length;
   const over = infos.filter(x => x.over).length;
   const waiting = visible.filter(i => colOf(i) === 'done').length;
-  $('summary').replaceChildren(
+  $('summary').replaceChildren(...[   // null を渡すと「null」と出るので filter(Boolean)
     h('span', { class: 'chip' + (late ? ' late' : '') }, '締切超過', h('b', {}, late)),
     h('span', { class: 'chip' + (soon ? ' soon' : '') }, `${CONFIG.dueSoonDays}日以内`, h('b', {}, soon)),
     h('span', { class: 'chip' + (over ? ' soon' : ''), title: '作業完了予定が締切より後になっているチケット' }, '予定が締切超え', h('b', {}, over)),
     h('span', { class: 'chip' }, '手持ち', h('b', {}, active.length)),
+    flagPriority() ? (() => { const n = active.filter(isFlagged).length;
+      return h('span', { class: 'chip' + (n ? ' soon' : ''), title: '優先してほしい（★）の仕事' }, '★優先', h('b', {}, n)); })() : null,
     (() => { const n = visible.filter(i => (state.waits.get(i.id) || []).some(w => !w.done) && ['todo', 'doing'].includes(colOf(i))).length;
       return h('span', { class: 'chip' + (n ? ' soon' : ''), title: '前の仕事が終わっていない仕事' }, '待ち', h('b', {}, n)); })(),
     (() => { const n = visible.filter(isStale).length;
       return h('span', { class: 'chip' + (n ? ' soon' : ''), title: `進捗が${CONFIG.staleDays}営業日以上動いていない進行中の仕事` }, '止まっている', h('b', {}, n)); })(),
     h('span', { class: 'chip' }, '確認待ち', h('b', {}, waiting)),
-    boardSortControls());
+    boardSortControls()].filter(Boolean));
 }
 
 function memberList() {
@@ -2617,9 +2692,11 @@ async function openEditor(id) {
   const notes = h('textarea', { id: 'eNotes', placeholder: '例: 試作課に確認中。回答待ち' });
   const submit = h('button', { type: 'submit', class: 'btn primary' }, '保存');
   const url = issueUrl(issue.id);
+  const fp = flagPriority();
+  const flagBox = fp ? h('input', { type: 'checkbox', id: 'eFlag', checked: isFlagged(issue) }) : null;
   const chain = ancestors(issue);
 
-  form.replaceChildren(
+  form.replaceChildren(...[   // null を渡すと「null」と出るので filter(Boolean)
     h('div', { class: 'head' },
       h('h2', {}, `#${issue.id} を編集`),
       url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Redmine で開く') : null),
@@ -2627,12 +2704,14 @@ async function openEditor(id) {
       h('span', {}, `ステータス: ${issue.status.name}`),
       chain.length ? h('span', {}, `親: ${chain.join(' › ')}`) : null),
     ...f.rows('説明'),
+    fp ? h('label', { class: 'group-opt' }, flagBox, h('span', {}, '★ 優先してほしい',
+      h('small', {}, `Redmine の優先度を「${fp.on.name}」にします（外すと「${fp.off.name}」）。余裕が少ない順では緊急の次に並びます`))) : null,
     h('div', { class: 'field' },
       h('label', { for: 'eNotes' }, 'コメントを追加（Redmine の履歴に残ります）'), notes),
     f.el.error,
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn', onclick: closeEditor }, '閉じる'),
-      submit));
+      submit)].filter(Boolean));
 
   form.onsubmit = async e => {
     e.preventDefault();
@@ -2644,6 +2723,7 @@ async function openEditor(id) {
       return v !== now;
     }));
     if (notes.value.trim()) changed.notes = notes.value.trim();
+    if (flagBox && flagBox.checked !== isFlagged(issue)) changed.priority_id = (flagBox.checked ? fp.on : fp.off).id;
     if (!Object.keys(changed).length) { closeEditor(); toast('変更はありませんでした'); return; }
 
     submit.disabled = true; submit.textContent = '保存中…';
@@ -2651,6 +2731,7 @@ async function openEditor(id) {
       await api.updateIssue(issue.id, changed);
       const before = issue.assigned_to && issue.assigned_to.id;
       f.applyTo(issue, fields);
+      if (changed.priority_id) { const pr = state.priorities.find(x => x.id === changed.priority_id); issue.priority = { id: pr.id, name: pr.name }; }
       issue.updated_on = new Date().toISOString();
       state.editorSaved = true;
       closeEditor();
@@ -2869,6 +2950,8 @@ async function boot() {
   }
   try {
     state.me = await api.currentUser();
+    // 優先度の一覧（★優先に使う）。読めなければ ★ を出さない
+    try { state.priorities = await api.priorities(); } catch (_) { state.priorities = []; }
     state.issues.clear(); state.versions = [];
     state.view = state.me.id;
     await loadView();
@@ -3416,6 +3499,7 @@ function bBox(issue, isHeader) {
             issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] : '担当なし', ' ▾'),
       due && due.hasDeadline ? h('span', { class: 'dl ' + due.cls, title: due.text },
         due.level ? due.text.replace(/ \d+\/\d+\(.\)$/, '') : `締切 ${due.text.match(/\d+\/\d+/)[0]}`) : null,
+      !issue.temp && isFlagged(issue) ? h('span', { class: 'flag-b', title: `優先してほしい（優先度: ${issue.priority.name}）` }, '★優先') : null,
       isHeader ? h('span', {}, `子 ${bKids(issue.id).length}`) : null,
       isHeader && bHideDone() && bKids(issue.id).some(k => bAllDone(k.id)) ? h('span', { class: 'hidden-note' }, `完了 ${bKids(issue.id).filter(k => bAllDone(k.id)).length} 件を隠し中`) : null,
       isHeader || issue.temp

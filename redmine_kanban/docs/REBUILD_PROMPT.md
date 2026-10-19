@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "13"`（整数文字列。機能を変えたら上げる）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "14"`（整数文字列。機能を変えたら上げる）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -181,6 +181,7 @@ redmine_kanban/
   先行がすべて完了した未着手は「✓ 前の仕事が終わりました。着手できます」。② 進行中でステータスが `staleDays`（5）営業日以上変わっていなければ「N日動きなし」
   （変更履歴の status_id 変更日。なければ作成日。日程の書き直し・コメントでは動いた扱いにしない）。どちらも画面表示のあと裏で読む
   （つながりは `issuesByIds(ids,'relations')`、相手は `issuesByIds`、履歴は進行中だけ同時 4 件）。サマリーに「待ち」「止まっている」の件数。
+- **★ 優先してほしい**: カード右上（タグの左）の `☆` / `★ 優先` ボタン（★ のカードは枠を黄色に）。保存先は Redmine の優先度（`/enumerations/issue_priorities.json`、一覧の並びは低い→高い）。既定より上なら ★。押すと既定の 1 つ上 ⇔ 既定を切り替え（元に戻すトースト）。編集画面にもチェック「★ 優先してほしい」。一覧が読めなければ出さない。サマリーに「★優先 N」。課題バラシの箱にも「★優先」。並び: 余裕が少ない順は 緊急 → ★ → 余裕、いつもの順は日程を決めていないカードの中で ★ を先に。
 - **手持ちの上限**: 進行中が `wipLimit`（5）件を超えたら列見出しに「上限5件を超えています」（黄）と件数を黄色に。
 - **同じ列の中で上下にドラッグ = 自分の作業順**（5.6）。差し込み位置に青い線（カードの上辺、列の最後なら下に線）。
 - ステータスを変えたら、親チケットのステータスを子に合わせる（5.12）。自分のカードを進行中・担当完了にしたら工数を聞く（5.10）。
@@ -189,7 +190,7 @@ redmine_kanban/
 - 並び順の切り替え（サマリーの右、localStorage `designBoard.boardSort`）: `並び: いつもの順` / `並び: 余裕が少ない順`（値 `mine` / `slack`。古い値 `deadline` は `slack` とみなす）。
 - **いつもの順**: 未着手は「開始日が今日以降」のものを開始日順に上、それ以外はその後ろに 基本順（バージョン番号 → 締切 → 番号）。進行中は作業完了予定（期日）順、期日なしは後ろに基本順。担当完了は基本順、上司完了は更新が新しい順。
   - **Redmine は新規チケットの開始日に作成日を自動で入れる**ので、「開始日がある」だけでは並び替えた印にならない。今日以降の開始日だけを印とみなす。
-- **余裕が少ない順**: 表示だけ。緊急（バージョン番号 ≤ `urgentPriority`）は常に上 → 余裕の少ない順 → 基本順。余裕 = 締切（【M/D】、なければ期日）までの営業日数（今日を含む。過ぎていればマイナス）− 残りの作業日数（ceil(予定工数（未入力は `hoursPerDay`）×(1 − 進捗率) ÷ `hoursPerDay`)、最低 1）。締切なしは下。カードに「余裕 N日」（<0 赤、≤1 黄、それ以外 緑、緊急は赤で「緊急」）。このあいだは上下の並び替えはせず「「余裕が少ない順」で表示中は並び替えできません…」と表示。`この順番で日程を決める` でこの順を作業順として日程を決め、いつもの順に戻す。
+- **余裕が少ない順**: 表示だけ。緊急（バージョン番号 ≤ `urgentPriority`）は常に上 → ★優先 → 余裕の少ない順 → 基本順。余裕 = 締切（【M/D】、なければ期日）までの営業日数（今日を含む。過ぎていればマイナス）− 残りの作業日数（ceil(予定工数（未入力は `hoursPerDay`）×(1 − 進捗率) ÷ `hoursPerDay`)、最低 1）。締切なしは下。カードに「余裕 N日」（<0 赤、≤1 黄、それ以外 緑、緊急は赤で「緊急」）。このあいだは上下の並び替えはせず「「余裕が少ない順」で表示中は並び替えできません…」と表示。`この順番で日程を決める` でこの順を作業順として日程を決め、いつもの順に戻す。
 - **作業順の日程計算（scheduleQueue）**: 進行中（上から）→ 未着手（上から）の順に、今日（営業日）から詰める。期間 = 予定工数 ÷ `hoursPerDay`（8）を営業日に切り上げ（未入力は 1 日、進行中は残り = 予定 × (1 − 進捗率)）。土日と `holidays` は休み。先行の仕事（`issuesByIds(..., 'relations')` で取る。範囲外の仕事は期日を取る）が終わっていなければその翌営業日から。進行中の開始日はそのまま（先行待ちのときだけ後ろへ）。先行より上に並べたら「前後のつながりに合わない順番があります: #A は #B の後でないと始められません」。
 - 書き込み: 変わったものだけ、**開始日の早い順に** `start_date`/`due_date` を PUT（前の仕事の期日を先に直さないと Redmine が後ろの開始日を受け付けない）。先に画面を並べ替え、保存中表示。成功で「並び順に合わせて N 件の日程（開始日・作業完了予定）を決めました」＋元に戻す（元の値を逆順で戻す）。
 
@@ -487,6 +488,12 @@ button { cursor: pointer; }
 .card.dragging { opacity: .4; }
 .card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
 .col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .flag { margin-left: auto; flex: none; border: 1px solid transparent; background: transparent; color: var(--ink-3); border-radius: 4px; padding: 0 5px; font-size: 12px; line-height: 1.6; cursor: pointer; }
+.card .flag:hover { border-color: var(--soon); color: var(--soon); }
+.card .flag.on { background: var(--soon-bg); color: var(--soon); font-weight: 700; border-color: var(--soon); }
+.card .flag + .tag { margin-left: 6px; }
+.card.flagged { box-shadow: inset 0 0 0 1px var(--soon), var(--shadow); }
+.bara .bx .meta .flag-b { color: var(--soon); font-weight: 700; }
 .card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
 .card .slack.low { background: var(--soon-bg); color: var(--soon); }
 .card .slack.neg, .card .slack.urgent { background: var(--late-bg); color: var(--late); }
@@ -1117,6 +1124,8 @@ a.btn { text-decoration: none; display: inline-block; }
         <div><span class="due">締切 2日超過</span>　<span class="pc">予定 10/20</span></div>
       </div>
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
+      <h3>★ 優先してほしい</h3>
+      <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
       <h3>詰まりのサイン</h3>
       <ul>
         <li><strong>⏳ 待ち</strong>：前の仕事がまだ終わっていません。待っている相手と仕事の名前が出ます。</li>
@@ -1330,6 +1339,7 @@ ALLOWED_API = [
     ("GET", re.compile(r"^/issues/\d+/relations\.json$")),             # 課題バラシ: 前後のつながり
     ("POST", re.compile(r"^/issues/\d+/relations\.json$")),
     ("DELETE", re.compile(r"^/relations/\d+\.json$")),
+    ("GET", re.compile(r"^/enumerations/issue_priorities\.json$")),     # 優先度の一覧（★優先）
 ]
 ```
 
