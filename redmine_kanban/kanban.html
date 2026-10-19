@@ -169,6 +169,9 @@ button { cursor: pointer; }
 .card.dragging { opacity: .4; }
 .card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
 .col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
+.card .slack.low { background: var(--soon-bg); color: var(--soon); }
+.card .slack.neg, .card .slack.urgent { background: var(--late-bg); color: var(--late); }
 .card .start { font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .card.saving::after {
   content: "保存中…"; position: absolute; right: 8px; bottom: 6px;
@@ -785,7 +788,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <h3>やる順番は、上下に並べ替えるだけ</h3>
       <p>「未着手」「進行中」の列の中でカードを上下にドラッグすると、<strong>その順番で日程が決まります</strong>。上から順に、予定工数の分だけ詰めて、開始日と作業完了予定を Redmine に入れます（進行中 → 未着手の順）。</p>
       <p>課題バラシでつないだ「前の仕事」がまだ終わっていなければ、その後ろにずれます。並べた順番は次に開いたときもそのまま。間違えたら「元に戻す」で戻せます。</p>
-      <p>上の「並び」を <span class="ui">締切が近い順</span> にすると、締切の近いものから表示します。<span class="ui">この順番で日程を決める</span> を押せば、その順番がそのまま作業順になります。</p>
+      <p>上の「並び」を <span class="ui">余裕が少ない順</span> にすると、<strong>危ないものから</strong>並びます。余裕は「締切までの営業日数 − 残りの作業日数（予定工数と進捗から）」。締切が先でも残りが多ければ上に来ます。緊急（01_市場問題 など）は常にいちばん上。カードに「余裕 2日」のように出ます。<span class="ui">この順番で日程を決める</span> を押せば、その順番がそのまま作業順になります。</p>
       <div class="mini-card">
         <div class="pc">フロントバンパー設計 › 補強構造の検討</div>
         <b>ビーム断面の強度解析</b>
@@ -921,7 +924,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-18 22:43'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-19 01:13'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1653,6 +1656,13 @@ function renderCard(issue) {
     h('div', { class: 'card-foot' },
       h('span', { class: 'num' }, url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, `#${issue.id}`) : `#${issue.id}`),
       col === 'todo' && queueKey(issue, 'todo') ? h('span', { class: 'start', title: '並び順から決めた開始日' }, `着手 ${jpDate(parseDate(issue.start_date))}`) : null,
+      (() => {   // 余裕が少ない順のときだけ、並びの理由として余裕を出す
+        if (boardSortMode() !== 'slack' || !['todo', 'doing'].includes(col)) return null;
+        if (isUrgent(issue)) return h('span', { class: 'slack urgent', title: '緊急のバージョンは常に上' }, '緊急');
+        const sl = slackOf(issue);
+        if (sl === null) return null;
+        return h('span', { class: 'slack' + (sl < 0 ? ' neg' : sl <= 1 ? ' low' : ''), title: '余裕 = 締切までの営業日数 − 残りの作業日数（予定工数と進捗から）' }, `余裕 ${sl}日`);
+      })(),
       due.plan ? h('span', { class: 'plan' + (due.over ? ' over' : ''), title: 'Redmine の期日（作業完了予定）' }, due.over ? `${due.plan} 締切超え` : due.plan) : null,
       h('span', { class: `due ${due.cls}` }, due.text)),
     progress);
@@ -1683,16 +1693,43 @@ function queueKey(issue, colKey) {
   if (colKey === 'doing') return issue.due_date || null;
   return null;
 }
-// 個人画面の並び: 'mine' = いつもの順（上下の並び替え＝作業順）/ 'deadline' = 締切が近い順（表示だけ）
+// 個人画面の並び: 'mine' = いつもの順（上下の並び替え＝作業順）/ 'slack' = 余裕が少ない順（表示だけ）
 const BOARD_SORT_KEY = 'designBoard.boardSort';
-function boardSortMode() { try { return localStorage.getItem(BOARD_SORT_KEY) || 'mine'; } catch (_) { return 'mine'; } }
+function boardSortMode() {
+  let v = 'mine';
+  try { v = localStorage.getItem(BOARD_SORT_KEY) || 'mine'; } catch (_) { /* 使えなければいつもの順 */ }
+  return v === 'deadline' ? 'slack' : v;   // 以前の「締切が近い順」は「余裕が少ない順」に置き換えた
+}
 function setBoardSortMode(v) { try { localStorage.setItem(BOARD_SORT_KEY, v); } catch (_) { /* 保存できなくても続ける */ } }
 const deadlineKey = i => { const d = parseTitle(i.subject).deadline || parseDate(i.due_date); return d ? d.getTime() : Infinity; };
+// 余裕（営業日）= 締切までの営業日数（今日を含む）− 残りの作業日数。締切がなければ null
+// 残りの作業日数 = 予定工数 ×（1 − 進捗率）÷ 1日の時間 を切り上げ（予定工数が未入力なら 1 日分として数える）
+function slackOf(i) {
+  const d = parseTitle(i.subject).deadline || parseDate(i.due_date);
+  if (!d) return null;
+  const today = startOfToday();
+  let avail = 0;
+  if (d >= today) { for (let x = new Date(today); x <= d; x = addDays(x, 1)) if (!isOffDay(x)) avail++; }
+  else { for (let x = addDays(d, 1); x <= today; x = addDays(x, 1)) if (!isOffDay(x)) avail--; }
+  const hpd = CONFIG.hoursPerDay || 8;
+  const ratio = colOf(i) === 'doing' ? (statusById[i.status.id].ratio || 0) / 100 : 0;
+  const left = Math.max(1, Math.ceil(((i.estimated_hours || hpd) * (1 - ratio)) / hpd));
+  return avail - left;
+}
+const isUrgent = i => { const v = parseVersion(i.fixed_version && i.fixed_version.name); return v.prio !== null && v.prio <= CONFIG.urgentPriority; };
+// 余裕が少ない順: 緊急（バージョン番号が urgentPriority 以下）は常に上 → 余裕の少ない順 → いつもの基本順
+function bySlack(a, b) {
+  const ua = isUrgent(a), ub = isUrgent(b);
+  if (ua !== ub) return ua ? -1 : 1;
+  const sa = slackOf(a), sb = slackOf(b);
+  const ka = sa === null ? Infinity : sa, kb = sb === null ? Infinity : sb;
+  return (ka - kb) || byPriority(a, b);
+}
 
 function sortColumn(items, colKey) {
   if (colKey === 'approved') return items.sort((a, b) => b.updated_on.localeCompare(a.updated_on));
   if (colKey !== 'todo' && colKey !== 'doing') return items.sort(byPriority);
-  if (boardSortMode() === 'deadline') return items.sort((a, b) => (deadlineKey(a) - deadlineKey(b)) || byPriority(a, b));
+  if (boardSortMode() === 'slack') return items.sort(bySlack);
   return items.sort((a, b) => {
     const ka = queueKey(a, colKey), kb = queueKey(b, colKey);
     if (ka && kb) return ka < kb ? -1 : ka > kb ? 1 : byPriority(a, b);
@@ -1761,11 +1798,11 @@ async function reorderCard(id, colKey, beforeId) {
   return applyQueue([...order.doing, ...order.todo]);
 }
 
-// 締切が近い順を、そのまま作業順にして日程を決める
+// 余裕が少ない順を、そのまま作業順にして日程を決める
 async function applyDeadlineOrder() {
   const member = state.view;
   const mine = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === member);
-  const queue = ['doing', 'todo'].flatMap(k => mine.filter(i => colOf(i) === k).sort((a, b) => (deadlineKey(a) - deadlineKey(b)) || byPriority(a, b)));
+  const queue = ['doing', 'todo'].flatMap(k => mine.filter(i => colOf(i) === k).sort(bySlack));
   if (!queue.length) return;
   setBoardSortMode('mine');   // 決めた日程の順＝いつもの順になるので、そのまま上下で並び替えられるように戻す
   await applyQueue(queue);
@@ -1836,11 +1873,11 @@ function renderBoard() {
 function boardSortControls() {
   const sel = h('select', { class: 'sort-sel', 'aria-label': '並び順', title: '未着手・進行中の並び順' },
     h('option', { value: 'mine', selected: boardSortMode() === 'mine' }, '並び: いつもの順'),
-    h('option', { value: 'deadline', selected: boardSortMode() === 'deadline' }, '並び: 締切が近い順'));
+    h('option', { value: 'slack', selected: boardSortMode() === 'slack' }, '並び: 余裕が少ない順'));
   sel.addEventListener('change', () => { setBoardSortMode(sel.value); renderBoard(); });
   return h('span', { class: 'sort-ctl' }, sel,
-    boardSortMode() === 'deadline'
-      ? h('button', { type: 'button', class: 'btn-mini', title: '締切が近い順を作業順にして、開始日・作業完了予定を決めて Redmine に書く', onclick: applyDeadlineOrder }, 'この順番で日程を決める')
+    boardSortMode() === 'slack'
+      ? h('button', { type: 'button', class: 'btn-mini', title: '余裕が少ない順を作業順にして、開始日・作業完了予定を決めて Redmine に書く', onclick: applyDeadlineOrder }, 'この順番で日程を決める')
       : null);
 }
 
@@ -4131,7 +4168,7 @@ board.addEventListener('drop', e => {
     const hit = dropBefore(col, e.clientY);
     const beforeId = hit ? Number(hit.dataset.id) : null;
     endDrag();
-    if (boardSortMode() === 'deadline') { toast('「締切が近い順」で表示中は並び替えできません。「いつもの順」に切り替えるか、「この順番で日程を決める」を使ってください'); return; }
+    if (boardSortMode() === 'slack') { toast('「余裕が少ない順」で表示中は並び替えできません。「いつもの順」に切り替えるか、「この順番で日程を決める」を使ってください'); return; }
     if (beforeId !== id) reorderCard(id, col.dataset.col, beforeId);
     return;
   }

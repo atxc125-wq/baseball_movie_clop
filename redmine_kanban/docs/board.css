@@ -161,6 +161,9 @@ button { cursor: pointer; }
 .card.dragging { opacity: .4; }
 .card.drop-before { box-shadow: 0 -4px 0 var(--accent), var(--shadow); }
 .col-body.drop-end::after { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--accent); margin: 2px 0; }
+.card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
+.card .slack.low { background: var(--soon-bg); color: var(--soon); }
+.card .slack.neg, .card .slack.urgent { background: var(--late-bg); color: var(--late); }
 .card .start { font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .card.saving::after {
   content: "保存中…"; position: absolute; right: 8px; bottom: 6px;
