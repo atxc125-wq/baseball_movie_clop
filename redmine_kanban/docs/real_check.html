@@ -1,0 +1,298 @@
+<title>実環境チェックリスト</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 作業手順書のような 1 列。左に番号つきのチェック、右に操作と OK 条件。ボードと同じ配色・書体にそろえる */
+:root {
+  --bg: #e9edf1;
+  --surface: #ffffff;
+  --surface-2: #f4f6f9;
+  --ink: #18212c;
+  --ink-2: #576272;
+  --ink-3: #8a94a2;
+  --line: #d3dae2;
+  --accent: #0e6488;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcecf3;
+  --ok: #2c7a4b;
+  --ok-bg: #e0f1e6;
+  --ng: #b8322a;
+  --ng-bg: #fbe7e4;
+  --warn: #8a5a00;
+  --warn-bg: #fcefcf;
+  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Hiragino Sans", sans-serif;
+  --font-num: "IBM Plex Mono", "Consolas", "Menlo", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #1a2129; --surface-2: #212932; --ink: #e5eaf0; --ink-2: #a0abb8; --ink-3: #6f7a88;
+    --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442;
+    --ok: #74d39a; --ok-bg: #16301f; --ng: #ff8f80; --ng-bg: #3b1d1a; --warn: #f0c064; --warn-bg: #362a0e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #1a2129; --surface-2: #212932; --ink: #e5eaf0; --ink-2: #a0abb8; --ink-3: #6f7a88;
+  --line: #2d3641; --accent: #5fb0d8; --accent-ink: #0b1a22; --accent-soft: #183442;
+  --ok: #74d39a; --ok-bg: #16301f; --ng: #ff8f80; --ng-bg: #3b1d1a; --warn: #f0c064; --warn-bg: #362a0e;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, input, textarea { font: inherit; color: inherit; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 22px; }
+
+header.top { display: flex; flex-direction: column; gap: 8px; }
+.eyebrow { margin: 0; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .08em; }
+h1 { margin: 0; font-size: clamp(22px, 4vw, 28px); line-height: 1.35; text-wrap: balance; }
+.lead { margin: 0; color: var(--ink-2); max-width: 65ch; }
+
+.status {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
+  display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.status .bar { flex: 1 1 180px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; min-width: 120px; }
+.status .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.status .counts { display: flex; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pill { border-radius: 999px; padding: 1px 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.pill.ng { background: var(--ng-bg); color: var(--ng); border-color: transparent; }
+.status .tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.btn:focus-visible, .mark button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.prep { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+.prep h2 { margin: 0; font-size: 15px; }
+.prep ul { margin: 0; padding-left: 1.3em; color: var(--ink-2); }
+.prep b { color: var(--ink); }
+
+section.grp { display: flex; flex-direction: column; gap: 8px; }
+section.grp > h2 { margin: 6px 0 0; font-size: 17px; display: flex; align-items: baseline; gap: 10px; text-wrap: balance; }
+section.grp > h2 .tm { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+section.grp > p.where { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+.item {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  display: grid; grid-template-columns: 2.6em minmax(0, 1fr) auto; gap: 4px 12px; align-items: start;
+}
+.item.is-ok { border-color: var(--ok); }
+.item.is-ng { border-color: var(--ng); }
+.item .no { font-family: var(--font-num); font-size: 13px; color: var(--ink-3); padding-top: 2px; }
+.item .body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.item .do { font-weight: 700; }
+.item .ok-if { font-size: 14px; color: var(--ink-2); }
+.item .ok-if b { color: var(--ok); font-weight: 700; margin-right: 4px; }
+.item .tip { font-size: 13px; color: var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 4px 9px; }
+.item .tip[hidden] { display: none; }
+.item .note { width: 100%; min-height: 34px; resize: vertical; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+.mark { display: flex; gap: 4px; }
+.mark button { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); border-radius: 6px; padding: 3px 10px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.mark button[aria-pressed="true"].ok { background: var(--ok); border-color: var(--ok); color: var(--surface); font-weight: 700; }
+.mark button[aria-pressed="true"].ng { background: var(--ng); border-color: var(--ng); color: var(--surface); font-weight: 700; }
+.mark button[aria-pressed="true"].skip { background: var(--ink-3); border-color: var(--ink-3); color: var(--surface); }
+.ui { display: inline-block; border: 1px solid var(--line); background: var(--surface-2); border-radius: 4px; padding: 0 6px; font-size: 13px; line-height: 1.6; white-space: nowrap; }
+code { font-family: var(--font-num); font-size: 13px; }
+
+.report { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.report h2 { margin: 0; font-size: 15px; }
+.report textarea { width: 100%; min-height: 160px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 8px; font-family: var(--font-num); font-size: 12px; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--ng); }
+.confirm[hidden] { display: none; }
+.copied { font-size: 13px; color: var(--ok); }
+
+@media (max-width: 560px) {
+  .item { grid-template-columns: 2.2em minmax(0, 1fr); }
+  .mark { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">タスクボード v14 ／ 本物の Redmine で通しで確かめる</p>
+    <h1>実環境チェックリスト</h1>
+    <p class="lead">練習用のチケットだけを使って、上から順に操作します。目安は 25 分。各項目で <b>OK</b> か <b>NG</b> を押し、気づいたことはメモへ。最後に「結果をコピー」で、NG とメモをまとめて貼り付けられます。チェックはこのブラウザに残るので、途中でやめても続きから再開できます。</p>
+  </header>
+
+  <div class="status" role="region" aria-label="進み具合">
+    <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+    <div class="counts">
+      <span class="pill" id="cDone">0 / 0</span>
+      <span class="pill ok" id="cOk">OK 0</span>
+      <span class="pill ng" id="cNg">NG 0</span>
+    </div>
+    <div class="tools">
+      <button class="btn primary" type="button" id="copyBtn">結果をコピー</button>
+      <button class="btn" type="button" id="resetBtn">最初からやり直す</button>
+    </div>
+    <div class="confirm" id="resetConfirm" hidden>
+      <span>チェックとメモをすべて消します。</span>
+      <button class="btn" type="button" id="resetYes">消す</button>
+      <button class="btn" type="button" id="resetNo">やめる</button>
+    </div>
+  </div>
+
+  <div class="prep">
+    <h2>始める前に</h2>
+    <ul>
+      <li>共有フォルダに <b>v14</b> の <code>kanban_relay.py</code> を置き、ダブルクリックしておく。</li>
+      <li>Redmine を別のタブで開いておく（チケットの「履歴」「関連するチケット」「作業時間」、ガントチャートを見比べます）。</li>
+      <li>本番のチケットは触らない。並び替え（項目 5-2・5-3）は自分の日程をまとめて書き直すので、最後に「元に戻す」を押す。</li>
+      <li>メンバーの権限の確認（8 章）は、メンバーの誰かに 5 分だけ手伝ってもらう。</li>
+    </ul>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="report">
+    <h2>結果</h2>
+    <p class="lead" style="font-size:13px">「結果をコピー」でここに同じ内容が入ります。NG があれば、そのまま貼り付けて送ってください。</p>
+    <textarea id="reportText" readonly aria-label="結果のまとめ"></textarea>
+    <span class="copied" id="copied" hidden>コピーしました</span>
+  </div>
+</div>
+
+<script>
+'use strict';
+// 各項目: 操作 / OK の条件 / NG のときに考えられる原因
+const GROUPS = [
+  { key: '0', title: '起動と版', time: '2分', where: 'ボードの「接続設定」のいちばん下に、ボードと中継の版が出ます。', items: [
+    { do: '共有フォルダの kanban_relay.py をダブルクリックし、ボードを開く', ok: '黒い画面のあとボードが開く。「接続設定」の下に「中継プログラム: v14」', ng: 'v14 にならない → タスクマネージャーで pythonw.exe を終了してから、もう一度ダブルクリック' },
+    { do: '「使い方」を開いて閉じる', ok: '解説ページが開き、ボタンの赤い点が消える', ng: '開かない → 古い画面が残っている。ブラウザで再読み込み' },
+  ]},
+  { key: '1', title: '個人ボード', time: '4分', where: '練習用のチケット（担当を自分にしたもの）を 3 つほど用意して使います。', items: [
+    { do: '練習カードを「進行中」へドラッグし、進捗ボタン 20 を押す', ok: 'Redmine の履歴でステータスが「20%」、進捗率も 20%。右下に作業時間の選択肢が出る', ng: 'ステータスが戻る・エラー → Redmine のワークフローで その遷移が許可されていない' },
+    { do: '作業時間の選択肢で「1h」を押す', ok: 'Redmine の「作業時間」に今日の 1.00 時間、作業分類が入っている', ng: '「作業分類」のエラー → Redmine で作業分類の既定が未設定。管理 → 選択肢の値 → 作業分類 で既定を決める' },
+    { do: 'カードを「担当完了」へ動かし、「元に戻す」を押す', ok: '担当完了になり、元に戻すで進行中に戻る', ng: '' },
+    { do: 'カードをドラッグ中に出る下の「中止」の帯に落とし、「元に戻す」を押す', ok: '中止になり、元に戻る。帯がドロップ後に消える', ng: '' },
+    { do: 'カードの ☆ を押して ★ 優先にし、もう一度押して外す', ok: 'Redmine の優先度が「高め」→「通常」に変わる', ng: '☆ が出ない → 優先度の一覧が読めていない（中継が v14 か確認）。優先度が変わらない → 優先度を変える権限がない' },
+  ]},
+  { key: '2', title: '編集・新規タスク', time: '4分', where: 'カードをクリックすると編集画面、右上の「＋ 新規タスク」で新規。', items: [
+    { do: '練習カードの編集で、本来の締切と作業完了予定を入れて保存', ok: 'Redmine の件名の先頭に【M/D】、期日に作業完了予定が入る', ng: '「反映されなかった項目があります」→ その項目を変える権限がない（ワークフロー → フィールドに対する権限）' },
+    { do: '説明に https:// で始まる URL を 2 つ書く', ok: '説明欄の下に「リンク1」「リンク2」が出て、押すと別タブで開く', ng: '' },
+    { do: '新規タスクで担当のチェックを外し、件名だけ入れて「未整理に登録」', ok: '「未整理」タブの件数が 1 増え、そこにチケットがある', ng: '' },
+    { do: '新規タスクの「＋ 新しいバージョン」で練習用のバージョンを作る', ok: 'Redmine に「番号_カテゴリ-個別名」の形でバージョンができる', ng: '権限のエラー → 自分の役割に「バージョンの管理」がない（上司に作ってもらう）' },
+  ]},
+  { key: '3', title: '未整理から課題バラシへ', time: '3分', where: '2-3 で作った未整理のチケットを使います。', items: [
+    { do: '未整理でそのチケットを選び、バージョンを選んで「課題バラシで分解する」', ok: '課題バラシに切り替わり、そのチケットが親の枠として出る', ng: '' },
+    { do: '親の下の ＋ で子を 1 つ作り、「＋ ここに追加」でもう 1 つ作る', ok: 'Redmine で親の下に子チケットが 2 つ。未整理からその親が消える', ng: '子が作れない → 親チケットの設定（親チケットの使用）がプロジェクトで無効' },
+  ]},
+  { key: '4', title: '課題バラシ（矢印と日程）', time: '5分', where: '3 で作った子 2 つを使います。Redmine の「関連するチケット」とガントチャートを見比べます。', items: [
+    { do: '子 A の右の ＋ で、後ろに仕事 B を作る', ok: 'A → B の矢印。Redmine の A の関連に「次のチケットに先行: B」', ng: '関連が作れない → 「関連するチケットの管理」の権限がない' },
+    { do: 'A の「予定工数 ＋」で「2日」を押す（工数を入れたら日程も反映 がオン）', ok: 'A と B に 📅 が出る。Redmine で A の開始日・期日、B の開始日（A の翌営業日から）と期日が入る', ng: '「開始日」のエラー → 先行の期日より前の開始日。結果をコピーして送ってください' },
+    { do: 'Redmine のガントチャートでこの親チケットを見る', ok: 'A から B へ矢印、日付の並びがボードと同じ', ng: '' },
+    { do: 'B のステータス表示を押して 20% にし、担当者名を押して担当を変えて戻す', ok: 'Redmine に反映。ステータスでは作業時間の選択肢も出る', ng: '' },
+    { do: 'A → B の矢印をクリックして外し、「元に戻す」を押す', ok: 'Redmine の関連が消え、元に戻すで復活する', ng: '' },
+    { do: '箱をダブルクリックして編集画面を開き、件名を変えて保存', ok: '箱の名前が変わり、Redmine にも反映', ng: '' },
+  ]},
+  { key: '5', title: '作業順と余裕', time: '3分', where: '自分のタブで。並び替えは自分の進行中・未着手の日程をまとめて書き直すので、最後に必ず「元に戻す」。', items: [
+    { do: '「並び: いつもの順」で、未着手の練習カードを上下にドラッグ', ok: 'カードに「着手 M/D」が出る。Redmine の開始日・期日が順番どおりに入る', ng: '途中でエラー → 何件目まで保存できたかがメッセージに出るので、そのまま送ってください' },
+    { do: '再読み込みして順番が残っているのを見たら、トーストの「元に戻す」を押す（消えていたら次の項目で戻す）', ok: '順番が残り、元に戻すで日付が元に戻る', ng: '' },
+    { do: '「並び: 余裕が少ない順」に切り替える', ok: '01 のバージョンが上、カードに「余裕 N日」。並び替えのドラッグは「できません」と出る', ng: '' },
+  ]},
+  { key: '6', title: '詰まりのサイン', time: '2分', where: '4 で作った A → B を使います。', items: [
+    { do: '自分のタブで B のカードを見る', ok: '「⏳ 待ち: 自分「A の件名」」と出る。サマリーの「待ち」が 1 以上', ng: '出ない → 一覧の問い合わせでつながりが返っていない可能性。結果を送ってください' },
+    { do: 'A を「担当完了」にして、B を見る（B が未着手のとき）', ok: 'B に「✓ 前の仕事が終わりました。着手できます」', ng: '' },
+    { do: '進行中が 6 件以上ある人のタブを開く（いなければ飛ばす）', ok: '進行中の見出しに「上限5件を超えています」', ng: '' },
+  ]},
+  { key: '7', title: '全体と工数の集計', time: '2分', where: '', items: [
+    { do: '「全体」タブを開く', ok: 'タイルが 5 つ（締切超過〜止まっている仕事）。積み木とタイムラインが切り替わる', ng: '' },
+    { do: '「工数」→「月の集計」→「チーム全員」→「CSV で保存」', ok: 'kousu_YYYY-MM_team.csv が保存され、Excel で開いて文字化けしない', ng: '他の人の分が出ない → 「作業時間の閲覧」権限がない' },
+  ]},
+  { key: '8', title: 'メンバーの権限（メンバーに手伝ってもらう）', time: '5分', where: 'メンバーの PC で、その人のアカウントで操作してもらいます。', items: [
+    { do: 'メンバーの PC でも共有フォルダの py をダブルクリックし、版を確認', ok: '「中継プログラム: v14」', ng: '' },
+    { do: 'メンバーが自分の練習カードを進捗 20 にし、1h を記録', ok: 'ステータスと作業時間が Redmine に入る', ng: '' },
+    { do: 'メンバーがカードを「上司完了」に動かそうとする', ok: '「上司だけができます」と出て動かない', ng: '動いてしまう → Redmine のワークフローで上司以外の「完了（確認済）」を禁止する' },
+    { do: 'メンバーが課題バラシで矢印をつなぐ・予定工数を入れる', ok: 'Redmine に関連と日程が入る', ng: '権限のエラー → メンバーの役割に「関連するチケットの管理」「チケットの編集」があるか' },
+  ]},
+  { key: '9', title: '片付け', time: '1分', where: '', items: [
+    { do: '練習用のチケットとバージョンを片付ける（中止にするか、Redmine で削除）', ok: '本番のボードに練習用が残っていない', ng: '' },
+  ]},
+];
+
+const KEY = 'realCheck.v14';
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) { saved = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (_) { /* 保存できなくても続ける */ } };
+const $ = id => document.getElementById(id);
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : String(c));
+  return e;
+}
+
+function render() {
+  const list = $('list');
+  list.replaceChildren(...GROUPS.map(g => el('section', { class: 'grp', 'aria-label': g.title },
+    el('h2', {}, `${g.key}. ${g.title}`, el('span', { class: 'tm' }, `約${g.time}`)),
+    g.where ? el('p', { class: 'where' }, g.where) : null,
+    ...g.items.map((it, k) => {
+      const id = `${g.key}-${k + 1}`;
+      const st = (saved[id] || {}).st || '';
+      const note = el('textarea', { class: 'note', id: `note-${id}`, placeholder: 'メモ（気づいたこと、出たメッセージなど）', 'aria-label': `${id} のメモ` });
+      note.value = (saved[id] || {}).note || '';
+      note.addEventListener('input', () => { saved[id] = { ...(saved[id] || {}), note: note.value }; save(); });
+      const tip = it.ng ? el('p', { class: 'tip', hidden: st !== 'ng' }, `NG のとき: ${it.ng}`) : null;
+      const mk = (val, label) => el('button', { type: 'button', class: val, 'aria-pressed': String(st === val),
+        onclick: () => { saved[id] = { ...(saved[id] || {}), st: st === val ? '' : val }; save(); render(); } }, label);
+      return el('div', { class: 'item' + (st === 'ok' ? ' is-ok' : st === 'ng' ? ' is-ng' : '') },
+        el('span', { class: 'no' }, id),
+        el('div', { class: 'body' },
+          el('span', { class: 'do' }, it.do),
+          el('span', { class: 'ok-if' }, el('b', {}, 'OK:'), it.ok),
+          tip, note),
+        el('div', { class: 'mark', role: 'group', 'aria-label': `${id} の結果` }, mk('ok', 'OK'), mk('ng', 'NG'), mk('skip', '飛ばす')));
+    }))));
+  const all = GROUPS.flatMap(g => g.items.map((_, k) => `${g.key}-${k + 1}`));
+  const done = all.filter(id => (saved[id] || {}).st).length;
+  $('cDone').textContent = `${done} / ${all.length}`;
+  $('cOk').textContent = `OK ${all.filter(id => (saved[id] || {}).st === 'ok').length}`;
+  $('cNg').textContent = `NG ${all.filter(id => (saved[id] || {}).st === 'ng').length}`;
+  $('barFill').style.width = `${Math.round((done / all.length) * 100)}%`;
+}
+
+function reportText() {
+  const lines = ['タスクボード v14 実環境チェックの結果'];
+  let ng = 0, notes = 0, open = 0;
+  for (const g of GROUPS) g.items.forEach((it, k) => {
+    const id = `${g.key}-${k + 1}`, r = saved[id] || {};
+    if (!r.st) open++;
+    if (r.st === 'ng' || (r.note && r.note.trim())) {
+      lines.push('', `[${r.st === 'ng' ? 'NG' : r.st === 'ok' ? 'OK' : r.st === 'skip' ? '飛ばした' : '未確認'}] ${id} ${it.do}`);
+      if (r.note && r.note.trim()) lines.push(`  メモ: ${r.note.trim().replace(/\n/g, ' / ')}`);
+      if (r.st === 'ng') ng++; else notes++;
+    }
+  });
+  const total = GROUPS.reduce((n, g) => n + g.items.length, 0);
+  lines.splice(1, 0, `確認 ${total - open} / ${total} 項目、NG ${ng} 件`);
+  if (!ng && !notes) lines.push('', 'NG・メモはありません。');
+  return lines.join('\n');
+}
+
+$('copyBtn').addEventListener('click', () => {
+  const text = reportText();
+  const area = $('reportText');
+  area.value = text;
+  const done = () => { $('copied').hidden = false; setTimeout(() => { $('copied').hidden = true; }, 2500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => { area.focus(); area.select(); });
+  } else { area.focus(); area.select(); }
+});
+$('resetBtn').addEventListener('click', () => { $('resetConfirm').hidden = false; $('resetYes').focus(); });
+$('resetNo').addEventListener('click', () => { $('resetConfirm').hidden = true; });
+$('resetYes').addEventListener('click', () => { saved = {}; save(); $('resetConfirm').hidden = true; $('reportText').value = ''; render(); });
+
+render();
+$('reportText').value = reportText();
+</script>
