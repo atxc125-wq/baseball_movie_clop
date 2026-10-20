@@ -470,6 +470,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(820px, 100%); }
 .hours .seg { align-self: flex-start; }
+.hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
+.hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
+.hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
 .hours .day-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .hours .day-head input[type="date"], .hours select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
 .hours .total { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
@@ -852,6 +855,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <div class="after"><b>これから</b>進捗ボタンを押すと右下に時間が出るので、近いものを1回押すだけ。</div>
       </div>
       <p>出てくるのは <span class="ui">0.5h</span> <span class="ui">1h</span> <span class="ui">2h</span> <span class="ui">4h</span> <span class="ui">1日</span> <span class="ui">記録しない</span>。押さなければ何も記録されません。</p>
+      <p>ほかの人のカードを動かしたときは、<strong>担当者の作業時間</strong>として記録します（「伊藤さんの今回の作業時間は？」）。手伝った分を自分の時間で入れたいときは、カードの編集画面で <span class="ui">自分（手伝った分）</span> を選んでください。</p>
       <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
       <ul>
         <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>
@@ -943,7 +947,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-19 23:05'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-20 09:48'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1223,9 +1227,9 @@ function createMockApi(getMockUserId) {
       await wait(200);
       return entries.filter(e => e.spent_on >= from && e.spent_on <= to && (!userId || e.user.id === userId)).map(clone);
     },
-    async createTimeEntry({ issueId, hours, spentOn, comments }) {
+    async createTimeEntry({ issueId, hours, spentOn, comments, userId }) {
       await wait(150);
-      const uid = getMockUserId();
+      const uid = userId || getMockUserId();
       const e = { id: entries.length + 1, project: { id: 1, name: 'チーム' }, issue: { id: issueId }, user: { id: uid, name: users[uid] },
         activity: { id: 9, name: '設計' }, hours, comments: comments || '', spent_on: spentOn };
       entries.push(e);
@@ -1416,11 +1420,24 @@ function createRedmineApi(baseUrl, apiKey) {
         if (!j.time_entries.length || offset >= j.total_count) return out;
       }
     },
-    async createTimeEntry({ issueId, hours, spentOn, comments }) {
+    // userId を渡すとその人の作業時間として記録する（Redmine のロールに「他のユーザーの作業時間を記録」が必要）
+    async createTimeEntry({ issueId, hours, spentOn, comments, userId }) {
       const activity = await defaultActivity();
       const body = { issue_id: issueId, hours, spent_on: spentOn, comments: comments || '' };
       if (activity) body.activity_id = activity;
-      const j = await req('/time_entries.json', { method: 'POST', body: JSON.stringify({ time_entry: body }) });
+      if (userId) body.user_id = userId;
+      let j;
+      try { j = await req('/time_entries.json', { method: 'POST', body: JSON.stringify({ time_entry: body }) }); }
+      catch (e) {
+        if (userId && /\((403|422)\)/.test(e.message)) {
+          throw new Error(`ほかの人の作業時間として記録する権限がないようです（Redmine のロールで「他のユーザーの作業時間を記録」を許可してもらってください）。${e.message}`);
+        }
+        throw e;
+      }
+      // 古い Redmine は user_id を無視して自分の時間にしてしまうので確かめる
+      if (userId && j.time_entry && j.time_entry.user && j.time_entry.user.id !== userId) {
+        throw new Error(`#${issueId} の作業時間は、担当者ではなくあなた（${j.time_entry.user.name}）の時間として記録されました。この Redmine ではほかの人の時間として記録できません。必要なら Redmine で直してください`);
+      }
       return j.time_entry;
     },
     async issuesTouchedOn(userId, date) {
@@ -2023,6 +2040,8 @@ function renderSummary(visible) {
     boardSortControls()].filter(Boolean));
 }
 
+// チームのメンバー（または自分）か。担当がグループなどのときは作業時間を聞かない
+const isTeamMember = uid => (state.me && uid === state.me.id) || CONFIG.members.some(m => m.id === uid);
 function memberList() {
   return CONFIG.members.some(m => m.id === state.me.id) ? CONFIG.members : [{ id: state.me.id, name: state.me.name }, ...CONFIG.members];
 }
@@ -2761,6 +2780,13 @@ async function openEditor(id) {
   const fp = flagPriority();
   const flagBox = fp ? h('input', { type: 'checkbox', id: 'eFlag', checked: isFlagged(issue) }) : null;
   const chain = ancestors(issue);
+  // 作業時間をだれの時間として記録するか（ほかの人の仕事なら既定は担当者）
+  const other = issue.assigned_to && state.me && issue.assigned_to.id !== state.me.id && isTeamMember(issue.assigned_to.id);
+  let hoursFor = other ? issue.assigned_to : state.me;
+  const setWho = (e, u) => {
+    hoursFor = u;
+    e.currentTarget.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === e.currentTarget)));
+  };
 
   form.replaceChildren(...[   // null を渡すと「null」と出るので filter(Boolean)
     h('div', { class: 'head' },
@@ -2771,12 +2797,15 @@ async function openEditor(id) {
       chain.length ? h('span', {}, `親: ${chain.join(' › ')}`) : null),
     ...f.rows('説明'),
     h('div', { class: 'field' },
-      h('span', { class: 'label' }, issue.assigned_to && state.me && issue.assigned_to.id !== state.me.id
-        ? `作業時間を記録（${issue.assigned_to.name.split(/[ 　]/)[0]}さんの仕事に、自分の作業時間として）` : '作業時間を記録（今日）'),
+      h('span', { class: 'label' }, '作業時間を記録（今日）'),
+      // ほかの人の仕事: 既定は担当者の作業時間。手伝った分は「自分」に切り替えて記録する
+      other ? h('div', { class: 'seg hours-who', role: 'group', 'aria-label': 'だれの作業時間か' },
+        h('button', { type: 'button', 'aria-pressed': 'true', onclick: e => setWho(e, issue.assigned_to) }, `${firstName(issue.assigned_to)}さん（担当）`),
+        h('button', { type: 'button', 'aria-pressed': 'false', onclick: e => setWho(e, state.me) }, '自分（手伝った分）')) : null,
       h('div', { class: 'checks' }, [...CONFIG.hourChoices, CONFIG.hoursPerDay].map(n => h('button', { type: 'button', class: 'btn-mini',
         onclick: async e => {
           const b = e.currentTarget; b.disabled = true;
-          try { await recordHours(issue.id, n, isoDate(startOfToday()), 'ボードから記録'); toast(`#${issue.id} に ${fmtH(n)} を記録しました（${state.me.name}）`); }
+          try { await recordHours(issue.id, n, isoDate(startOfToday()), 'ボードから記録', hoursFor); toast(`#${issue.id} に ${fmtH(n)} を記録しました（${hoursFor.name}）`); }
           catch (err) { toast(`作業時間を記録できませんでした。${err.message}`, { error: true }); }
           finally { b.disabled = false; }
         } }, `+${hoursLabel(n)}`)))),
@@ -3157,7 +3186,7 @@ async function changeStatus(id, statusId, { undoable = false } = {}) {
     const undo = undoable ? () => changeStatus(id, prev.status.id) : null;
     toast(`#${id} を「${next.name}」にしました`, { action: undo && { label: '元に戻す', run: undo } });
     if (issue.parent) syncParentsAndReport(issue.parent.id);
-    if (settings.askHours !== false && issue.assigned_to && issue.assigned_to.id === state.me.id && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
+    if (settings.askHours !== false && issue.assigned_to && isTeamMember(issue.assigned_to.id) && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
   } catch (e) {
     issue.status = prev.status;
     issue.done_ratio = prev.done_ratio;
@@ -3262,24 +3291,31 @@ async function sweepParents() {
 const fmtH = n => `${Math.round(n * 100) / 100}h`;
 const hoursLabel = n => (n === CONFIG.hoursPerDay ? `1日(${n}h)` : fmtH(n));
 
-async function recordHours(issueId, hours, spentOn, comments) {
-  await api.createTimeEntry({ issueId, hours, spentOn, comments });
+// forUser: だれの作業時間として記録するか（{ id, name }、省略または自分なら自分）
+async function recordHours(issueId, hours, spentOn, comments, forUser) {
+  const userId = forUser && state.me && forUser.id !== state.me.id ? forUser.id : undefined;
+  await api.createTimeEntry({ issueId, hours, spentOn, comments, userId });
 }
+const firstName = u => u.name.split(/[ 　]/)[0];   // 「高橋 健」→「高橋」
 
 function askHours(issue, statusName) {
   document.querySelectorAll('.toast.ask').forEach(el => el.remove());   // 聞くのは最新の 1 件だけ
   const subject = parseTitle(issue.subject).text;
   const el = h('div', { class: 'toast ask', role: 'status' });
   const close = () => el.remove();
+  // 担当者の作業時間として記録する（上司が代わりに動かしたときも担当者の時間になる）
+  const who = issue.assigned_to;
+  const other = who && state.me && who.id !== state.me.id;
   const pick = async hrs => {
     close();
     try {
-      await recordHours(issue.id, hrs, isoDate(startOfToday()), `ボードから記録（${statusName}）`);
-      toast(`#${issue.id} に ${fmtH(hrs)} を記録しました`);
+      await recordHours(issue.id, hrs, isoDate(startOfToday()), `ボードから記録（${statusName}）`, who);
+      toast(`#${issue.id} に ${fmtH(hrs)} を記録しました${other ? `（${firstName(who)}さんの作業時間）` : ''}`);
     } catch (e) { toast(`作業時間を記録できませんでした。${e.message}`, { error: true }); }
   };
   el.append(
-    h('span', { class: 'q' }, `#${issue.id} `, h('b', {}, subject.length > 24 ? subject.slice(0, 24) + '…' : subject), ' — 今回の作業時間は？'),
+    h('span', { class: 'q' }, `#${issue.id} `, h('b', {}, subject.length > 24 ? subject.slice(0, 24) + '…' : subject),
+      other ? ` — ${firstName(who)}さんの今回の作業時間は？` : ' — 今回の作業時間は？'),
     h('span', { class: 'chips' },
       [...CONFIG.hourChoices, CONFIG.hoursPerDay].map(n => h('button', { type: 'button', onclick: () => pick(n) }, hoursLabel(n))),
       h('button', { type: 'button', class: 'skip', onclick: close }, '記録しない')));
@@ -3805,8 +3841,8 @@ async function bSetStatus(issue, statusId) {
     const b = statusById[before];
     await api.updateIssue(issue.id, { status_id: before, ...(CONFIG.syncDoneRatio && b && b.ratio != null ? { done_ratio: b.ratio } : {}) });
   });
-  // 自分の仕事を進めたら、ボードと同じく作業時間を聞く
-  if (settings.askHours !== false && issue.assigned_to && state.me && issue.assigned_to.id === state.me.id && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
+  // 仕事を進めたら、ボードと同じく担当者の作業時間を聞く
+  if (settings.askHours !== false && issue.assigned_to && state.me && isTeamMember(issue.assigned_to.id) && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
 }
 
 function bOpenEst(issue, anchor) {

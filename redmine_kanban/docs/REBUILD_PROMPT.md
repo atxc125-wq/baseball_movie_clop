@@ -216,10 +216,10 @@ redmine_kanban/
 - **親チケットのまとめての見直し（sweepParents）は上司が全体を開いたときだけ**（メンバーは「完了（確認済）」を付けられずエラーになる）。10 分に 1 回まで、裏で。
 
 ### 5.10 工数
-- 自分のカードを進行中・担当完了にしたら、右下に「#番号 件名 — 今回の作業時間は？ [0.5h][1h][2h][4h][1日(8h)][記録しない]」（20 秒で消える。最新 1 件だけ）。押すとその日の作業時間を記録、コメント「ボードから記録（ステータス名）」。接続設定でオフにできる。
+- チームのメンバー（か自分）のカードを進行中・担当完了にしたら、右下に「#番号 件名 — 今回の作業時間は？（ほかの人のカードなら「— 伊藤さんの今回の作業時間は？」） [0.5h][1h][2h][4h][1日(8h)][記録しない]」（20 秒で消える。最新 1 件だけ）。押すとその日の**担当者の**作業時間を記録（自分以外なら `user_id` を付ける。403/422 は「ほかの人の作業時間として記録する権限がないようです（Redmine のロールで「他のユーザーの作業時間を記録」…）」、返ってきた user が違えば「…あなたの時間として記録されました」とエラー）、コメント「ボードから記録（ステータス名）」。接続設定でオフにできる。
 - `工数` ダイアログ:
   - 日々の記録: 日付（今日まで）、その日に動かしたチケット＋その日に記録済みのチケットを並べ、`+0.5 +1 +2 +4` と数値欄で追加。合計／8h のバー（超えたら黄）。「ほかのチケットを追加…」は optgroup「自分の仕事」「ほかの人の仕事（自分の作業時間として記録）」（`teamIssues`、担当名つき、ダイアログを開くたびに読み直す）＋ `#番号` 欄と「追加」（`getIssue` で確かめる）。担当が自分でない行には「担当: ○○」。`記録する`。修正・削除は Redmine で。
-  - 編集画面にも「作業時間を記録（今日）」（ほかの人の仕事なら「（○○さんの仕事に、自分の作業時間として）」）: `+0.5h +1h +2h +4h +1日(8h)` で即記録。
+  - 編集画面にも「作業時間を記録（今日）」: ほかの人の仕事なら切替「○○さん（担当）」（既定）／「自分（手伝った分）」。`+0.5h +1h +2h +4h +1日(8h)` で即記録。
   - 月の集計: 月（今月〜3か月前）、自分 / チーム全員、バージョン別 / プロジェクト別。表（行 = 個別名＋正式名、列 = 人、合計）。`CSV で保存`（BOM 付き UTF-8、CRLF、**ファイル名は ASCII `kousu_YYYY-MM[_team].csv`**。日本語名は環境によって無視される）。
 
 ### 5.11 課題バラシ
@@ -792,6 +792,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(820px, 100%); }
 .hours .seg { align-self: flex-start; }
+.hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
+.hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
+.hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
 .hours .day-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .hours .day-head input[type="date"], .hours select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
 .hours .total { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
@@ -1178,6 +1181,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <div class="after"><b>これから</b>進捗ボタンを押すと右下に時間が出るので、近いものを1回押すだけ。</div>
       </div>
       <p>出てくるのは <span class="ui">0.5h</span> <span class="ui">1h</span> <span class="ui">2h</span> <span class="ui">4h</span> <span class="ui">1日</span> <span class="ui">記録しない</span>。押さなければ何も記録されません。</p>
+      <p>ほかの人のカードを動かしたときは、<strong>担当者の作業時間</strong>として記録します（「伊藤さんの今回の作業時間は？」）。手伝った分を自分の時間で入れたいときは、カードの編集画面で <span class="ui">自分（手伝った分）</span> を選んでください。</p>
       <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
       <ul>
         <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>

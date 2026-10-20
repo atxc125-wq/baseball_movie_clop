@@ -462,6 +462,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(820px, 100%); }
 .hours .seg { align-self: flex-start; }
+.hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
+.hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
+.hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
 .hours .day-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .hours .day-head input[type="date"], .hours select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
 .hours .total { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
