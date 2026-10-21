@@ -912,6 +912,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.3</b><span>2026-10-22</span></dt>
+        <dd><ul><li>課題バラシで箱を動かしたあとの読み込みを速くしました（変えたチケットとその親だけを読み直します）</li></ul></dd>
         <dt><b>v15.2</b><span>2026-10-21</span></dt>
         <dd><ul><li>前後をつなごうとして「すでに関連したチケットがあります」と断られたとき、邪魔しているつながりを見せて <span class="ui">外して前後にする</span> でつなぎ直せるようにしました</li><li>カードの編集画面に「つながり」の一覧と <span class="ui">外す</span> を追加（ボードに出ない「関連している」なども見えます）</li></ul></dd>
         <dt><b>v15.1</b><span>2026-10-20</span></dt>
@@ -2822,6 +2824,7 @@ async function loadEditorRels(id, box) {
           try {
             await api.removeRelation(v.r.id);
             state.editorSaved = true;   // 閉じたら読み直す
+            (state.editorTouched = state.editorTouched || new Set()).add(v.otherId);
             toast(`#${id} と #${v.otherId} の「${v.name}」を外しました`);
           } catch (err) { toast(`外せませんでした。${err.message}`, { error: true }); }
           loadEditorRels(id, box);
@@ -2869,7 +2872,9 @@ async function openEditor(id) {
       h('div', { class: 'checks' }, [...CONFIG.hourChoices, CONFIG.hoursPerDay].map(n => h('button', { type: 'button', class: 'btn-mini',
         onclick: async e => {
           const b = e.currentTarget; b.disabled = true;
-          try { await recordHours(issue.id, n, isoDate(startOfToday()), 'ボードから記録', hoursFor); toast(`#${issue.id} に ${fmtH(n)} を記録しました（${hoursFor.name}）`); }
+          try { await recordHours(issue.id, n, isoDate(startOfToday()), 'ボードから記録', hoursFor);
+            if (state.view === BARA) { B.spent.delete(issue.id); issue.spent_hours = null; state.editorSaved = true; }   // 実績を読み直す
+            toast(`#${issue.id} に ${fmtH(n)} を記録しました（${hoursFor.name}）`); }
           catch (err) { toast(`作業時間を記録できませんでした。${err.message}`, { error: true }); }
           finally { b.disabled = false; }
         } }, `+${hoursLabel(n)}`)))),
@@ -2923,7 +2928,11 @@ async function openEditor(id) {
 function closeEditor() {
   $('editor').hidden = true;
   // 課題バラシから開いて保存したときは読み直す（担当・バージョンが変わると範囲から外れることがあるため）
-  if (state.view === BARA) { if (state.editorSaved) { state.editorSaved = false; bReload(); } else renderBara(); }
+  // 課題バラシ: 編集したチケット（とつながりを外した相手）だけ読み直す
+  if (state.view === BARA) {
+    if (state.editorSaved) { state.editorSaved = false; bReloadSome([B.lastEditor, ...(state.editorTouched || [])]); } else renderBara();
+    state.editorTouched = null;
+  }
   const card = document.querySelector(`.card[data-id="${$('editorForm').dataset.id || ''}"]`);
   if (card) card.focus();
 }
@@ -3583,7 +3592,8 @@ async function renderHoursMonth(slot) {
  * 9d. 課題バラシ（親子 = 枠の入れ子、前後 = Redmine の「先行」を矢印で）
  *   範囲はバージョン 1 つか、親チケット 1 つ。予定工数を入れると「一番長い流れ」を時間で出す
  * ===================================================================== */
-state.bara = { scope: null, issues: new Map(), rels: [], outside: new Map(), collapsed: new Set(), selected: null, editing: null, temp: null, busy: false };
+state.bara = { scope: null, issues: new Map(), rels: [], outside: new Map(), collapsed: new Set(), selected: null, editing: null, temp: null, busy: false,
+  cancelled: new Set(), others: new Map(), spent: new Map() };   // spent: 実績工数の控え（読み直しのたびに全件読まないように）
 const B = state.bara;
 const bKids = id => [...B.issues.values()].filter(i => i.parent && i.parent.id === id);
 const bTop = () => [...B.issues.values()].filter(i => !i.parent || !B.issues.has(i.parent.id));
@@ -3632,6 +3642,8 @@ async function loadBara() {
     for (let k = 0; k < list.length; k += 4) details.push(...await Promise.all(list.slice(k, k + 4).map(i => api.issueDetail(i.id))));
   }
   B.issues = new Map(details.filter(i => colOf(i) !== 'cancelled').map(i => [i.id, i]));
+  B.cancelled = cancelled;
+  B.others = new Map();
   // 担当者ごとの表示: その人のタスクが入っている親（プロジェクト側の枠）も、文脈として読み込む（チケットは増やさない）
   if (B.scope.kind === 'user') {
     for (let depth = 0; depth < 4; depth++) {
@@ -3640,29 +3652,73 @@ async function loadBara() {
       for (const ctx of await api.issuesByIds(missing)) B.issues.set(ctx.id, { ...ctx, ctx: true });
     }
   }
+  await bBuildRels();
+  B.temp = null; B.editing = null;
+  bLoadSpent();
+}
+
+// 前後のつながりを、読み込んだチケットの relations から組み立てる（中止したものとのつながりは数えない）
+async function bBuildRels() {
   const rels = new Map(), outside = new Map();
-  for (const i of details) for (const r of i.relations || []) {
+  for (const i of B.issues.values()) for (const r of i.relations || []) {
     let from, to;
     if (r.relation_type === 'precedes') { from = r.issue_id; to = r.issue_to_id; }
     else if (r.relation_type === 'follows') { from = r.issue_to_id; to = r.issue_id; }
     else continue;
-    if (cancelled.has(from) || cancelled.has(to)) continue;   // 中止したものとのつながりは数えない
+    if (B.cancelled.has(from) || B.cancelled.has(to)) continue;
     if (B.issues.has(from) && B.issues.has(to)) rels.set(r.id, { id: r.id, from, to });
     else outside.set(r.id, { id: r.id, from, to });
   }
   B.rels = [...rels.values()];
-  // 範囲の外の仕事とのつながりは、相手の件名・担当まで出す（「伊藤さんの○○待ち」が分かるように）
+  // 範囲の外の仕事とのつながりは、相手の件名・担当まで出す（「伊藤さんの○○待ち」が分かるように）。読んだ相手は控えておく
   B.outside = new Map();
-  const otherIds = [...new Set([...outside.values()].map(r => (B.issues.has(r.from) ? r.to : r.from)))];
-  const others = new Map();
-  if (otherIds.length) { try { for (const o of await api.issuesByIds(otherIds)) others.set(o.id, o); } catch (_) { /* 読めなければ番号だけ出す */ } }
+  const otherIds = [...new Set([...outside.values()].map(r => (B.issues.has(r.from) ? r.to : r.from)))].filter(id => !B.others.has(id));
+  if (otherIds.length) { try { for (const o of await api.issuesByIds(otherIds)) B.others.set(o.id, o); } catch (_) { /* 読めなければ番号だけ出す */ } }
   for (const r of outside.values()) {
     const inside = B.issues.has(r.from) ? r.from : r.to, otherId = inside === r.from ? r.to : r.from;
-    const other = others.get(otherId);
+    const other = B.others.get(otherId);
     if (other && colOf(other) === 'cancelled') continue;
     if (!B.outside.has(inside)) B.outside.set(inside, []);
     B.outside.get(inside).push({ rel: r, dir: inside === r.to ? 'before' : 'after', other: other || { id: otherId, subject: `#${otherId}`, status: { id: 0 } } });
   }
+}
+
+// 範囲に入るチケットか（部分的に読み直したときに、範囲から外れたものを消すため）
+function bInScope(i) {
+  if (B.scope.kind === 'version') return !!(i.fixed_version && i.fixed_version.id === B.scope.id);
+  if (B.scope.kind === 'user') return !!(i.assigned_to && i.assigned_to.id === B.scope.id);
+  for (let x = i, g = 0; x && g < 20; x = x.parent ? B.issues.get(x.parent.id) : null, g++) if (x.id === B.scope.id) return true;
+  return false;
+}
+// 変えたチケットと、その親・祖先（Redmine が子から日付や進捗を計算し直す）だけを 1 回の問い合わせで読み直す。
+// 全部を読み直すより速い。うまくいかなければ全部読み直す
+async function bRefresh(ids) {
+  const want = new Set();
+  for (const id of ids) {
+    if (!(id > 0)) continue;
+    for (let x = B.issues.get(id) || { id }, g = 0; x && g < 20; x = x.parent ? (B.issues.get(x.parent.id) || { id: x.parent.id }) : null, g++) want.add(x.id);
+  }
+  if (!want.size) return;
+  const got = await api.issuesByIds([...want], 'relations');
+  if (!got.every(i => Array.isArray(i.relations))) { await loadBara(); return; }
+  const seen = new Set();
+  for (const i of got) {
+    seen.add(i.id);
+    const old = B.issues.get(i.id);
+    if (colOf(i) === 'cancelled') { B.cancelled.add(i.id); B.issues.delete(i.id); continue; }
+    B.cancelled.delete(i.id);
+    if (old && old.spent_hours != null) i.spent_hours = old.spent_hours;
+    if (bInScope(i)) B.issues.set(i.id, i);
+    else if (B.scope.kind === 'user' && [...B.issues.values()].some(x => x.parent && x.parent.id === i.id)) B.issues.set(i.id, { ...i, ctx: true });
+    else B.issues.delete(i.id);
+  }
+  for (const id of want) if (!seen.has(id)) B.issues.delete(id);   // 見えなくなった（削除・権限）
+  // 担当者ごとの表示: 新しく入った親（枠）を文脈として足す
+  if (B.scope.kind === 'user') {
+    const missing = [...new Set([...B.issues.values()].filter(i => i.parent && !B.issues.has(i.parent.id)).map(i => i.parent.id))];
+    if (missing.length) for (const ctx of await api.issuesByIds(missing)) B.issues.set(ctx.id, { ...ctx, ctx: true });
+  }
+  await bBuildRels();
   B.temp = null; B.editing = null;
   bLoadSpent();
 }
@@ -3671,11 +3727,12 @@ async function loadBara() {
 let bSpentRun = 0;
 async function bLoadSpent() {
   const run = ++bSpentRun;
+  for (const i of B.issues.values()) if (i.spent_hours == null && B.spent.has(i.id)) i.spent_hours = B.spent.get(i.id);
   const todo = [...B.issues.values()].filter(i => !i.ctx && i.spent_hours == null && !bKids(i.id).length).map(i => i.id);
   for (let k = 0; k < todo.length; k += 3) {
     const got = await Promise.all(todo.slice(k, k + 3).map(id => api.issueDetail(id).catch(() => null)));
     if (run !== bSpentRun) return;   // 範囲を切り替えた
-    for (const d of got) if (d && B.issues.has(d.id)) B.issues.get(d.id).spent_hours = d.spent_hours || 0;
+    for (const d of got) if (d) { B.spent.set(d.id, d.spent_hours || 0); if (B.issues.has(d.id)) B.issues.get(d.id).spent_hours = d.spent_hours || 0; }
   }
   if (run === bSpentRun && todo.length && state.view === BARA && !B.busy && B.editing == null && !bPop) renderBara();
 }
@@ -4239,13 +4296,46 @@ function bDrawArrows(cp) {
 window.addEventListener('resize', () => { if (state.view === BARA) bDrawArrows(); });
 
 /* ---- 課題バラシの操作（Redmine に書いてから画面を更新する） ---- */
+async function bReloadSome(ids) {
+  B.busy = true; renderBara();
+  try { await bRefresh(ids); }
+  catch (_) { try { await loadBara(); } catch (e) { toast(e.message, { error: true }); } }
+  B.busy = false; renderBara();
+}
 async function bReload() {
   B.busy = true; renderBara();
   try { await loadBara(); } catch (e) { toast(e.message, { error: true }); }
   B.busy = false; renderBara();
 }
+// 課題バラシの操作の中で書き換えたチケットを控える（操作のあとに、そこだけ読み直すため）
+function bTracking(touched) {
+  const real = api;
+  const relEnds = relId => { for (const i of B.issues.values()) for (const r of i.relations || []) if (r.id === relId) return [r.issue_id, r.issue_to_id]; return []; };
+  return new Proxy(real, { get(t, k) {
+    const f = t[k];
+    if (typeof f !== 'function') return f;
+    if (k === 'updateIssue') return async (id, fields) => {
+      touched.add(id);
+      const old = B.issues.get(id);
+      if ('parent_issue_id' in fields) { if (old && old.parent) touched.add(old.parent.id); if (fields.parent_issue_id) touched.add(Number(fields.parent_issue_id)); }
+      return f.call(t, id, fields);
+    };
+    if (k === 'addRelation') return async (from, to) => { touched.add(from); touched.add(to); return f.call(t, from, to); };
+    if (k === 'removeRelation') return async relId => { relEnds(relId).forEach(x => touched.add(x)); return f.call(t, relId); };
+    if (k === 'createIssue') return async (pid, fields) => {
+      const c = await f.call(t, pid, fields);
+      touched.add(c.id); if (fields.parent_issue_id) touched.add(Number(fields.parent_issue_id));
+      return c;
+    };
+    if (k === 'createTimeEntry') return async e => { B.spent.delete(e.issueId); const old = B.issues.get(e.issueId); if (old) old.spent_hours = null; touched.add(e.issueId); return f.call(t, e); };
+    return f.bind(t);
+  } });
+}
 async function bRun(fn, okMsg, undo) {
   B.busy = true; renderBara();
+  const touched = new Set();
+  const real = api;
+  api = bTracking(touched);
   try {
     await fn();
     if (okMsg) toast(okMsg, undo ? { action: { label: '元に戻す', run: () => bRun(undo, '元に戻しました') } } : {});
@@ -4256,8 +4346,10 @@ async function bRun(fn, okMsg, undo) {
         for (const r of ex.rels) await api.removeRelation(r.id);
         await api.addRelation(ex.from, ex.to);
       }, `前のつながりを外して、#${ex.from} → #${ex.to} をつなぎました`) } });
-  }
-  try { await loadBara(); } catch (e) { toast(e.message, { error: true }); }
+  } finally { api = real; }
+  // 変えたところだけ読み直す（失敗したら全部）
+  try { await bRefresh(touched); }
+  catch (_) { try { await loadBara(); } catch (e) { toast(e.message, { error: true }); } }
   B.busy = false; renderBara();
 }
 /* ---------- Redmine の関連（前後以外も） ----------
@@ -4402,7 +4494,7 @@ function bOpenEditor(id) {
   const issue = B.issues.get(id);
   if (!issue || issue.temp) return;
   state.issues.set(id, issue);   // 編集画面はボードのチケットを編集する作りなので、同じものを渡す
-  state.editorSaved = false;
+  state.editorSaved = false; state.editorTouched = null; B.lastEditor = id;
   openEditor(id);
 }
 

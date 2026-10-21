@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "15.2"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "15.3"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -239,6 +239,8 @@ redmine_kanban/
 - ステータスの変更は 5.12 の親の同期と 5.10 の工数の確認を行う。
 
 - **前後以外のつながり**: Redmine は 2 つの間に関連を 1 つしか持てない。前後をつなぐのは `addPrecedes(from, to)`: 失敗して文言に すでに|既に|already|taken|存在 があれば `issueDetail(from)` の relations から相手が to のものを探し、あれば `err.existing = { rels, from, to }` と「#A と #B の間には、すでに「種類」のつながりがあるので、前後でつなげません（Redmine は 2 つの間につながりを 1 つしか持てません）」。bRun はこのときエラーのトーストに `外して前後にする`（15 秒）を付け、押すと全部外して前後でつなぐ。種類の名前（このチケットから見て。逆向きは relates↔relates, duplicates↔duplicated, blocks↔blocked, precedes↔follows, copied_to↔copied_from）: relates 関連している / duplicates 重複している（相手が残る）/ duplicated 重複されている / blocks ブロックしている / blocked ブロックされている / precedes 後ろの仕事 / follows 前の仕事 / copied_to コピー先 / copied_from コピー元。編集画面の「つながり（Redmine の関連）」に全部（種類・#番号 件名（担当の名字）・`外す`）。外したら閉じたときに課題バラシを読み直す。モックは 4521–4523 に「関連している」を 1 つ持ち、同じ 2 つへの追加は 422「関連しているチケットはすでに存在します」。
+
+- **操作のあとの読み直しは部分だけ**: bRun の間は `api` を Proxy（bTracking）に差し替え、updateIssue（親を変えたら新旧の親も）・addRelation（両端）・removeRelation（両端）・createIssue（作ったものと親）・createTimeEntry で触ったチケットを控える。終わったら `bRefresh(ids)`: 控えたものとその親・祖先を `issuesByIds(ids, 'relations')` の 1 回で読み直し、中止なら消す、範囲（バージョン／担当／親の下）から外れたら消す、見えなくなったものも消す。担当者の表示では新しく要る親を文脈として足す。つながりは全チケットの relations から組み直す（bBuildRels。範囲外の相手は `B.others` に控え、まだ読んでいない相手だけ読む）。失敗したら全部読み直す（loadBara）。実績工数は `B.spent` に控え、読み直しで消えないようにする（作業時間を記録したチケットだけ読み直す）。編集画面を閉じたときも、編集したチケットと外したつながりの相手だけ読み直す。
 
 ### 5.12 親チケットのステータスを子から決める（すべての親子、親の親まで）
 - 子（中止を除く）が全員 未着手 → 未着手 / 全員 完了（確認済）→ 完了（確認済）/ 全員 完了以上 → 完了（実務者）/ それ以外 → 子の進捗の平均（未着手 0、完了 100）を 20% 刻みで切り捨てた進行中ステータス。
@@ -1248,6 +1250,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.3</b><span>2026-10-22</span></dt>
+        <dd><ul><li>課題バラシで箱を動かしたあとの読み込みを速くしました（変えたチケットとその親だけを読み直します）</li></ul></dd>
         <dt><b>v15.2</b><span>2026-10-21</span></dt>
         <dd><ul><li>前後をつなごうとして「すでに関連したチケットがあります」と断られたとき、邪魔しているつながりを見せて <span class="ui">外して前後にする</span> でつなぎ直せるようにしました</li><li>カードの編集画面に「つながり」の一覧と <span class="ui">外す</span> を追加（ボードに出ない「関連している」なども見えます）</li></ul></dd>
         <dt><b>v15.1</b><span>2026-10-20</span></dt>
