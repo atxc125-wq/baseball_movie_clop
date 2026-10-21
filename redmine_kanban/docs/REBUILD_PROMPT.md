@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "15"`（整数文字列。機能を変えたら上げる）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "15.2"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -102,7 +102,7 @@ redmine_kanban/
    - 端末でなければ何もしない。
 6. from_elsewhere でキーがある: `check_destination` → APP_DIR のコピーを**画面なしで起動**（Windows: `pythonw.exe`、`creationflags=DETACHED_PROCESS(0x8)`、それ以外 `start_new_session=True`、stdin/out/err は DEVNULL）→ 起動を待ってブラウザを開く → 「この画面は閉じて大丈夫です」。
 7. HERE が APP_DIR（自動起動のコピー）: 取り込み元（`update_dir` > `install_source.txt`）を見る。
-   - **プログラム（kanban_relay.py）は自動では入れ替えない**（共有フォルダに書ける人が全員の PC で黙ってコードを動かせてしまうため）。取り込み元の (VERSION, BUILD) が自分より新しければ `UPDATE_AVAILABLE = "vN（BUILD）"` にして /ping で返す（ボードが知らせる）。
+   - **プログラム（kanban_relay.py）は自動では入れ替えない**（共有フォルダに書ける人が全員の PC で黙ってコードを動かせてしまうため）。取り込み元の (VERSION, BUILD) が自分より新しければ `UPDATE_AVAILABLE = "v15.2（BUILD）"` にして /ping で返す（ボードが知らせる）。
    - `board_settings.json` だけは中身が違えば取り込む。
 8. `check_destination`（4.4）→ キー読み込み（なければ端末なら setup、端末でなければログを出して終了）→ `/users/current.json` で確認（ダメなら理由を表示し、端末なら setup し直し）。
 9. 初回設定で自動起動にした場合は、画面なしの常駐に切り替えて終了。
@@ -246,6 +246,8 @@ redmine_kanban/
 
 ### 5.13 使い方ページ
 - 右上 `使い方` で全画面のダイアログ（付録 B の本文そのまま）。見出し「計画のメンテが面倒すぎたので、ボードにしました。」、署名「つくったひと より ／ 読む時間 約5分」。目次リンクはページ内スクロールだけ（URL を変えない）。Esc・外側クリックで閉じる。
+
+- 使い方ページの最後（「おわりに」の後）に「10 変更履歴」（目次にも）。版ごとに `<dt><b>v15.2</b><span>日付</span></dt><dd><ul>…</ul></dd>`、新しい版が上。版を上げたらここに足す。
 
 ### 5.14 接続設定
 - データの取得元（中継／モック／直接）、直接のときだけ URL と API キー、`工数` のチェック（進捗を動かしたときに作業時間を聞く）、接続テスト、ボードの版と中継の版・フォルダ・警告の表示。
@@ -976,6 +978,13 @@ a.btn { text-decoration: none; display: inline-block; }
 .guide-page .ba b { display: block; font-size: 12px; letter-spacing: .06em; margin-bottom: 4px; }
 .guide-page .ba .before b { color: var(--late); } .guide-page .ba .after b { color: var(--ok); }
 .guide-page .ba ul { margin: 0; }
+.guide-page .log-lead { font-size: 13px; color: var(--ink-2); }
+.guide-page .changelog { margin: 0; font-size: 14px; }
+.guide-page .changelog dt { display: flex; gap: 10px; align-items: baseline; margin-top: 12px; }
+.guide-page .changelog dt b { font-family: var(--font-num); color: var(--accent); }
+.guide-page .changelog dt span { font-size: 12px; color: var(--ink-3); font-family: var(--font-num); }
+.guide-page .changelog dd { margin: 2px 0 0; }
+.guide-page .changelog ul { margin: 0; }
 .guide-page .note { background: var(--soon-bg); color: var(--ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; margin: 0 0 14px; }
 .guide-page .note b { color: var(--soon); }
 .guide-page .mini-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 12px 0 16px; font-size: 12px; text-align: center; }
@@ -1093,6 +1102,7 @@ a.btn { text-decoration: none; display: inline-block; }
           <li><a href="#g-bara">課題バラシ</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
+          <li><a href="#g-log">変更履歴</a></li>
         </ol>
       </nav>
 
@@ -1234,6 +1244,27 @@ a.btn { text-decoration: none; display: inline-block; }
         ボードは道具なので、使いにくいところはどんどん直します。「ここが面倒」「こうだったらいいのに」は気軽に言ってください。<br>
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
+
+      <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
+      <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
+      <dl class="changelog">
+        <dt><b>v15.2</b><span>2026-10-21</span></dt>
+        <dd><ul><li>前後をつなごうとして「すでに関連したチケットがあります」と断られたとき、邪魔しているつながりを見せて <span class="ui">外して前後にする</span> でつなぎ直せるようにしました</li><li>カードの編集画面に「つながり」の一覧と <span class="ui">外す</span> を追加（ボードに出ない「関連している」なども見えます）</li></ul></dd>
+        <dt><b>v15.1</b><span>2026-10-20</span></dt>
+        <dd><ul><li>ほかの人のカードを動かしたときの作業時間は、担当者の時間として記録するようにしました（編集画面で「自分（手伝った分）」も選べます）</li></ul></dd>
+        <dt><b>v15</b><span>2026-10-19</span></dt>
+        <dd><ul><li>ガントチャートのマイルストーン（「田中半休」など）を休みの予定として表示。1日休みは日程の計算で作業日から外します</li></ul></dd>
+        <dt><b>v14</b><span>2026-10-19</span></dt>
+        <dd><ul><li>★ 優先してほしいフラグ</li><li>並び順「余裕が少ない順」</li><li>詰まりのサイン（待ち・止まっている・手持ちの上限）</li><li>ほかの人のチケットにも自分の作業時間を記録できるように</li></ul></dd>
+        <dt><b>v13</b><span>2026-10-16</span></dt>
+        <dd><ul><li>列の中の並び替えを「自分の作業順」として日程に反映</li><li>課題バラシ: 締切が近い順、＋ここに追加、ダブルクリックで編集画面</li><li>担当なしの新規タスク（未整理へ）、バージョン名「番号_カテゴリ-個別名」</li><li>安全対策: プログラムの自動入れ替えをやめ、API キーの送り先を固定</li></ul></dd>
+        <dt><b>v12</b><span>2026-10-16</span></dt>
+        <dd><ul><li>課題バラシ: 予定工数からの自動日程、担当者ごとの表示、ステータス・担当の変更、読み込みの安定化</li></ul></dd>
+        <dt><b>v11</b><span>2026-10-15</span></dt>
+        <dd><ul><li>課題バラシ（タスクの分解と前後のつながり）</li><li>工数の記録と月の集計</li><li>使い方ページ（このページ）</li><li>アプリ名を「タスクボード」に</li><li>説明欄の URL をリンクとして表示</li><li>新しいバージョンの作成と全体タブを全員に</li></ul></dd>
+        <dt><b>〜v10</b><span>2026-10-08〜</span></dt>
+        <dd><ul><li>カンバンボード、未整理の振り分け、カードの編集、全体ダッシュボード、親チケットのステータス自動更新、中継プログラム</li></ul></dd>
+      </dl>
     </article>
   </div>
 </div>
