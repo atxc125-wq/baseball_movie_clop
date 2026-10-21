@@ -465,6 +465,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(820px, 100%); }
 .hours .seg { align-self: flex-start; }
+.rel-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.rel-list .kind { color: var(--ink-2); white-space: nowrap; min-width: 9em; }
+.rel-list .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -809,6 +813,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>「すでに関連したチケットがあります」と言われたら</h3>
+      <p>Redmine は 2 つのチケットの間につながりを 1 つしか持てません。「関連している」などが先にあると前後でつなげないので、出てきたお知らせの <span class="ui">外して前後にする</span> を押してください。カードの編集画面の「つながり」で、ボードに出ないつながりも見て外せます。</p>
       <h3>休みの予定</h3>
       <p>ガントチャートの一番上に入れている「田中半休」のようなマイルストーンを、そのまま休みとして読みます。自分の画面の上に「休み 10/22(木)」、全体タブに「これからの休み」が出ます。1日休みの日は、作業順や課題バラシで日程を決めるときに作業日から外します。同じ名字の人がいるときは「田中太半休」のように名の1文字目まで書いてください。</p>
       <h3>詰まりのサイン</h3>
@@ -1172,6 +1178,8 @@ function createMockApi(getMockUserId) {
   }
   let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572], [4522, 4611], [4614, 4521], [4210, 4211], [4211, 4214], [4533, 4211], [4541, 4532]]
     .map(([from, to], k) => ({ id: 900 + k, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null }));
+  // 前後以外のつながり（Redmine の「関連している」）。ボードの矢印には出ないが、同じ 2 つを前後でつなぐと 422 になる
+  rels.push({ id: 950, issue_id: 4521, issue_to_id: 4523, relation_type: 'relates', delay: null });
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms));
   const closedIds = new Set([8, 9]);
@@ -1210,8 +1218,11 @@ function createMockApi(getMockUserId) {
     async addRelation(from, to) {
       await wait(120);
       if (isAncestor(from, to) || isAncestor(to, from)) throw new Error('Redmine がエラーを返しました (422) 関連するチケットは親子関係にあるチケットにできません');
-      const reach = (a, b, seen = new Set()) => a === b || (!seen.has(a) && (seen.add(a), rels.filter(r => r.issue_id === a).some(r => reach(r.issue_to_id, b, seen))));
+      const reach = (a, b, seen = new Set()) => a === b || (!seen.has(a) && (seen.add(a), rels.filter(r => r.issue_id === a && r.relation_type === 'precedes').some(r => reach(r.issue_to_id, b, seen))));
       if (reach(to, from)) throw new Error('Redmine がエラーを返しました (422) 関連の循環');
+      if (rels.some(r => (r.issue_id === from && r.issue_to_id === to) || (r.issue_id === to && r.issue_to_id === from))) {
+        throw new Error('Redmine がエラーを返しました (422) 関連しているチケットはすでに存在します');
+      }
       const r = { id: Math.max(899, ...rels.map(x => x.id)) + 1, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null };
       rels.push(r);
       return clone(r);
@@ -2762,6 +2773,33 @@ async function openNewTask() {
   f.el.subject.focus();
 }
 
+async function loadEditorRels(id, box) {
+  let rels = [];
+  try { rels = (await api.issueDetail(id)).relations || []; } catch (_) { return; }   // 読めなければ出さない
+  if (!rels.length) { box.hidden = true; box.replaceChildren(); return; }
+  const views = rels.map(r => ({ r, ...relFrom(r, id) }));
+  let names = new Map();
+  try { names = new Map((await api.issuesByIds([...new Set(views.map(v => v.otherId))])).map(i => [i.id, i])); } catch (_) { /* 番号だけ出す */ }
+  box.hidden = false;
+  box.replaceChildren(
+    h('span', { class: 'label' }, 'つながり（Redmine の関連）'),
+    h('ul', {}, views.map(v => {
+      const o = names.get(v.otherId);
+      return h('li', {},
+        h('span', { class: 'kind' }, v.name),
+        h('span', { class: 'who' }, `#${v.otherId} ${o ? parseTitle(o.subject).text : ''}${o && o.assigned_to ? `（${firstName(o.assigned_to)}）` : ''}`),
+        h('button', { type: 'button', class: 'btn-mini', onclick: async e => {
+          e.currentTarget.disabled = true;
+          try {
+            await api.removeRelation(v.r.id);
+            state.editorSaved = true;   // 閉じたら読み直す
+            toast(`#${id} と #${v.otherId} の「${v.name}」を外しました`);
+          } catch (err) { toast(`外せませんでした。${err.message}`, { error: true }); }
+          loadEditorRels(id, box);
+        } }, '外す'));
+    })));
+}
+
 async function openEditor(id) {
   const issue = state.issues.get(id);
   if (!issue || state.saving.has(id)) return;
@@ -2774,6 +2812,9 @@ async function openEditor(id) {
   const fp = flagPriority();
   const flagBox = fp ? h('input', { type: 'checkbox', id: 'eFlag', checked: isFlagged(issue) }) : null;
   const chain = ancestors(issue);
+  // つながり（Redmine の関連）。開いたあと裏で読み、あれば一覧と「外す」を出す
+  const relBox = h('div', { class: 'field rel-list', hidden: true });
+  loadEditorRels(issue.id, relBox);
   // 作業時間をだれの時間として記録するか（ほかの人の仕事なら既定は担当者）
   const other = issue.assigned_to && state.me && issue.assigned_to.id !== state.me.id && isTeamMember(issue.assigned_to.id);
   let hoursFor = other ? issue.assigned_to : state.me;
@@ -2805,6 +2846,7 @@ async function openEditor(id) {
         } }, `+${hoursLabel(n)}`)))),
     fp ? h('label', { class: 'group-opt' }, flagBox, h('span', {}, '★ 優先してほしい',
       h('small', {}, `Redmine の優先度を「${fp.on.name}」にします（外すと「${fp.off.name}」）。余裕が少ない順では緊急の次に並びます`))) : null,
+    relBox,
     h('div', { class: 'field' },
       h('label', { for: 'eNotes' }, 'コメントを追加（Redmine の履歴に残ります）'), notes),
     f.el.error,
@@ -4179,10 +4221,42 @@ async function bRun(fn, okMsg, undo) {
     await fn();
     if (okMsg) toast(okMsg, undo ? { action: { label: '元に戻す', run: () => bRun(undo, '元に戻しました') } } : {});
   } catch (e) {
-    toast(e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: '), { error: true });
+    const ex = e.existing;   // すでに別のつながり（関連している など）がある: 外して前後にできるようにする
+    toast(e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: '), { error: true,
+      action: ex && { label: '外して前後にする', run: () => bRun(async () => {
+        for (const r of ex.rels) await api.removeRelation(r.id);
+        await api.addRelation(ex.from, ex.to);
+      }, `前のつながりを外して、#${ex.from} → #${ex.to} をつなぎました`) } });
   }
   try { await loadBara(); } catch (e) { toast(e.message, { error: true }); }
   B.busy = false; renderBara();
+}
+/* ---------- Redmine の関連（前後以外も） ----------
+ *  Redmine は同じ 2 つのチケットの間に関連を 1 つしか作れない。「関連している」「ブロック」などが先にあると、
+ *  前後（先行）をつなごうとしても「すでに存在します」で断られるので、そのつながりを見せて外せるようにする
+ */
+const REL_NAME = { relates: '関連している', duplicates: '重複している（相手が残る）', duplicated: '重複されている',
+  blocks: 'ブロックしている', blocked: 'ブロックされている', precedes: '後ろの仕事', follows: '前の仕事',
+  copied_to: 'コピー先', copied_from: 'コピー元' };
+const REL_REVERSE = { relates: 'relates', duplicates: 'duplicated', duplicated: 'duplicates', blocks: 'blocked', blocked: 'blocks',
+  precedes: 'follows', follows: 'precedes', copied_to: 'copied_from', copied_from: 'copied_to' };
+// 関連を「このチケットから見て」の形に: { type, name, otherId }
+function relFrom(r, selfId) {
+  const type = r.issue_id === selfId ? r.relation_type : (REL_REVERSE[r.relation_type] || r.relation_type);
+  return { type, name: REL_NAME[type] || type, otherId: r.issue_id === selfId ? r.issue_to_id : r.issue_id };
+}
+// 前後（from が先、to が後）でつなぐ。すでに別のつながりがあって断られたら、それを添えてエラーにする
+async function addPrecedes(from, to) {
+  try { return await api.addRelation(from, to); }
+  catch (e) {
+    if (!/すでに|既に|already|taken|存在/i.test(e.message)) throw e;
+    let rels = [];
+    try { rels = ((await api.issueDetail(from)).relations || []).filter(r => relFrom(r, from).otherId === to); } catch (_) { /* 読めなければそのまま */ }
+    if (!rels.length) throw e;
+    const err = new Error(`#${from} と #${to} の間には、すでに「${relFrom(rels[0], from).name}」のつながりがあるので、前後でつなげません（Redmine は 2 つの間につながりを 1 つしか持てません）`);
+    err.existing = { rels, from, to };
+    throw err;
+  }
 }
 const bTitle = id => `「${parseTitle(B.issues.get(id) ? B.issues.get(id).subject : '#' + id).text}」`;
 
@@ -4246,7 +4320,7 @@ function bCreateTemp(text) {
     if (t.assigned_to) fields.assigned_to_id = t.assigned_to.id;
     const created = await api.createIssue(projectId, fields);
     B.selected = created.id;
-    if (rel) await api.addRelation(rel.from === -1 ? created.id : rel.from, rel.to === -1 ? created.id : rel.to);
+    if (rel) await addPrecedes(rel.from === -1 ? created.id : rel.from, rel.to === -1 ? created.id : rel.to);
   }, `「${text}」を追加しました`);
 }
 function bRename(issue, text) {
@@ -4275,7 +4349,7 @@ function bRemoveRel(r) {
 function bLink(from, to) {
   const why = bRelCheck(from, to);
   if (why) { toast(why, { error: true }); return; }
-  return bRun(() => api.addRelation(from, to), `#${from} → #${to} をつなぎました`);
+  return bRun(() => addPrecedes(from, to), `#${from} → #${to} をつなぎました`);
 }
 // 親を変える。入れる先の親・祖先とのつながりは Redmine が許さないので先に外す
 async function bMoveInto(id, parentId) {
@@ -4292,7 +4366,7 @@ function bDrop(id, target, zone) {
   const from = zone === 'l' ? id : target, to = zone === 'l' ? target : id;
   return bRun(async () => {
     if (cur !== tp) await bMoveInto(id, tp);
-    if (!B.rels.some(r => r.from === from && r.to === to)) await api.addRelation(from, to);
+    if (!B.rels.some(r => r.from === from && r.to === to)) await addPrecedes(from, to);
   }, zone === 'l' ? `${bTitle(target)}の前に入れました` : `${bTitle(target)}の後に入れました`);
 }
 function bOpenEditor(id) {
@@ -4516,7 +4590,7 @@ function toast(message, { error = false, action = null } = {}) {
   const el = h('div', { class: 'toast' + (error ? ' error' : ''), role: error ? 'alert' : 'status' }, h('span', {}, message));
   if (action) el.append(h('button', { type: 'button', onclick: () => { el.remove(); action.run(); } }, action.label));
   $('toasts').append(el);
-  setTimeout(() => el.remove(), error ? 7000 : 5000);
+  setTimeout(() => el.remove(), error ? (action ? 15000 : 7000) : 5000);
 }
 
 function selectedMode() { return $('modeRelay').checked ? 'relay' : $('modeLive').checked ? 'live' : 'mock'; }

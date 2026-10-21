@@ -238,6 +238,8 @@ redmine_kanban/
 - 日程の自動計算: 5.6 と同じ考え方を、範囲の末端の仕事について前後のつながりで行う（先頭は自分の開始日か「着手」の日、後ろは前の仕事が全部終わった翌営業日から。範囲外の先行の期日も見る。完了は動かさない。親の日付は書かない）。進行中で前の仕事が終わっていないときは、その翌営業日から（**Redmine は先行の期日より前の開始日を受け付けない**）。`工数を入れたら日程も反映` は、工数を変えた仕事とその後ろにつながる仕事だけ書く（手入力の日程を触らない）。`日程を反映（N件）` は範囲内の未反映すべて。開始日の早い順に書き、元に戻せる。
 - ステータスの変更は 5.12 の親の同期と 5.10 の工数の確認を行う。
 
+- **前後以外のつながり**: Redmine は 2 つの間に関連を 1 つしか持てない。前後をつなぐのは `addPrecedes(from, to)`: 失敗して文言に すでに|既に|already|taken|存在 があれば `issueDetail(from)` の relations から相手が to のものを探し、あれば `err.existing = { rels, from, to }` と「#A と #B の間には、すでに「種類」のつながりがあるので、前後でつなげません（Redmine は 2 つの間につながりを 1 つしか持てません）」。bRun はこのときエラーのトーストに `外して前後にする`（15 秒）を付け、押すと全部外して前後でつなぐ。種類の名前（このチケットから見て。逆向きは relates↔relates, duplicates↔duplicated, blocks↔blocked, precedes↔follows, copied_to↔copied_from）: relates 関連している / duplicates 重複している（相手が残る）/ duplicated 重複されている / blocks ブロックしている / blocked ブロックされている / precedes 後ろの仕事 / follows 前の仕事 / copied_to コピー先 / copied_from コピー元。編集画面の「つながり（Redmine の関連）」に全部（種類・#番号 件名（担当の名字）・`外す`）。外したら閉じたときに課題バラシを読み直す。モックは 4521–4523 に「関連している」を 1 つ持ち、同じ 2 つへの追加は 422「関連しているチケットはすでに存在します」。
+
 ### 5.12 親チケットのステータスを子から決める（すべての親子、親の親まで）
 - 子（中止を除く）が全員 未着手 → 未着手 / 全員 完了（確認済）→ 完了（確認済）/ 全員 完了以上 → 完了（実務者）/ それ以外 → 子の進捗の平均（未着手 0、完了 100）を 20% 刻みで切り捨てた進行中ステータス。
 - 親が中止・未知のステータスなら触らない。変えたら「親チケットも子に合わせました: #… 「…」」。
@@ -792,6 +794,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(820px, 100%); }
 .hours .seg { align-self: flex-start; }
+.rel-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.rel-list .kind { color: var(--ink-2); white-space: nowrap; min-width: 9em; }
+.rel-list .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -1141,6 +1147,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>「すでに関連したチケットがあります」と言われたら</h3>
+      <p>Redmine は 2 つのチケットの間につながりを 1 つしか持てません。「関連している」などが先にあると前後でつなげないので、出てきたお知らせの <span class="ui">外して前後にする</span> を押してください。カードの編集画面の「つながり」で、ボードに出ないつながりも見て外せます。</p>
       <h3>休みの予定</h3>
       <p>ガントチャートの一番上に入れている「田中半休」のようなマイルストーンを、そのまま休みとして読みます。自分の画面の上に「休み 10/22(木)」、全体タブに「これからの休み」が出ます。1日休みの日は、作業順や課題バラシで日程を決めるときに作業日から外します。同じ名字の人がいるときは「田中太半休」のように名の1文字目まで書いてください。</p>
       <h3>詰まりのサイン</h3>
