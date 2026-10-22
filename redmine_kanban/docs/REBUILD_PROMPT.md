@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "15.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "15.5"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -223,6 +223,8 @@ redmine_kanban/
   - 日々の記録: 日付（今日まで）、その日に動かしたチケット＋その日に記録済みのチケットを並べ、`+0.5 +1 +2 +4` と数値欄で追加。合計／8h のバー（超えたら黄）。「ほかのチケットを追加…」は optgroup「自分の仕事」「ほかの人の仕事（自分の作業時間として記録）」（`teamIssues`、担当名つき、ダイアログを開くたびに読み直す）＋ `#番号` 欄と「追加」（`getIssue` で確かめる）。担当が自分でない行には「担当: ○○」。`記録する`。修正・削除は Redmine で。
   - 編集画面にも「作業時間を記録（今日）」: ほかの人の仕事なら切替「○○さん（担当）」（既定）／「自分（手伝った分）」。`+0.5h +1h +2h +4h +1日(8h)` で即記録。
   - 月の集計: 月（今月〜3か月前）、自分 / チーム全員、バージョン別 / プロジェクト別。表（行 = 個別名＋正式名、列 = 人、合計）。`CSV で保存`（BOM 付き UTF-8、CRLF、**ファイル名は ASCII `kousu_YYYY-MM[_team].csv`**。日本語名は環境によって無視される）。
+
+- **毎日の実績**（工数ダイアログの最初のタブ。順に 毎日の実績 / 日々の記録 / 月の集計）: 前の月の 1 日〜今日の稼働日（土日と holidays を除く）を列に、`timeEntries` 1 回で。だれ: 自分 / メンバー各人 / チーム全員。1 人なら先頭に「1日の合計」行（所定時間以上 = 緑、足りない = 黄、記録なしの平日 = 赤、今日は色なし。Lychee の休みは 1 日休み = 「休」灰色で必要 0、半休は必要半分）＋行 = チケット（最近つけた順、名前の下に #番号・バージョン）、チーム全員なら行 = メンバー（1 日の合計を同じ色で。行を押すとその人）。右端に前月・今月の合計列。名前の列は左に固定、週と月の頭に区切り線、開いたら右端（今日）までスクロール。`◀ 前` `次 ▶` `今日` ボタン。自分のときは日付の見出しを押すと「日々の記録」のその日へ。ダイアログ幅は 1080px。
 
 ### 5.11 課題バラシ
 - 範囲（上の選択欄）: `バージョン: …`（番号順）/ `担当者: …` / `親チケット: …`（範囲内の枠をインデントで）。最初はいちばん番号の小さいバージョン。
@@ -798,7 +800,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
-.dialog.hours { width: min(820px, 100%); }
+.dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }
 .rel-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
@@ -835,6 +837,23 @@ a.btn { text-decoration: none; display: inline-block; }
 .htable tfoot td { font-weight: 700; background: var(--surface-2); }
 .htable td.zero { color: var(--ink-3); }
 .htable .kind { display: block; font-size: 11px; color: var(--ink-3); }
+.hcal-wrap { max-height: 60vh; }
+.hcal { width: auto; }
+.hcal th.d, .hcal td.d { min-width: 38px; padding: 5px 4px; text-align: center; }
+.hcal th.d .md { display: block; font-family: var(--font-num); }
+.hcal th.d .wd { display: block; font-size: 10px; color: var(--ink-3); }
+.hcal th.today { color: var(--accent); }
+.hcal .ws { border-left: 2px solid var(--line); }
+.hcal .name { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 180px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.hcal thead .name { z-index: 2; background: var(--surface-2); }
+.hcal .mt { background: var(--surface-2); font-weight: 700; min-width: 48px; }
+.hcal tr.sum td { border-bottom: 2px solid var(--line); }
+.hcal td.ok { background: var(--ok-bg); color: var(--ok); }
+.hcal td.short { background: var(--soon-bg); color: var(--soon); }
+.hcal td.miss { background: var(--late-bg); color: var(--late); }
+.hcal td.lv-full, .hcal th.lv-full { background: var(--surface-2); color: var(--ink-3); }
+.hcal tr.clickable { cursor: pointer; }
+.hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
@@ -1206,6 +1225,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>ほかの人のカードを動かしたときは、<strong>担当者の作業時間</strong>として記録します（「伊藤さんの今回の作業時間は？」）。手伝った分を自分の時間で入れたいときは、カードの編集画面で <span class="ui">自分（手伝った分）</span> を選んでください。</p>
       <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
       <ul>
+        <li><strong>毎日の実績</strong>：前の月の1日から今日までの平日が横に並びます。記録が足りない日は黄、ない日は赤。日付を押すとその日の記録へ。チーム全員も見られます。</li>
         <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>
         <li><strong>月の集計</strong>：バージョン別・人別の合計時間。<span class="ui">CSV で保存</span> して月末の工数入力にそのまま使えます。</li>
       </ul>
@@ -1252,6 +1272,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.5</b><span>2026-10-22</span></dt>
+        <dd><ul><li>工数に「毎日の実績」を追加：前の月の1日から今日までの平日を横に並べて、1日ごとの記録を確認できます（横スクロール、記録のない日は赤）</li></ul></dd>
         <dt><b>v15.4</b><span>2026-10-22</span></dt>
         <dd><ul><li>一部の PC で API キーを入れたあとに SSL（証明書）のエラーで止まる問題に対応しました（新しい Python の厳しすぎる確認を外し、社内の証明書を指定できるように）</li></ul></dd>
         <dt><b>v15.3</b><span>2026-10-22</span></dt>

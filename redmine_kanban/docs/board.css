@@ -460,7 +460,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
-.dialog.hours { width: min(820px, 100%); }
+.dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }
 .rel-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
@@ -497,6 +497,23 @@ a.btn { text-decoration: none; display: inline-block; }
 .htable tfoot td { font-weight: 700; background: var(--surface-2); }
 .htable td.zero { color: var(--ink-3); }
 .htable .kind { display: block; font-size: 11px; color: var(--ink-3); }
+.hcal-wrap { max-height: 60vh; }
+.hcal { width: auto; }
+.hcal th.d, .hcal td.d { min-width: 38px; padding: 5px 4px; text-align: center; }
+.hcal th.d .md { display: block; font-family: var(--font-num); }
+.hcal th.d .wd { display: block; font-size: 10px; color: var(--ink-3); }
+.hcal th.today { color: var(--accent); }
+.hcal .ws { border-left: 2px solid var(--line); }
+.hcal .name { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 180px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.hcal thead .name { z-index: 2; background: var(--surface-2); }
+.hcal .mt { background: var(--surface-2); font-weight: 700; min-width: 48px; }
+.hcal tr.sum td { border-bottom: 2px solid var(--line); }
+.hcal td.ok { background: var(--ok-bg); color: var(--ok); }
+.hcal td.short { background: var(--soon-bg); color: var(--soon); }
+.hcal td.miss { background: var(--late-bg); color: var(--late); }
+.hcal td.lv-full, .hcal th.lv-full { background: var(--surface-2); color: var(--ink-3); }
+.hcal tr.clickable { cursor: pointer; }
+.hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }

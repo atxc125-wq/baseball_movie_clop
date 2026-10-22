@@ -468,7 +468,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
-.dialog.hours { width: min(820px, 100%); }
+.dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }
 .rel-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
@@ -505,6 +505,23 @@ a.btn { text-decoration: none; display: inline-block; }
 .htable tfoot td { font-weight: 700; background: var(--surface-2); }
 .htable td.zero { color: var(--ink-3); }
 .htable .kind { display: block; font-size: 11px; color: var(--ink-3); }
+.hcal-wrap { max-height: 60vh; }
+.hcal { width: auto; }
+.hcal th.d, .hcal td.d { min-width: 38px; padding: 5px 4px; text-align: center; }
+.hcal th.d .md { display: block; font-family: var(--font-num); }
+.hcal th.d .wd { display: block; font-size: 10px; color: var(--ink-3); }
+.hcal th.today { color: var(--accent); }
+.hcal .ws { border-left: 2px solid var(--line); }
+.hcal .name { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 180px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.hcal thead .name { z-index: 2; background: var(--surface-2); }
+.hcal .mt { background: var(--surface-2); font-weight: 700; min-width: 48px; }
+.hcal tr.sum td { border-bottom: 2px solid var(--line); }
+.hcal td.ok { background: var(--ok-bg); color: var(--ok); }
+.hcal td.short { background: var(--soon-bg); color: var(--soon); }
+.hcal td.miss { background: var(--late-bg); color: var(--late); }
+.hcal td.lv-full, .hcal th.lv-full { background: var(--surface-2); color: var(--ink-3); }
+.hcal tr.clickable { cursor: pointer; }
+.hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
@@ -872,6 +889,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>ほかの人のカードを動かしたときは、<strong>担当者の作業時間</strong>として記録します（「伊藤さんの今回の作業時間は？」）。手伝った分を自分の時間で入れたいときは、カードの編集画面で <span class="ui">自分（手伝った分）</span> を選んでください。</p>
       <p>右上の <span class="ui">工数</span> ボタンからは次のことができます。</p>
       <ul>
+        <li><strong>毎日の実績</strong>：前の月の1日から今日までの平日が横に並びます。記録が足りない日は黄、ない日は赤。日付を押すとその日の記録へ。チーム全員も見られます。</li>
         <li><strong>日々の記録</strong>：その日に動かしたチケットが並ぶので、まとめて入れられます。8時間に届いているかも見えます。</li>
         <li><strong>月の集計</strong>：バージョン別・人別の合計時間。<span class="ui">CSV で保存</span> して月末の工数入力にそのまま使えます。</li>
       </ul>
@@ -918,6 +936,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.5</b><span>2026-10-22</span></dt>
+        <dd><ul><li>工数に「毎日の実績」を追加：前の月の1日から今日までの平日を横に並べて、1日ごとの記録を確認できます（横スクロール、記録のない日は赤）</li></ul></dd>
         <dt><b>v15.4</b><span>2026-10-22</span></dt>
         <dd><ul><li>一部の PC で API キーを入れたあとに SSL（証明書）のエラーで止まる問題に対応しました（新しい Python の厳しすぎる確認を外し、社内の証明書を指定できるように）</li></ul></dd>
         <dt><b>v15.3</b><span>2026-10-22</span></dt>
@@ -986,7 +1006,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-22 00:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-22 12:32'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -3405,7 +3425,7 @@ function askHours(issue, statusName) {
   setTimeout(close, 20000);
 }
 
-const hoursState = { tab: 'day', date: null, month: 0, who: 'me', group: 'version' };
+const hoursState = { tab: 'cal', date: null, month: 0, who: 'me', group: 'version', calWho: null };
 
 function openHours(tab) {
   if (!state.me) return;
@@ -3420,12 +3440,13 @@ function closeHours() { $('hoursDlg').hidden = true; }
 function renderHours() {
   const body = $('hoursBody');
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': '表示の切り替え' },
+    h('button', { type: 'button', 'aria-pressed': String(hoursState.tab === 'cal'), onclick: () => { hoursState.tab = 'cal'; renderHours(); } }, '毎日の実績'),
     h('button', { type: 'button', 'aria-pressed': String(hoursState.tab === 'day'), onclick: () => { hoursState.tab = 'day'; renderHours(); } }, '日々の記録'),
     h('button', { type: 'button', 'aria-pressed': String(hoursState.tab === 'month'), onclick: () => { hoursState.tab = 'month'; renderHours(); } }, '月の集計'));
   const content = h('div', { class: 'loading', style: 'min-height:120px' }, '読み込み中…');
   body.replaceChildren(h('div', { class: 'head', style: 'display:flex;gap:12px;align-items:center' }, h('h2', {}, '工数'), seg), content,
     h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: closeHours }, '閉じる')));
-  (hoursState.tab === 'day' ? renderHoursDay(content) : renderHoursMonth(content))
+  ({ cal: renderHoursCal, day: renderHoursDay, month: renderHoursMonth }[hoursState.tab] || renderHoursCal)(content)
     .catch(e => content.replaceWith(h('p', { class: 'test-result ng' }, `読み込めませんでした。${e.message}`)));
 }
 
@@ -3519,6 +3540,88 @@ async function renderHoursDay(slot) {
     msg,
     h('div', { class: 'dialog-actions' }, h('span', { class: 'hint', style: 'margin-right:auto' }, '記録した時間の修正・削除は Redmine の「作業時間」画面で行えます。'), save)));
   refresh();
+}
+
+// 毎日の実績: 前の月の 1 日から今日までの稼働日を横に並べる（横スクロール。開いたときは今日の位置）。
+// 1 人分なら行 = チケット、チーム全員なら行 = メンバー。日付を押すとその日の「日々の記録」へ（自分のとき）
+async function renderHoursCal(slot) {
+  const today = startOfToday();
+  const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const who = hoursState.calWho || 'me';
+  const uid = who === 'me' ? state.me.id : who === 'team' ? null : Number(who);
+  const days = [];
+  for (let d = new Date(first); d <= today; d = addDays(d, 1)) if (!isOffDay(d)) days.push(d);
+  const entries = await api.timeEntries({ from: isoDate(first), to: isoDate(today), userId: uid });
+  const hpd = CONFIG.hoursPerDay || 8;
+  const sum = new Map();   // 行のキー → 日付 → 時間
+  const add = (key, iso, hrs) => { if (!sum.has(key)) sum.set(key, new Map()); const m = sum.get(key); m.set(iso, (m.get(iso) || 0) + hrs); };
+  const dayTotal = new Map();
+  for (const e of entries) {
+    const hrs = Number(e.hours);
+    dayTotal.set(e.spent_on, (dayTotal.get(e.spent_on) || 0) + hrs);
+    add(uid == null ? e.user.id : (e.issue ? e.issue.id : 0), e.spent_on, hrs);
+  }
+  let rows;
+  if (uid == null) {
+    const names = new Map(entries.map(e => [e.user.id, e.user.name]));
+    const ids = [...new Set([...CONFIG.members.map(m => m.id), ...sum.keys()])];
+    rows = ids.map(id => ({ key: id, label: (CONFIG.members.find(m => m.id === id) || {}).name || names.get(id) || `ID ${id}`, sub: '', person: id }));
+  } else {
+    const ids = [...sum.keys()].filter(id => id > 0);
+    const issues = new Map(ids.length ? (await api.issuesByIds(ids)).map(i => [i.id, i]) : []);
+    rows = ids.map(id => { const i = issues.get(id);
+      return { key: id, label: i ? parseTitle(i.subject).text : `#${id}`, sub: `#${id}${i && i.fixed_version ? '・' + parseVersion(i.fixed_version.name).label : ''}`, last: Math.max(...[...sum.get(id).keys()].map(k => parseDate(k).getTime())) }; })
+      .sort((a, b) => b.last - a.last);   // 最近つけたものを上に
+    if (sum.has(0)) rows.push({ key: 0, label: 'チケットなし', sub: '' });
+  }
+  const fmt = v => (Math.round(v * 100) / 100).toString();
+  const ws = d => d.getDay() === 1 || d.getDate() === 1;   // 週・月の区切り線
+  const leaveCls = (pid, d) => { const lv = pid != null && leaveOn(pid, d); return lv ? ' lv-' + lv.kind : ''; };
+  const goDay = d => { if (uid !== state.me.id) return; hoursState.tab = 'day'; hoursState.date = isoDate(d); renderHours(); };
+  const headCell = d => h('th', { class: 'd' + (ws(d) ? ' ws' : '') + (isoDate(d) === isoDate(today) ? ' today' : '') + leaveCls(uid, d),
+    title: `${jpDate(d)}${uid != null && leaveOn(uid, d) ? ' ' + leaveOn(uid, d).name : ''}${uid === state.me.id ? '（押すとこの日の記録へ）' : ''}`,
+    onclick: () => goDay(d), style: uid === state.me.id ? 'cursor:pointer' : '' },
+    h('span', { class: 'md' }, `${d.getMonth() + 1}/${d.getDate()}`), h('span', { class: 'wd' }, '日月火水木金土'[d.getDay()]));
+  // 1 日の合計: 所定時間に届いた日は緑、足りない日は黄、記録なしの平日は赤（今日と休みの日は色を付けない）
+  const totalCell = (d, v, pid) => {
+    const iso = isoDate(d), lv = pid != null ? leaveOn(pid, d) : null;
+    const need = lv ? (lv.kind === 'full' ? 0 : hpd / 2) : hpd;
+    const cls = !v ? (iso === isoDate(today) || need === 0 || pid == null ? 'zero' : 'miss') : v >= need ? 'ok' : 'short';
+    return h('td', { class: 'd ' + cls + (ws(d) ? ' ws' : '') + leaveCls(pid, d) }, v ? fmt(v) : lv ? (lv.kind === 'full' ? '休' : '半') : '–');
+  };
+  const monthTotal = (m, mon) => [...m.entries()].filter(([k]) => parseDate(k).getMonth() === mon).reduce((n, [, v]) => n + v, 0);
+  const thisMon = today.getMonth(), prevMon = first.getMonth();
+  const table = h('table', { class: 'htable hcal' },
+    h('thead', {}, h('tr', {}, h('th', { class: 'name' }, uid == null ? 'メンバー' : 'チケット'), days.map(headCell),
+      h('th', { class: 'mt' }, `${prevMon + 1}月`), h('th', { class: 'mt' }, `${thisMon + 1}月`))),
+    h('tbody', {},
+      uid != null ? h('tr', { class: 'sum' }, h('td', { class: 'name' }, h('b', {}, '1日の合計')), days.map(d => totalCell(d, dayTotal.get(isoDate(d)) || 0, uid)),
+        h('td', { class: 'mt' }, fmt(monthTotal(dayTotal, prevMon))), h('td', { class: 'mt' }, fmt(monthTotal(dayTotal, thisMon)))) : null,
+      rows.map(r => {
+        const m = sum.get(r.key) || new Map();
+        return h('tr', uid == null ? { class: 'clickable', title: `${r.label} の実績を見る`, onclick: () => { hoursState.calWho = String(r.person === state.me.id ? 'me' : r.person); renderHours(); } } : {},
+          h('td', { class: 'name' }, r.label, r.sub ? h('span', { class: 'kind' }, r.sub) : null),
+          days.map(d => uid == null ? totalCell(d, m.get(isoDate(d)) || 0, r.person)
+            : h('td', { class: 'd' + ((m.get(isoDate(d)) || 0) ? '' : ' zero') + (ws(d) ? ' ws' : '') }, (m.get(isoDate(d)) || 0) ? fmt(m.get(isoDate(d))) : '')),
+          h('td', { class: 'mt' }, fmt(monthTotal(m, prevMon))), h('td', { class: 'mt' }, fmt(monthTotal(m, thisMon))));
+      })));
+  const wrap = h('div', { class: 'htable-wrap hcal-wrap' }, table);
+  const opts = [['me', '自分'], ...CONFIG.members.filter(m => m.id !== state.me.id).map(m => [String(m.id), m.name]), ['team', 'チーム全員']];
+  const whoSel = h('select', { 'aria-label': 'だれの実績' }, opts.map(([v, l]) => h('option', { value: v, selected: v === who }, l)));
+  whoSel.addEventListener('change', () => { hoursState.calWho = whoSel.value; renderHours(); });
+  const scroll = n => wrap.scrollBy({ left: n * wrap.clientWidth * 0.8, behavior: 'smooth' });
+  const all = entries.reduce((n, e) => n + Number(e.hours), 0);
+  slot.replaceWith(h('div', { style: 'display:flex;flex-direction:column;gap:10px' },
+    h('div', { class: 'day-head' }, whoSel,
+      h('button', { type: 'button', class: 'btn-mini', onclick: () => scroll(-1), 'aria-label': '前の日へ' }, '◀ 前'),
+      h('button', { type: 'button', class: 'btn-mini', onclick: () => scroll(1), 'aria-label': '後の日へ' }, '次 ▶'),
+      h('button', { type: 'button', class: 'btn-mini', onclick: () => wrap.scrollTo({ left: wrap.scrollWidth, behavior: 'smooth' }) }, '今日'),
+      h('span', { class: 'total' }, `${first.getMonth() + 1}/1〜今日の合計`, h('b', {}, fmtH(all)))),
+    rows.length || uid != null ? wrap : h('p', { class: 'empty' }, 'この期間の記録はまだありません。'),
+    h('p', { class: 'hint' }, uid == null
+      ? '平日だけ表示（休みの設定と Lychee の休みも反映）。緑 = 所定時間に届いた日、黄 = 足りない日、赤 = 記録のない日。行を押すとその人の内訳。'
+      : `平日だけ表示。緑 = ${hpd}h に届いた日（半休は半分）、黄 = 足りない日、赤 = 記録のない日。${uid === state.me.id ? '日付を押すとその日の記録に切り替わります。' : ''}`)));
+  wrap.scrollLeft = wrap.scrollWidth;   // 開いたときは今日の位置
 }
 
 function monthRange(offset) {
