@@ -13,6 +13,8 @@
   ],
   "status_columns": {},
   "update_dir": "",
+  "_ca_file の書き方": "SSL（証明書）のエラーが出る PC があるときだけ。社内の認証局の証明書（Base-64 の .cer / .pem）を共有フォルダに置き、そのファイル名を書く。相対パスはこのフォルダ → 共有フォルダの順に探す。",
+  "ca_file": "",
   "options": {
     "urgentPriority": 1,
     "dueSoonDays": 3,

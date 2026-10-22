@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "15.3"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "15.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -91,6 +91,8 @@ redmine_kanban/
 - Redmine 呼び出し: タイムアウト 45 秒。**GET だけ**、接続切れ・時間切れ・`ConnectionError`・502/503/504 のとき 0.5 秒・1 秒あけて 2 回までやり直す。
 - 例外は `URLError, socket.timeout, ConnectionError, OSError` をすべて捕まえて 502「中継プログラムから Redmine に接続できません。ネットワークを確認してください」を返す（**`RemoteDisconnected` を捕まえ損ねると処理ごと落ちる**）。
 - OPTIONS（ALLOWED_ORIGINS 用）: `GET, PUT, POST, DELETE, OPTIONS`、`Access-Control-Allow-Private-Network: true`。
+
+- **SSL**: Redmine への接続は `ssl_context()`（1 回作って使い回す）: `ssl.create_default_context()`（Windows の証明書ストアを読む）から `VERIFY_X509_STRICT` だけ外す（Python 3.13 から既定。社内 CA は「Basic Constraints of CA cert not marked critical」などで落ちる）。設定 `ca_file`（相対パスはこのフォルダ → 共有フォルダ）があれば `load_verify_locations` で足す。検証そのものは絶対に切らない。証明書のエラーは `ssl_reason(e)` で「Redmine の証明書を確認できませんでした（SSL: …）。Python 3.x.y、ca_file: …」＋原因別の案内（発行元が分からない → ca_file、期限切れ → 時計、名前違い → redmine_url）。証明書のエラーは GET でもやり直さない。中継の 502 にもこの 1 行目を出す。
 
 ### 4.3 起動の流れ（main）
 1. 引数: `--setup`（キーと自動起動を設定し直す）、`--uninstall`（自動起動を解除）。
@@ -1250,6 +1252,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.4</b><span>2026-10-22</span></dt>
+        <dd><ul><li>一部の PC で API キーを入れたあとに SSL（証明書）のエラーで止まる問題に対応しました（新しい Python の厳しすぎる確認を外し、社内の証明書を指定できるように）</li></ul></dd>
         <dt><b>v15.3</b><span>2026-10-22</span></dt>
         <dd><ul><li>課題バラシで箱を動かしたあとの読み込みを速くしました（変えたチケットとその親だけを読み直します）</li></ul></dd>
         <dt><b>v15.2</b><span>2026-10-21</span></dt>
@@ -1468,6 +1472,8 @@ print(f"built kanban.html and embedded it in kanban_relay.py ({len(blob) // 1024
   ],
   "status_columns": {},
   "update_dir": "",
+  "_ca_file の書き方": "SSL（証明書）のエラーが出る PC があるときだけ。社内の認証局の証明書（Base-64 の .cer / .pem）を共有フォルダに置き、そのファイル名を書く。相対パスはこのフォルダ → 共有フォルダの順に探す。",
+  "ca_file": "",
   "options": {
     "urgentPriority": 1,
     "dueSoonDays": 3,

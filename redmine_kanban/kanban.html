@@ -918,6 +918,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v15.4</b><span>2026-10-22</span></dt>
+        <dd><ul><li>一部の PC で API キーを入れたあとに SSL（証明書）のエラーで止まる問題に対応しました（新しい Python の厳しすぎる確認を外し、社内の証明書を指定できるように）</li></ul></dd>
         <dt><b>v15.3</b><span>2026-10-22</span></dt>
         <dd><ul><li>課題バラシで箱を動かしたあとの読み込みを速くしました（変えたチケットとその親だけを読み直します）</li></ul></dd>
         <dt><b>v15.2</b><span>2026-10-21</span></dt>
@@ -984,7 +986,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-21 23:43'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-22 00:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
