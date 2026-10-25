@@ -572,6 +572,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
 .grow:has(.gnone) .gtrack { cursor: pointer; }
 .gempty { padding: 30px; color: var(--ink-3); }
+.grow.flash .gc { background: var(--soon-bg); }
+.grow.flash .gc.ga { box-shadow: inset 4px 0 0 var(--soon); }
 .gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
 .gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .gtip .bad { color: #ff9b8f; font-weight: 700; }
@@ -973,6 +975,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <li>バーの真ん中をつかんで動かすと移動、端をつかむと開始日・終わりだけ変わります。</li>
         <li>後ろにつながっている仕事（課題バラシの矢印）は、重なる分だけ一緒に後ろへずれます。締切を越えても止めませんが、お知らせで教えます。<span class="ui">元に戻す</span> で戻せます。</li>
         <li>日付のないチケットは、置きたい日を押すと予定工数の長さで置きます。ダブルクリックで編集画面。</li>
+        <li>日付を変えても<strong>行の並びは変わりません</strong>（いじったタスクがどこかへ行かない）。変えた行は黄色になります。並び直したいときは、左上で範囲を選び直してください。</li>
       </ul>
       <h2 id="g-dash"><span class="no">09</span>全体ボード（朝会・Teams用）</h2>
       <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
@@ -1012,6 +1015,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.2</b><span>2026-10-25</span></dt>
+        <dd><ul><li>日程表: 日付を変えたり読み直したりしても、行の並びと見ていた位置が変わらないようにしました。直前に変えた行は黄色で目立たせます</li></ul></dd>
         <dt><b>v16.1</b><span>2026-10-25</span></dt>
         <dd><ul><li>使い方に「このツールについて」を追加。フォントを外部から読み込まないようにしました（通信はこの PC と Redmine の間だけ）</li></ul></dd>
         <dt><b>v16</b><span>2026-10-25</span></dt>
@@ -1086,7 +1091,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-25 12:26'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-25 12:32'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -4821,7 +4826,9 @@ document.addEventListener('keydown', e => {
  *   バーをドラッグして日付を変える（真ん中 = 移動、端 = 開始・終わりだけ）。動かしている間は「締切まであと N 日 / N 日超過」を出す。
  *   締切を越えても止めない（警告だけ）。後ろにつながる仕事（Redmine の先行）は、重なる分だけ一緒に後ろへずらす
  * ===================================================================== */
-const G = { scope: null, issues: new Map(), extra: new Map(), busy: false, lastEditor: null };
+// frozen: 並べるときに使う開始日の控え。日付を変えても行が動かないように、最初に読んだときの開始日で並べる
+// （範囲を切り替えたときだけ並べ直す）。flash: 直前に変えた行（色を付けてどこにあるか分かるように）
+const G = { scope: null, issues: new Map(), extra: new Map(), busy: false, lastEditor: null, frozen: new Map(), flash: new Set(), scroll: null };
 const GANTT_DONE_KEY = 'designBoard.ganttShowDone';
 const GDAY = 26;   // 1 日の幅（px）
 function gShowDone() { try { return localStorage.getItem(GANTT_DONE_KEY) === '1'; } catch (_) { return false; } }
@@ -4843,6 +4850,8 @@ async function loadGantt() {
   try { const got = await api.issuesByIds(list.map(i => i.id), 'relations'); if (got.every(i => Array.isArray(i.relations))) withRel = got; } catch (_) { /* つながりなし */ }
   G.issues = new Map(withRel.map(i => [i.id, i]));
   G.extra = new Map();
+  // 並び順の控え: もう控えてあるチケットはそのまま（読み直しても行が動かない）。新しく出てきたものだけ控える
+  for (const i of G.issues.values()) if (!G.frozen.has(i.id)) G.frozen.set(i.id, (parseDate(i.start_date) || parseDate(i.due_date) || new Date(8.64e15)).getTime());
 }
 async function gReload() {
   G.busy = true; renderGantt();
@@ -4854,7 +4863,7 @@ async function gReload() {
 function gRows() {
   const ver = i => (i.fixed_version ? i.fixed_version.name : '');
   const path = i => ancestors(i).join(' › ');
-  const start = i => (parseDate(i.start_date) || parseDate(i.due_date) || new Date(8.64e15)).getTime();
+  const start = i => G.frozen.get(i.id) ?? (parseDate(i.start_date) || parseDate(i.due_date) || new Date(8.64e15)).getTime();
   return [...G.issues.values()].filter(i => gShowDone() || !isDoneCol(colOf(i))).sort((a, b) =>
     ((parseVersion(ver(a)).prio ?? 999) - (parseVersion(ver(b)).prio ?? 999)) || (ver(a) || '￿').localeCompare(ver(b) || '￿', 'ja')
     || path(a).localeCompare(path(b), 'ja') || start(a) - start(b) || a.id - b.id);
@@ -4910,10 +4919,14 @@ function renderGantt() {
   scopeSel.addEventListener('change', () => {
     const v = scopeSel.value;
     G.scope = v === 't' ? { kind: 'team' } : { kind: v[0] === 'u' ? 'user' : 'version', id: Number(v.slice(1)) };
+    G.frozen = new Map(); G.flash = new Set(); G.scroll = null;   // 範囲を変えたら並べ直して、今日の位置から
     gReload();
   });
   const doneBox = h('input', { type: 'checkbox', checked: gShowDone() });
   doneBox.addEventListener('change', () => { try { localStorage.setItem(GANTT_DONE_KEY, doneBox.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } renderGantt(); });
+  // 描き直しても、見ていた位置（縦・横のスクロール）はそのまま
+  const old = root.querySelector('.gwrap');
+  if (old) G.scroll = { top: old.scrollTop, left: old.scrollLeft };
   const wrap = h('div', { class: 'gwrap' });
   const toToday = () => { wrap.scrollLeft = Math.max(0, gX(today, from) - 3 * GDAY); };
   const top = h('div', { class: 'gtop' }, scopeSel,
@@ -4955,7 +4968,7 @@ function renderGantt() {
     const track = h('div', { class: 'gtrack', style: `width:${width}px` }, shade,
       h('div', { class: 'gtoday', style: `left:${gX(today, from) + GDAY / 2}px` }));
     gDrawBar(track, i, from);
-    return h('div', { class: 'grow' + (newVer ? ' gfirst' : newPath ? ' gsub' : '') + (isDoneCol(colOf(i)) ? ' done' : ''), 'data-id': i.id },
+    return h('div', { class: 'grow' + (newVer ? ' gfirst' : newPath ? ' gsub' : '') + (isDoneCol(colOf(i)) ? ' done' : '') + (G.flash.has(i.id) ? ' flash' : ''), 'data-id': i.id },
       h('div', { class: 'gc ga', title: i.fixed_version ? i.fixed_version.name : '' }, newVer ? ver : ''),
       h('div', { class: 'gc gb', title: path }, newPath ? path : ''),
       h('div', { class: 'gc gcc', title: `#${i.id} ${i.subject}`, ondblclick: () => gOpenEditor(i.id) },
@@ -4966,7 +4979,13 @@ function renderGantt() {
   wrap.replaceChildren(h('div', { class: 'gtable', style: `--gw:${width}px` }, head,
     rows.length ? body : h('div', { class: 'gempty' }, G.busy ? '読み込み中…' : '表示するチケットがありません')));
   root.replaceChildren(...[top, wrap, G.busy ? h('div', { class: 'gbusy' }, '保存中…') : null].filter(Boolean));
-  toToday();
+  if (G.scroll) { wrap.scrollTop = G.scroll.top; wrap.scrollLeft = G.scroll.left; } else toToday();
+  // 直前に変えた行が見えていなければ、そこまで縦にスクロールする
+  const hit = G.flash.size && wrap.querySelector(`.grow.flash`);
+  if (hit && !G.busy) {
+    const wr = wrap.getBoundingClientRect(), hr = hit.getBoundingClientRect();
+    if (hr.top < wr.top + 44 || hr.bottom > wr.bottom) wrap.scrollTop += hr.top - wr.top - wr.height / 3;
+  }
 }
 
 // 1 行のバー・締切・進捗を描く。日付がなければ「押した日に置く」
@@ -5103,6 +5122,7 @@ async function gCommit(issue, start, due) {
   } catch (e) {
     toast(`日付を変えられませんでした。${e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: ')}`, { error: true });
   }
+  G.flash = new Set(done.map(c => c.issue.id));
   if (done.length) {
     const lateOnes = done.filter(c => { const dl = parseTitle(c.issue.subject).deadline; return dl && c.due && c.due > dl; });
     const msg = `${jpDate(start)}〜${jpDate(due)} にしました` + (done.length > 1 ? `（後ろの仕事 ${done.length - 1} 件も一緒にずらしました）` : '')
@@ -5124,7 +5144,7 @@ function gOpenEditor(id) {
   const issue = G.issues.get(id);
   if (!issue) return;
   state.issues.set(id, issue);   // 編集画面はボードのチケットを編集する作りなので、同じものを渡す
-  state.editorSaved = false; G.lastEditor = id;
+  state.editorSaved = false; G.lastEditor = id; G.flash = new Set([id]);
   openEditor(id);
 }
 

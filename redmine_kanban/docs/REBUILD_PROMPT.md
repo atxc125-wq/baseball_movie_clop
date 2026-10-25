@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "16.1"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "16.2"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -253,6 +253,7 @@ redmine_kanban/
 - バー = 開始日〜期日（片方だけならその日）。進捗率で塗る。締切【M/D】は ◆ を同じ行に。期日が締切より後なら、超えた部分を赤・枠も赤。日付がなければ「日付なし — 置きたい日を押す」: 押した日（の次の営業日）から予定工数 ÷ hoursPerDay 日（未入力 1 日）で置く。
 - ドラッグ（Pointer Events）: 端 8px は開始／終わりだけ、真ん中は移動。日単位でスナップ。動かしている間、カーソルの横に「10/29(木) 〜 11/3(火)（6 日）」「締切 10/31(土) まであと N 日 / を N 日超過」（超過は赤）「⚠ 前の仕事「…」が M/D まで」。締切を越えても止めない。
 - 離したら `gCommit`: 後ろの仕事（precedes／follows、読み込んでいなければ `issuesByIds(ids,'relations')` で読む。ほかの人の仕事も）を幅優先でたどり、前の仕事の期日 + 1 + delay の次の営業日（担当者の休みも見る）より前に始まっているものだけ、営業日の長さを保って後ろへ。完了・中止・日付なしは動かさない。書く順: 動かしたチケット → 後ろの仕事を開始日の早い順。トースト「M/D〜M/D にしました（後ろの仕事 N 件も一緒にずらしました）。⚠ 締切を越えています: 「…」N 日超過」（越えていればエラー色）＋ `元に戻す`（同じ順で元の日付に）。ダブルクリックで編集画面、保存したら読み直す。
+- **いじった行がどこかへ行かない**: 並べるときの開始日は、最初に読んだときの値を `G.frozen`（id → 時刻）に控えて使う（日付を変えても、読み直しても行の位置は同じ。新しく出てきたチケットだけ控える）。範囲を切り替えたときだけ並べ直す。描き直しのたびに縦・横のスクロール位置を引き継ぐ（最初だけ今日の位置へ）。直前に変えた行（後ろの仕事も）と編集画面で開いた行を `G.flash` にして黄色で目立たせ、見えていなければそこまで縦にスクロールする。
 
 ### 5.12 親チケットのステータスを子から決める（すべての親子、親の親まで）
 - 子（中止を除く）が全員 未着手 → 未着手 / 全員 完了（確認済）→ 完了（確認済）/ 全員 完了以上 → 完了（実務者）/ それ以外 → 子の進捗の平均（未着手 0、完了 100）を 20% 刻みで切り捨てた進行中ステータス。
@@ -912,6 +913,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
 .grow:has(.gnone) .gtrack { cursor: pointer; }
 .gempty { padding: 30px; color: var(--ink-3); }
+.grow.flash .gc { background: var(--soon-bg); }
+.grow.flash .gc.ga { box-shadow: inset 4px 0 0 var(--soon); }
 .gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
 .gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .gtip .bad { color: #ff9b8f; font-weight: 700; }
@@ -1317,6 +1320,7 @@ a.btn { text-decoration: none; display: inline-block; }
         <li>バーの真ん中をつかんで動かすと移動、端をつかむと開始日・終わりだけ変わります。</li>
         <li>後ろにつながっている仕事（課題バラシの矢印）は、重なる分だけ一緒に後ろへずれます。締切を越えても止めませんが、お知らせで教えます。<span class="ui">元に戻す</span> で戻せます。</li>
         <li>日付のないチケットは、置きたい日を押すと予定工数の長さで置きます。ダブルクリックで編集画面。</li>
+        <li>日付を変えても<strong>行の並びは変わりません</strong>（いじったタスクがどこかへ行かない）。変えた行は黄色になります。並び直したいときは、左上で範囲を選び直してください。</li>
       </ul>
       <h2 id="g-dash"><span class="no">09</span>全体ボード（朝会・Teams用）</h2>
       <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
@@ -1356,6 +1360,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.2</b><span>2026-10-25</span></dt>
+        <dd><ul><li>日程表: 日付を変えたり読み直したりしても、行の並びと見ていた位置が変わらないようにしました。直前に変えた行は黄色で目立たせます</li></ul></dd>
         <dt><b>v16.1</b><span>2026-10-25</span></dt>
         <dd><ul><li>使い方に「このツールについて」を追加。フォントを外部から読み込まないようにしました（通信はこの PC と Redmine の間だけ）</li></ul></dd>
         <dt><b>v16</b><span>2026-10-25</span></dt>

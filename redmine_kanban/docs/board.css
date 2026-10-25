@@ -566,6 +566,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
 .grow:has(.gnone) .gtrack { cursor: pointer; }
 .gempty { padding: 30px; color: var(--ink-3); }
+.grow.flash .gc { background: var(--soon-bg); }
+.grow.flash .gc.ga { box-shadow: inset 4px 0 0 var(--soon); }
 .gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
 .gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .gtip .bad { color: #ff9b8f; font-weight: 700; }
