@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "15.5"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "16"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -245,6 +245,14 @@ redmine_kanban/
 - **前後以外のつながり**: Redmine は 2 つの間に関連を 1 つしか持てない。前後をつなぐのは `addPrecedes(from, to)`: 失敗して文言に すでに|既に|already|taken|存在 があれば `issueDetail(from)` の relations から相手が to のものを探し、あれば `err.existing = { rels, from, to }` と「#A と #B の間には、すでに「種類」のつながりがあるので、前後でつなげません（Redmine は 2 つの間につながりを 1 つしか持てません）」。bRun はこのときエラーのトーストに `外して前後にする`（15 秒）を付け、押すと全部外して前後でつなぐ。種類の名前（このチケットから見て。逆向きは relates↔relates, duplicates↔duplicated, blocks↔blocked, precedes↔follows, copied_to↔copied_from）: relates 関連している / duplicates 重複している（相手が残る）/ duplicated 重複されている / blocks ブロックしている / blocked ブロックされている / precedes 後ろの仕事 / follows 前の仕事 / copied_to コピー先 / copied_from コピー元。編集画面の「つながり（Redmine の関連）」に全部（種類・#番号 件名（担当の名字）・`外す`）。外したら閉じたときに課題バラシを読み直す。モックは 4521–4523 に「関連している」を 1 つ持ち、同じ 2 つへの追加は 422「関連しているチケットはすでに存在します」。
 
 - **操作のあとの読み直しは部分だけ**: bRun の間は `api` を Proxy（bTracking）に差し替え、updateIssue（親を変えたら新旧の親も）・addRelation（両端）・removeRelation（両端）・createIssue（作ったものと親）・createTimeEntry で触ったチケットを控える。終わったら `bRefresh(ids)`: 控えたものとその親・祖先を `issuesByIds(ids, 'relations')` の 1 回で読み直し、中止なら消す、範囲（バージョン／担当／親の下）から外れたら消す、見えなくなったものも消す。担当者の表示では新しく要る親を文脈として足す。つながりは全チケットの relations から組み直す（bBuildRels。範囲外の相手は `B.others` に控え、まだ読んでいない相手だけ読む）。失敗したら全部読み直す（loadBara）。実績工数は `B.spent` に控え、読み直しで消えないようにする（作業時間を記録したチケットだけ読み直す）。編集画面を閉じたときも、編集したチケットと外したつながりの相手だけ読み直す。
+
+### 5.11b 日程表（ガント。タブ「日程表」、課題バラシの右）
+- 範囲（左上の選択）: 担当者（基本は自分、`issuesFor`）／チーム全員（`teamIssues`）／バージョン（`issuesInVersion`）。中止と、子を持つチケット（`withChildren`）は行にしない。親の名前は `loadAncestors` で。つながりは `issuesByIds(ids, 'relations')`（付かなければつながりなし）。「完了も表示」（localStorage `designBoard.ganttShowDone`、既定オフ）。
+- 1 行 = 1 チケット。左に固定列: バージョン（表示名、150px）／親チケット（親の親は「大 › 中」、180px）／チケット（件名と「#番号・（担当の名字）・ステータス」、260px）。同じバージョン・同じ親が続く行は空欄（結合したように）、バージョンが変わる行は上に太線。並び: バージョン番号 → バージョン名 → 親の並び → 開始日。
+- 右は 1 日 26px。見出しに月・日・曜日、今日は色。期間は 2 週前〜6 週後（行の日付があれば広げる。90 日前〜180 日後まで）、月曜始まり。行ごとに土日・休日・その人の休み（半休は半分）を灰色、今日の縦線。
+- バー = 開始日〜期日（片方だけならその日）。進捗率で塗る。締切【M/D】は ◆ を同じ行に。期日が締切より後なら、超えた部分を赤・枠も赤。日付がなければ「日付なし — 置きたい日を押す」: 押した日（の次の営業日）から予定工数 ÷ hoursPerDay 日（未入力 1 日）で置く。
+- ドラッグ（Pointer Events）: 端 8px は開始／終わりだけ、真ん中は移動。日単位でスナップ。動かしている間、カーソルの横に「10/29(木) 〜 11/3(火)（6 日）」「締切 10/31(土) まであと N 日 / を N 日超過」（超過は赤）「⚠ 前の仕事「…」が M/D まで」。締切を越えても止めない。
+- 離したら `gCommit`: 後ろの仕事（precedes／follows、読み込んでいなければ `issuesByIds(ids,'relations')` で読む。ほかの人の仕事も）を幅優先でたどり、前の仕事の期日 + 1 + delay の次の営業日（担当者の休みも見る）より前に始まっているものだけ、営業日の長さを保って後ろへ。完了・中止・日付なしは動かさない。書く順: 動かしたチケット → 後ろの仕事を開始日の早い順。トースト「M/D〜M/D にしました（後ろの仕事 N 件も一緒にずらしました）。⚠ 締切を越えています: 「…」N 日超過」（越えていればエラー色）＋ `元に戻す`（同じ順で元の日付に）。ダブルクリックで編集画面、保存したら読み直す。
 
 ### 5.12 親チケットのステータスを子から決める（すべての親子、親の親まで）
 - 子（中止を除く）が全員 未着手 → 未着手 / 全員 完了（確認済）→ 完了（確認済）/ 全員 完了以上 → 完了（実務者）/ それ以外 → 子の進捗の平均（未着手 0、完了 100）を 20% 刻みで切り捨てた進行中ステータス。
@@ -855,6 +863,61 @@ a.btn { text-decoration: none; display: inline-block; }
 .hcal tr.clickable { cursor: pointer; }
 .hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
+/* 日程表（ガント） */
+.gantt { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; position: relative; }
+.gantt .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.gantt .gtop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(360px, 100%); }
+.gantt .gtop .opt { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.gantt .gtop .sp { flex: 1; }
+.gantt .glegend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-2); }
+.gantt .glegend .dia { color: var(--late); font-style: normal; margin-right: 3px; }
+.gantt .glegend .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.gantt .glegend .sw.late { background: var(--late); }
+.gantt .glegend .sw.off { background: var(--surface-2); border: 1px solid var(--line); }
+.gantt .glegend .hint { color: var(--ink-3); }
+.gwrap { flex: 1; min-height: 0; overflow: auto; }
+.gtable { width: max-content; min-width: 100%; }
+.grow { display: flex; min-height: 34px; border-bottom: 1px solid var(--line); }
+.grow.gfirst { border-top: 2px solid var(--ink-3); }
+.grow.done .gs { color: var(--ink-3); text-decoration: line-through; }
+.gc { flex: none; padding: 5px 8px; font-size: 13px; background: var(--surface); position: sticky; z-index: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--line); }
+.gc.ga { width: 150px; left: 0; font-weight: 700; color: var(--accent); }
+.gc.gb { width: 180px; left: 150px; color: var(--ink-2); }
+.gc.gcc { width: 260px; left: 330px; display: flex; flex-direction: column; justify-content: center; cursor: default; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+.gc.gcc .gs { overflow: hidden; text-overflow: ellipsis; }
+.gc.gcc .gsub-t { font-size: 11px; color: var(--ink-3); }
+.grow.gsub .gc.gb, .grow.gsub .gc.gcc, .grow.gsub .gtrack { border-top: 1px solid var(--line); }
+.ghead { position: sticky; top: 0; z-index: 3; min-height: 44px; background: var(--surface-2); }
+.ghead .gc { background: var(--surface-2); font-size: 12px; color: var(--ink-2); display: flex; align-items: flex-end; }
+.gtrack { position: relative; flex: none; }
+.ghead .gtrack { height: 44px; }
+.gm { position: absolute; top: 2px; font-size: 11px; color: var(--ink-2); font-weight: 700; padding-left: 3px; border-left: 1px solid var(--ink-3); }
+.gd { position: absolute; bottom: 2px; width: 26px; text-align: center; font-size: 10px; line-height: 1.15; color: var(--ink-2); }
+.gd b { display: block; font-family: var(--font-num); font-size: 11px; font-weight: 500; }
+.gd.off { color: var(--ink-3); }
+.gd.today { color: var(--accent); font-weight: 700; }
+.gd.wk { border-left: 1px solid var(--line); }
+.goff { position: absolute; top: 0; bottom: 0; width: 26px; background: var(--surface-2); }
+.goff.half { background: linear-gradient(var(--surface-2) 50%, transparent 50%); }
+.gtoday { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); opacity: .5; }
+.gbar { position: absolute; top: 8px; height: 18px; border-radius: 4px; background: var(--accent-mid); cursor: grab; overflow: hidden; touch-action: none; z-index: 1; }
+.gbar.todo { background: var(--line); }
+.gbar.done, .gbar.approved { background: var(--ok-bg); }
+.gbar .gfill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: .85; }
+.gbar.done .gfill, .gbar.approved .gfill { background: var(--ok); opacity: .6; }
+.gbar .glate { position: absolute; top: 0; bottom: 0; background: var(--late); opacity: .85; }
+.gbar.late { box-shadow: 0 0 0 2px var(--late); }
+.gbar.dragging { cursor: grabbing; opacity: .85; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.gbar .gh { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.gbar .gh.l { left: 0; } .gbar .gh.r { right: 0; }
+.gdl { position: absolute; top: 7px; width: 26px; text-align: center; color: var(--late); font-size: 15px; line-height: 20px; z-index: 2; pointer-events: none; text-shadow: 0 0 2px var(--surface); }
+.gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
+.grow:has(.gnone) .gtrack { cursor: pointer; }
+.gempty { padding: 30px; color: var(--ink-3); }
+.gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
+.gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.gtip .bad { color: #ff9b8f; font-weight: 700; }
+.gtip .ok { color: #9fe0b4; }
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .bara .btop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(460px, 100%); }
@@ -1074,6 +1137,7 @@ a.btn { text-decoration: none; display: inline-block; }
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
     <div class="dash" id="dash" hidden></div>
     <div class="bara" id="bara" hidden></div>
+    <div class="gantt" id="gantt" hidden></div>
     <div class="inbox" id="inbox" hidden>
       <section class="col" aria-label="未整理のチケット">
         <header class="col-head">
@@ -1123,6 +1187,7 @@ a.btn { text-decoration: none; display: inline-block; }
           <li><a href="#g-new">新規タスク・みんなでやる仕事</a></li>
           <li><a href="#g-hours">工数入力は「押すだけ」</a></li>
           <li><a href="#g-bara">課題バラシ</a></li>
+          <li><a href="#g-gantt">日程表（ガント）</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
           <li><a href="#g-log">変更履歴</a></li>
@@ -1243,7 +1308,18 @@ a.btn { text-decoration: none; display: inline-block; }
       </ul>
       <p>矢印は Redmine の「先行」として保存されるので、ガントチャートにも同じ矢印が出ます。前の仕事が遅れると、後ろの仕事の日程も Redmine が自動でずらします。</p>
 
-      <h2 id="g-dash"><span class="no">08</span>全体ボード（朝会・Teams用）</h2>
+      <h2 id="g-gantt"><span class="no">08</span>日程表（ガント）</h2>
+      <div class="ba">
+        <div class="before"><b>これまで</b>ガントは縦に長く、バージョンや親チケットの行で上下に行ったり来たり。締切が出ないので、日付を動かしても間に合うか分からない。</div>
+        <div class="after"><b>これから</b>バージョン・親・チケットを横に並べて 1 行 1 チケット。締切は ◆、越えた分は赤。動かしている間に「締切まであと何日」が出ます。</div>
+      </div>
+      <ul>
+        <li>左上で <strong>担当者（1 人ずつ）／チーム全員／バージョン</strong> を切り替えます。</li>
+        <li>バーの真ん中をつかんで動かすと移動、端をつかむと開始日・終わりだけ変わります。</li>
+        <li>後ろにつながっている仕事（課題バラシの矢印）は、重なる分だけ一緒に後ろへずれます。締切を越えても止めませんが、お知らせで教えます。<span class="ui">元に戻す</span> で戻せます。</li>
+        <li>日付のないチケットは、置きたい日を押すと予定工数の長さで置きます。ダブルクリックで編集画面。</li>
+      </ul>
+      <h2 id="g-dash"><span class="no">09</span>全体ボード（朝会・Teams用）</h2>
       <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
       <ul>
         <li><strong>上の数字</strong>：締切超過・今週の締切・2週間で完了した数・見直しが必要な仕事</li>
@@ -1253,7 +1329,7 @@ a.btn { text-decoration: none; display: inline-block; }
       </ul>
       <p>責めるための画面ではありません。<strong>早めに助けを出すための画面</strong>です。赤いものを見つけたら、遠慮なく声をかけてください（かけます）。</p>
 
-      <h2 id="g-faq"><span class="no">09</span>困ったとき</h2>
+      <h2 id="g-faq"><span class="no">10</span>困ったとき</h2>
       <table>
         <tr><th>こんなとき</th><th>こうする</th></tr>
         <tr><td>ボードが開かない</td><td>共有フォルダの <strong>kanban_relay.py</strong> をダブルクリック。自動で起動してボードが開きます。</td></tr>
@@ -1269,9 +1345,11 @@ a.btn { text-decoration: none; display: inline-block; }
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
 
-      <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
+      <h2 id="g-log"><span class="no">11</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16</b><span>2026-10-25</span></dt>
+        <dd><ul><li>「日程表」タブを追加：左にバージョン・親チケット・チケットを横に並べ、右に日程。締切を ◆ で表示し、予定が締切を越えた分は赤。バーをドラッグして日付を変えると、締切まであと何日かが出て、後ろにつながる仕事も一緒にずれます</li></ul></dd>
         <dt><b>v15.5</b><span>2026-10-22</span></dt>
         <dd><ul><li>工数に「毎日の実績」を追加：前の月の1日から今日までの平日を横に並べて、1日ごとの記録を確認できます（横スクロール、記録のない日は赤）</li></ul></dd>
         <dt><b>v15.4</b><span>2026-10-22</span></dt>

@@ -523,6 +523,61 @@ a.btn { text-decoration: none; display: inline-block; }
 .hcal tr.clickable { cursor: pointer; }
 .hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
+/* 日程表（ガント） */
+.gantt { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; position: relative; }
+.gantt .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.gantt .gtop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(360px, 100%); }
+.gantt .gtop .opt { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.gantt .gtop .sp { flex: 1; }
+.gantt .glegend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-2); }
+.gantt .glegend .dia { color: var(--late); font-style: normal; margin-right: 3px; }
+.gantt .glegend .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.gantt .glegend .sw.late { background: var(--late); }
+.gantt .glegend .sw.off { background: var(--surface-2); border: 1px solid var(--line); }
+.gantt .glegend .hint { color: var(--ink-3); }
+.gwrap { flex: 1; min-height: 0; overflow: auto; }
+.gtable { width: max-content; min-width: 100%; }
+.grow { display: flex; min-height: 34px; border-bottom: 1px solid var(--line); }
+.grow.gfirst { border-top: 2px solid var(--ink-3); }
+.grow.done .gs { color: var(--ink-3); text-decoration: line-through; }
+.gc { flex: none; padding: 5px 8px; font-size: 13px; background: var(--surface); position: sticky; z-index: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--line); }
+.gc.ga { width: 150px; left: 0; font-weight: 700; color: var(--accent); }
+.gc.gb { width: 180px; left: 150px; color: var(--ink-2); }
+.gc.gcc { width: 260px; left: 330px; display: flex; flex-direction: column; justify-content: center; cursor: default; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+.gc.gcc .gs { overflow: hidden; text-overflow: ellipsis; }
+.gc.gcc .gsub-t { font-size: 11px; color: var(--ink-3); }
+.grow.gsub .gc.gb, .grow.gsub .gc.gcc, .grow.gsub .gtrack { border-top: 1px solid var(--line); }
+.ghead { position: sticky; top: 0; z-index: 3; min-height: 44px; background: var(--surface-2); }
+.ghead .gc { background: var(--surface-2); font-size: 12px; color: var(--ink-2); display: flex; align-items: flex-end; }
+.gtrack { position: relative; flex: none; }
+.ghead .gtrack { height: 44px; }
+.gm { position: absolute; top: 2px; font-size: 11px; color: var(--ink-2); font-weight: 700; padding-left: 3px; border-left: 1px solid var(--ink-3); }
+.gd { position: absolute; bottom: 2px; width: 26px; text-align: center; font-size: 10px; line-height: 1.15; color: var(--ink-2); }
+.gd b { display: block; font-family: var(--font-num); font-size: 11px; font-weight: 500; }
+.gd.off { color: var(--ink-3); }
+.gd.today { color: var(--accent); font-weight: 700; }
+.gd.wk { border-left: 1px solid var(--line); }
+.goff { position: absolute; top: 0; bottom: 0; width: 26px; background: var(--surface-2); }
+.goff.half { background: linear-gradient(var(--surface-2) 50%, transparent 50%); }
+.gtoday { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); opacity: .5; }
+.gbar { position: absolute; top: 8px; height: 18px; border-radius: 4px; background: var(--accent-mid); cursor: grab; overflow: hidden; touch-action: none; z-index: 1; }
+.gbar.todo { background: var(--line); }
+.gbar.done, .gbar.approved { background: var(--ok-bg); }
+.gbar .gfill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: .85; }
+.gbar.done .gfill, .gbar.approved .gfill { background: var(--ok); opacity: .6; }
+.gbar .glate { position: absolute; top: 0; bottom: 0; background: var(--late); opacity: .85; }
+.gbar.late { box-shadow: 0 0 0 2px var(--late); }
+.gbar.dragging { cursor: grabbing; opacity: .85; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.gbar .gh { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.gbar .gh.l { left: 0; } .gbar .gh.r { right: 0; }
+.gdl { position: absolute; top: 7px; width: 26px; text-align: center; color: var(--late); font-size: 15px; line-height: 20px; z-index: 2; pointer-events: none; text-shadow: 0 0 2px var(--surface); }
+.gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
+.grow:has(.gnone) .gtrack { cursor: pointer; }
+.gempty { padding: 30px; color: var(--ink-3); }
+.gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
+.gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.gtip .bad { color: #ff9b8f; font-weight: 700; }
+.gtip .ok { color: #9fe0b4; }
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .bara .btop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(460px, 100%); }
@@ -738,6 +793,7 @@ a.btn { text-decoration: none; display: inline-block; }
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
     <div class="dash" id="dash" hidden></div>
     <div class="bara" id="bara" hidden></div>
+    <div class="gantt" id="gantt" hidden></div>
     <div class="inbox" id="inbox" hidden>
       <section class="col" aria-label="未整理のチケット">
         <header class="col-head">
@@ -787,6 +843,7 @@ a.btn { text-decoration: none; display: inline-block; }
           <li><a href="#g-new">新規タスク・みんなでやる仕事</a></li>
           <li><a href="#g-hours">工数入力は「押すだけ」</a></li>
           <li><a href="#g-bara">課題バラシ</a></li>
+          <li><a href="#g-gantt">日程表（ガント）</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
           <li><a href="#g-log">変更履歴</a></li>
@@ -907,7 +964,18 @@ a.btn { text-decoration: none; display: inline-block; }
       </ul>
       <p>矢印は Redmine の「先行」として保存されるので、ガントチャートにも同じ矢印が出ます。前の仕事が遅れると、後ろの仕事の日程も Redmine が自動でずらします。</p>
 
-      <h2 id="g-dash"><span class="no">08</span>全体ボード（朝会・Teams用）</h2>
+      <h2 id="g-gantt"><span class="no">08</span>日程表（ガント）</h2>
+      <div class="ba">
+        <div class="before"><b>これまで</b>ガントは縦に長く、バージョンや親チケットの行で上下に行ったり来たり。締切が出ないので、日付を動かしても間に合うか分からない。</div>
+        <div class="after"><b>これから</b>バージョン・親・チケットを横に並べて 1 行 1 チケット。締切は ◆、越えた分は赤。動かしている間に「締切まであと何日」が出ます。</div>
+      </div>
+      <ul>
+        <li>左上で <strong>担当者（1 人ずつ）／チーム全員／バージョン</strong> を切り替えます。</li>
+        <li>バーの真ん中をつかんで動かすと移動、端をつかむと開始日・終わりだけ変わります。</li>
+        <li>後ろにつながっている仕事（課題バラシの矢印）は、重なる分だけ一緒に後ろへずれます。締切を越えても止めませんが、お知らせで教えます。<span class="ui">元に戻す</span> で戻せます。</li>
+        <li>日付のないチケットは、置きたい日を押すと予定工数の長さで置きます。ダブルクリックで編集画面。</li>
+      </ul>
+      <h2 id="g-dash"><span class="no">09</span>全体ボード（朝会・Teams用）</h2>
       <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
       <ul>
         <li><strong>上の数字</strong>：締切超過・今週の締切・2週間で完了した数・見直しが必要な仕事</li>
@@ -917,7 +985,7 @@ a.btn { text-decoration: none; display: inline-block; }
       </ul>
       <p>責めるための画面ではありません。<strong>早めに助けを出すための画面</strong>です。赤いものを見つけたら、遠慮なく声をかけてください（かけます）。</p>
 
-      <h2 id="g-faq"><span class="no">09</span>困ったとき</h2>
+      <h2 id="g-faq"><span class="no">10</span>困ったとき</h2>
       <table>
         <tr><th>こんなとき</th><th>こうする</th></tr>
         <tr><td>ボードが開かない</td><td>共有フォルダの <strong>kanban_relay.py</strong> をダブルクリック。自動で起動してボードが開きます。</td></tr>
@@ -933,9 +1001,11 @@ a.btn { text-decoration: none; display: inline-block; }
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
 
-      <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
+      <h2 id="g-log"><span class="no">11</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16</b><span>2026-10-25</span></dt>
+        <dd><ul><li>「日程表」タブを追加：左にバージョン・親チケット・チケットを横に並べ、右に日程。締切を ◆ で表示し、予定が締切を越えた分は赤。バーをドラッグして日付を変えると、締切まであと何日かが出て、後ろにつながる仕事も一緒にずれます</li></ul></dd>
         <dt><b>v15.5</b><span>2026-10-22</span></dt>
         <dd><ul><li>工数に「毎日の実績」を追加：前の月の1日から今日までの平日を横に並べて、1日ごとの記録を確認できます（横スクロール、記録のない日は赤）</li></ul></dd>
         <dt><b>v15.4</b><span>2026-10-22</span></dt>
@@ -1006,7 +1076,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-22 12:32'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-25 12:17'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1234,6 +1304,13 @@ function createMockApi(getMockUserId) {
   // 課題バラシ用: 予定工数と、前後のつながり（Redmine の「先行」。from が終わってから to）
   for (const [id, est] of [[4521, 16], [4522, 12], [4523, 4], [4573, 2], [4610, 8], [4611, 6], [4613, 4], [4614, 4], [4572, 4], [4120, null]]) {
     if (est != null) db.get(id).estimated_hours = est;
+  }
+  // 日程表用: 期日があって開始日がないものは、期日の数日前から始めたことにする
+  for (const i of db.values()) {
+    if (!i.due_date || i.start_date) continue;
+    let x = parseDate(i.due_date);
+    for (let k = 1 + (i.id % 4); k > 0; ) { x = addDays(x, -1); if (x.getDay() % 6) k--; }
+    i.start_date = isoDate(x);
   }
   let rels = [[4523, 4522], [4522, 4573], [4614, 4610], [4610, 4613], [4613, 4611], [4573, 4572], [4522, 4611], [4614, 4521], [4210, 4211], [4211, 4214], [4533, 4211], [4541, 4532]]
     .map(([from, to], k) => ({ id: 900 + k, issue_id: from, issue_to_id: to, relation_type: 'precedes', delay: null }));
@@ -1651,6 +1728,7 @@ let api = null;
 const INBOX = 'inbox';
 const DASH = 'dash';
 const BARA = 'bara';
+const GANTT = 'gantt';
 const state = {
   me: null, view: null,               // view = メンバーの ID または 'inbox'
   issues: new Map(), parents: new Map(), saving: new Set(),
@@ -2132,6 +2210,11 @@ function renderTabs() {
     }, '課題バラシ'),
     h('button', {
       type: 'button', role: 'tab', class: 'tab inbox-tab',
+      'aria-selected': String(state.view === GANTT),
+      onclick: () => switchView(GANTT),
+    }, '日程表'),
+    h('button', {
+      type: 'button', role: 'tab', class: 'tab inbox-tab',
       'aria-selected': String(state.view === INBOX),
       onclick: () => switchView(INBOX),
     }, '未整理', h('span', { class: 'badge' + (n ? '' : ' zero') }, n)),
@@ -2150,15 +2233,17 @@ function renderChrome() {
 
 function render() {
   $('cancelZone').hidden = true;
-  const inbox = state.view === INBOX, dash = state.view === DASH, bara = state.view === BARA;
-  $('board').hidden = inbox || dash || bara;
+  const inbox = state.view === INBOX, dash = state.view === DASH, bara = state.view === BARA, gantt = state.view === GANTT;
+  $('board').hidden = inbox || dash || bara || gantt;
   $('inbox').hidden = !inbox;
   $('dash').hidden = !dash;
   $('bara').hidden = !bara;
+  $('gantt').hidden = !gantt;
   renderTabs();
   if (inbox) { renderInbox(); renderSummary([]); }
   else if (dash) renderDashboard();
   else if (bara) { renderBara(); $('summary').replaceChildren(); }
+  else if (gantt) { renderGantt(); $('summary').replaceChildren(); }
   else renderBoard();
 }
 
@@ -2961,6 +3046,10 @@ function closeEditor() {
     if (state.editorSaved) { state.editorSaved = false; bReloadSome([B.lastEditor, ...(state.editorTouched || [])]); } else renderBara();
     state.editorTouched = null;
   }
+  // 日程表: 保存したら読み直す（担当・バージョンが変わると行が動くため）
+  if (state.view === GANTT) {
+    if (state.editorSaved) { state.editorSaved = false; gReload(); } else renderGantt();
+  }
   const card = document.querySelector(`.card[data-id="${$('editorForm').dataset.id || ''}"]`);
   if (card) card.focus();
 }
@@ -3183,6 +3272,7 @@ async function loadView() {
     if (isManager()) sweepParents().catch(() => {});
   }
   else if (state.view === BARA) await Promise.all([loadBara(), loadInbox()]);
+  else if (state.view === GANTT) await Promise.all([loadGantt(), loadInbox()]);
   else {
     await Promise.all([loadUser(state.view), loadInbox()]);
     loadSignals(state.view);   // 待ち・止まっているは裏で読む
@@ -4713,6 +4803,320 @@ document.addEventListener('keydown', e => {
   else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); bAddNear(B.selected, 'before'); }
   else if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); bAddNear(B.selected, 'child'); }
 });
+
+/* =====================================================================
+ * 9e. 日程表（ガント）
+ *   1 行 = 1 チケット。左にバージョン・親チケット・チケットを横に並べる（同じものが続く行は空けて、結合したように見せる）。
+ *   右は日付。締切【M/D】を ◆ で同じ行に出し、予定（開始日〜作業完了予定）が締切を越えた分は赤。
+ *   バーをドラッグして日付を変える（真ん中 = 移動、端 = 開始・終わりだけ）。動かしている間は「締切まであと N 日 / N 日超過」を出す。
+ *   締切を越えても止めない（警告だけ）。後ろにつながる仕事（Redmine の先行）は、重なる分だけ一緒に後ろへずらす
+ * ===================================================================== */
+const G = { scope: null, issues: new Map(), extra: new Map(), busy: false, lastEditor: null };
+const GANTT_DONE_KEY = 'designBoard.ganttShowDone';
+const GDAY = 26;   // 1 日の幅（px）
+function gShowDone() { try { return localStorage.getItem(GANTT_DONE_KEY) === '1'; } catch (_) { return false; } }
+
+async function loadGantt() {
+  if (!G.scope) G.scope = { kind: 'user', id: state.me.id };
+  if (!state.versions.length) { const pid = projectForNew(); if (pid) await ensureVersions(pid); }
+  let list;
+  if (G.scope.kind === 'user') list = await api.issuesFor(G.scope.id);
+  else if (G.scope.kind === 'version') list = await api.issuesInVersion(G.scope.id);
+  else list = await api.teamIssues();
+  list = list.filter(i => statusById[i.status.id] && colOf(i) !== 'cancelled');
+  // 子を持つチケット（まとめ用の親）は行にしない。親の名前は左の列に出す
+  const containers = await api.withChildren(list.map(i => i.id));
+  list = list.filter(i => !containers.has(i.id));
+  await loadAncestors(list);
+  // 前後のつながりも一緒に読む（後ろの仕事を一緒にずらすため）。付かない Redmine ではつながりなしで出す
+  let withRel = list;
+  try { const got = await api.issuesByIds(list.map(i => i.id), 'relations'); if (got.every(i => Array.isArray(i.relations))) withRel = got; } catch (_) { /* つながりなし */ }
+  G.issues = new Map(withRel.map(i => [i.id, i]));
+  G.extra = new Map();
+}
+async function gReload() {
+  G.busy = true; renderGantt();
+  try { await loadGantt(); } catch (e) { toast(e.message, { error: true }); }
+  G.busy = false; renderGantt();
+}
+
+// 行の並び: バージョン（番号順）→ 親チケット → 開始日
+function gRows() {
+  const ver = i => (i.fixed_version ? i.fixed_version.name : '');
+  const path = i => ancestors(i).join(' › ');
+  const start = i => (parseDate(i.start_date) || parseDate(i.due_date) || new Date(8.64e15)).getTime();
+  return [...G.issues.values()].filter(i => gShowDone() || !isDoneCol(colOf(i))).sort((a, b) =>
+    ((parseVersion(ver(a)).prio ?? 999) - (parseVersion(ver(b)).prio ?? 999)) || (ver(a) || '￿').localeCompare(ver(b) || '￿', 'ja')
+    || path(a).localeCompare(path(b), 'ja') || start(a) - start(b) || a.id - b.id);
+}
+function gRange(rows) {
+  const today = startOfToday();
+  let from = addDays(today, -14), to = addDays(today, 42);
+  for (const i of rows) {
+    for (const d of [parseDate(i.start_date), parseDate(i.due_date), parseTitle(i.subject).deadline]) {
+      if (!d) continue;
+      if (d < from && d >= addDays(today, -90)) from = d;
+      if (d > to && d <= addDays(today, 180)) to = d;
+    }
+  }
+  from = addDays(from, -((from.getDay() + 6) % 7));   // 月曜から
+  return { from, days: Math.round((addDays(to, 7) - from) / DAY) + 1 };
+}
+const gX = (d, from) => Math.round((d - from) / DAY) * GDAY;
+// 締切と予定の関係。「締切まであと 2 日」「締切を 3 日超過」（暦の日数）
+function gDeadlineText(dl, due) {
+  if (!dl || !due) return '';
+  const n = Math.round((dl - due) / DAY);
+  return n >= 0 ? `締切 ${jpDate(dl)} まであと ${n} 日` : `締切 ${jpDate(dl)} を ${-n} 日超過`;
+}
+// 前の仕事のうち、いちばん遅く終わるもの（読み込んである分だけ）
+function gPredDue(issue) {
+  let best = null;
+  for (const r of issue.relations || []) {
+    const pid = r.relation_type === 'precedes' && r.issue_to_id === issue.id ? r.issue_id : r.relation_type === 'follows' && r.issue_id === issue.id ? r.issue_to_id : null;
+    const p = pid && (G.issues.get(pid) || G.extra.get(pid));
+    if (!p || !p.due_date || isDoneCol(colOf(p))) continue;
+    const d = addDays(parseDate(p.due_date), r.delay || 0);
+    if (!best || d > best.d) best = { d, issue: p };
+  }
+  return best;
+}
+
+function renderGantt() {
+  const root = $('gantt');
+  if (!G.scope) { root.replaceChildren(h('div', { class: 'loading' }, '読み込み中…')); return; }
+  const today = startOfToday();
+  const rows = gRows();
+  const { from, days } = gRange(rows);
+  const width = days * GDAY;
+
+  // 範囲の切り替え: 担当者（基本）/ チーム全員 / バージョン
+  const versions = [...state.versions].sort((a, b) => (parseVersion(a.name).prio ?? 999) - (parseVersion(b.name).prio ?? 999) || a.name.localeCompare(b.name, 'ja'));
+  const scopeSel = h('select', { 'aria-label': '表示する範囲' },
+    h('optgroup', { label: '担当者' }, memberList().map(m => h('option', { value: `u${m.id}` }, m.id === state.me.id ? `${m.name}（自分）` : m.name))),
+    h('option', { value: 't' }, 'チーム全員'),
+    versions.length ? h('optgroup', { label: 'バージョン' }, versions.map(v => h('option', { value: `v${v.id}` }, v.name))) : null);
+  scopeSel.value = G.scope.kind === 'team' ? 't' : `${G.scope.kind === 'user' ? 'u' : 'v'}${G.scope.id}`;
+  scopeSel.addEventListener('change', () => {
+    const v = scopeSel.value;
+    G.scope = v === 't' ? { kind: 'team' } : { kind: v[0] === 'u' ? 'user' : 'version', id: Number(v.slice(1)) };
+    gReload();
+  });
+  const doneBox = h('input', { type: 'checkbox', checked: gShowDone() });
+  doneBox.addEventListener('change', () => { try { localStorage.setItem(GANTT_DONE_KEY, doneBox.checked ? '1' : '0'); } catch (_) { /* 保存できなくても続ける */ } renderGantt(); });
+  const wrap = h('div', { class: 'gwrap' });
+  const toToday = () => { wrap.scrollLeft = Math.max(0, gX(today, from) - 3 * GDAY); };
+  const top = h('div', { class: 'gtop' }, scopeSel,
+    h('label', { class: 'opt' }, doneBox, '完了も表示'),
+    h('button', { type: 'button', class: 'btn-mini', onclick: toToday }, '今日'),
+    h('span', { class: 'sp' }),
+    h('span', { class: 'glegend' },
+      h('span', {}, h('i', { class: 'dia' }, '◆'), '締切'), h('span', {}, h('i', { class: 'sw late' }), '締切を越えた予定'),
+      h('span', {}, h('i', { class: 'sw off' }), '休み'), h('span', { class: 'hint' }, 'バーをドラッグで日付を変更（端をつかむと開始・終わりだけ）。後ろにつながる仕事も一緒にずれます。ダブルクリックで編集')));
+
+  // 見出し: 月 / 日
+  const dayCells = [], monthCells = [];
+  for (let k = 0; k < days; k++) {
+    const d = addDays(from, k);
+    const off = isOffDay(d);
+    dayCells.push(h('div', { class: 'gd' + (off ? ' off' : '') + (d.getDay() === 1 ? ' wk' : '') + (isoDate(d) === isoDate(today) ? ' today' : ''), style: `left:${k * GDAY}px` },
+      h('b', {}, d.getDate()), h('span', {}, '日月火水木金土'[d.getDay()])));
+    if (k === 0 || d.getDate() === 1) monthCells.push(h('div', { class: 'gm', style: `left:${k * GDAY}px` }, `${d.getFullYear()}年${d.getMonth() + 1}月`));
+  }
+  const multi = G.scope.kind !== 'user';
+  const head = h('div', { class: 'grow ghead' },
+    h('div', { class: 'gc ga' }, 'バージョン'), h('div', { class: 'gc gb' }, '親チケット'), h('div', { class: 'gc gcc' }, multi ? 'チケット（担当）' : 'チケット'),
+    h('div', { class: 'gtrack', style: `width:${width}px` }, monthCells, dayCells));
+
+  let prevVer = null, prevPath = null;
+  const body = rows.map(i => {
+    const ver = i.fixed_version ? parseVersion(i.fixed_version.name).label : '（バージョンなし）';
+    const path = ancestors(i).join(' › ');
+    const newVer = ver !== prevVer, newPath = newVer || path !== prevPath;
+    prevVer = ver; prevPath = path;
+    const uid = i.assigned_to && i.assigned_to.id;
+    // 休み（土日・休日・その人の休み）の網掛け
+    const shade = [];
+    for (let k = 0; k < days; k++) {
+      const d = addDays(from, k);
+      const lv = uid && leaveOn(uid, d);
+      if (isOffDay(d) || lv) shade.push(h('div', { class: 'goff' + (lv && lv.kind === 'half' ? ' half' : ''), style: `left:${k * GDAY}px`, title: lv ? lv.name : '' }));
+    }
+    const track = h('div', { class: 'gtrack', style: `width:${width}px` }, shade,
+      h('div', { class: 'gtoday', style: `left:${gX(today, from) + GDAY / 2}px` }));
+    gDrawBar(track, i, from);
+    return h('div', { class: 'grow' + (newVer ? ' gfirst' : newPath ? ' gsub' : '') + (isDoneCol(colOf(i)) ? ' done' : ''), 'data-id': i.id },
+      h('div', { class: 'gc ga', title: i.fixed_version ? i.fixed_version.name : '' }, newVer ? ver : ''),
+      h('div', { class: 'gc gb', title: path }, newPath ? path : ''),
+      h('div', { class: 'gc gcc', title: `#${i.id} ${i.subject}`, ondblclick: () => gOpenEditor(i.id) },
+        h('span', { class: 'gs' }, parseTitle(i.subject).text),
+        h('span', { class: 'gsub-t' }, `#${i.id}`, multi && i.assigned_to ? `・${i.assigned_to.name.split(/[ 　]/)[0]}` : '', `・${i.status.name}`)),
+      track);
+  });
+  wrap.replaceChildren(h('div', { class: 'gtable', style: `--gw:${width}px` }, head,
+    rows.length ? body : h('div', { class: 'gempty' }, G.busy ? '読み込み中…' : '表示するチケットがありません')));
+  root.replaceChildren(...[top, wrap, G.busy ? h('div', { class: 'gbusy' }, '保存中…') : null].filter(Boolean));
+  toToday();
+}
+
+// 1 行のバー・締切・進捗を描く。日付がなければ「押した日に置く」
+function gDrawBar(track, i, from) {
+  track.querySelectorAll('.gbar, .gdl, .gnone').forEach(el => el.remove());
+  const dl = parseTitle(i.subject).deadline;
+  let s = parseDate(i.start_date), e = parseDate(i.due_date);
+  if (s && !e) e = s;
+  if (e && !s) s = e;
+  if (dl) track.append(h('div', { class: 'gdl', style: `left:${gX(dl, from)}px`, title: `締切 ${jpDate(dl)}` }, '◆'));
+  if (!s) {
+    track.append(h('div', { class: 'gnone', style: `left:${gX(startOfToday(), from)}px` }, '日付なし — 置きたい日を押す'));
+    track.onclick = ev => {
+      if (G.busy || ev.target.closest('.gbar')) return;
+      const k = Math.floor((ev.clientX - track.getBoundingClientRect().left) / GDAY);
+      const day = addDays(from, k), hpd = CONFIG.hoursPerDay || 8, uid = i.assigned_to && i.assigned_to.id;
+      const start = nextWorkday(day, uid);
+      gCommit(i, start, addWorkdays(start, Math.max(1, Math.ceil((i.estimated_hours || hpd) / hpd)) - 1, uid));
+    };
+    return;
+  }
+  track.onclick = null;
+  const late = dl && e > dl;
+  const ratio = isDoneCol(colOf(i)) ? 100 : colOf(i) === 'todo' ? 0 : (statusById[i.status.id].ratio || 0);
+  const bar = h('div', { class: 'gbar ' + (colOf(i) || '') + (late ? ' late' : ''), style: `left:${gX(s, from)}px;width:${gX(e, from) - gX(s, from) + GDAY}px`,
+    title: `${jpDate(s)}〜${jpDate(e)}${dl ? '\n' + gDeadlineText(dl, e) : ''}` },
+    h('div', { class: 'gfill', style: `width:${ratio}%` }),
+    late ? h('div', { class: 'glate', style: `left:${gX(addDays(dl, 1), from) - gX(s, from)}px;right:0` }) : null,
+    h('div', { class: 'gh l' }), h('div', { class: 'gh r' }));
+  bar.addEventListener('pointerdown', ev => gStartDrag(ev, bar, i, from, s, e));
+  bar.addEventListener('dblclick', () => gOpenEditor(i.id));
+  track.append(bar);
+}
+
+const gTip = h('div', { class: 'gtip', hidden: true });
+document.body.append(gTip);
+function gStartDrag(ev, bar, i, from, s0, e0) {
+  if (G.busy || ev.button !== 0) return;
+  ev.preventDefault();
+  const r = bar.getBoundingClientRect();
+  const mode = ev.clientX - r.left < 8 ? 'start' : r.right - ev.clientX < 8 ? 'end' : 'move';
+  const x0 = ev.clientX;
+  const dl = parseTitle(i.subject).deadline;
+  let s = s0, e = e0, moved = false;
+  bar.setPointerCapture(ev.pointerId);
+  bar.classList.add('dragging');
+  const show = (cx, cy) => {
+    const pred = gPredDue(i);
+    const lines = [`${jpDate(s)} 〜 ${jpDate(e)}（${Math.round((e - s) / DAY) + 1} 日）`];
+    if (dl) lines.push(gDeadlineText(dl, e));
+    if (pred && s <= pred.d) lines.push(`⚠ 前の仕事「${parseTitle(pred.issue.subject).text}」が ${jpDate(pred.d)} まで`);
+    gTip.replaceChildren(...lines.map((t, k) => h('div', { class: k && /超過|⚠/.test(t) ? 'bad' : k && /あと/.test(t) ? 'ok' : '' }, t)));
+    gTip.hidden = false;
+    gTip.style.left = `${cx + 14}px`; gTip.style.top = `${cy + 14}px`;
+  };
+  const move = mv => {
+    const n = Math.round((mv.clientX - x0) / GDAY);
+    if (n) moved = true;
+    s = mode === 'end' ? s0 : addDays(s0, n);
+    e = mode === 'start' ? e0 : addDays(e0, n);
+    if (s > e) { if (mode === 'start') s = e; else e = s; }
+    bar.style.left = `${gX(s, from)}px`;
+    bar.style.width = `${gX(e, from) - gX(s, from) + GDAY}px`;
+    bar.classList.toggle('late', !!(dl && e > dl));
+    const lt = bar.querySelector('.glate'); if (lt) lt.remove();
+    if (dl && e > dl) bar.append(h('div', { class: 'glate', style: `left:${Math.max(0, gX(addDays(dl, 1), from) - gX(s, from))}px;right:0` }));
+    show(mv.clientX, mv.clientY);
+  };
+  const up = () => {
+    bar.removeEventListener('pointermove', move);
+    bar.removeEventListener('pointerup', up);
+    bar.removeEventListener('pointercancel', up);
+    bar.classList.remove('dragging');
+    gTip.hidden = true;
+    if (moved && (isoDate(s) !== isoDate(s0) || isoDate(e) !== isoDate(e0))) gCommit(i, s, e);
+    else renderGantt();
+  };
+  bar.addEventListener('pointermove', move);
+  bar.addEventListener('pointerup', up);
+  bar.addEventListener('pointercancel', up);
+  show(ev.clientX, ev.clientY);
+}
+
+// 後ろにつながる仕事のチケットを読む（読み込んでいないもの・ほかの人の仕事も。つながりつきで）
+async function gFetch(ids) {
+  const need = ids.filter(id => !G.issues.has(id) && !G.extra.has(id));
+  if (need.length) for (const x of await api.issuesByIds(need, 'relations')) G.extra.set(x.id, x);
+  return ids.map(id => G.issues.get(id) || G.extra.get(id)).filter(Boolean);
+}
+const gNext = x => (x.relations || []).map(r => (r.relation_type === 'precedes' && r.issue_id === x.id ? { id: r.issue_to_id, delay: r.delay || 0 }
+  : r.relation_type === 'follows' && r.issue_to_id === x.id ? { id: r.issue_id, delay: r.delay || 0 } : null)).filter(Boolean);
+// 営業日での長さ（開始日と終わりを含む）
+function gWorkLen(s, e, uid) { let n = 0; for (let d = new Date(s); d <= e; d = addDays(d, 1)) if (!isOffDay(d, uid)) n++; return Math.max(1, n); }
+
+// 日付を書く。後ろにつながる仕事は、前の仕事の終わりの翌営業日より前に始まっているものだけ、長さ（営業日）を保って後ろへずらす
+async function gCommit(issue, start, due) {
+  G.busy = true; renderGantt();
+  const plan = new Map([[issue.id, { issue, start, due }]]);
+  try {
+    const queue = [issue.id];
+    for (let guard = 0; queue.length && guard < 300; guard++) {
+      const id = queue.shift();
+      const p = plan.get(id);
+      const nexts = gNext(p.issue);
+      if (!nexts.length) continue;
+      const got = new Map((await gFetch(nexts.map(n => n.id))).map(x => [x.id, x]));
+      for (const n of nexts) {
+        const x = got.get(n.id);
+        if (!x || isDoneCol(colOf(x)) || colOf(x) === 'cancelled') continue;
+        const cur = plan.get(x.id);
+        const xs = cur ? cur.start : parseDate(x.start_date), xe = cur ? cur.due : parseDate(x.due_date);
+        if (!xs) continue;   // 日付のない仕事は動かさない
+        const uid = x.assigned_to && x.assigned_to.id;
+        const earliest = nextWorkday(addDays(p.due, 1 + n.delay), uid);
+        if (xs >= earliest) continue;
+        const len = gWorkLen(xs, xe || xs, uid);
+        plan.set(x.id, { issue: x, start: earliest, due: xe ? addWorkdays(earliest, len - 1, uid) : null });
+        queue.push(x.id);
+      }
+    }
+  } catch (e) { toast(`後ろの仕事を読めませんでした。動かしたチケットだけ変えます。${e.message}`, { error: true }); }
+  // 書く順番: 動かしたチケット → 後ろの仕事を開始日の早い順（前の仕事の期日を先に直さないと、Redmine が後ろの開始日を受け付けない）
+  const list = [...plan.values()];
+  const order = [list[0], ...list.slice(1).sort((a, b) => a.start - b.start)];
+  const before = order.map(c => [c.issue, { start_date: c.issue.start_date || null, due_date: c.issue.due_date || null }]);
+  const done = [];
+  try {
+    for (const c of order) {
+      const f = { start_date: isoDate(c.start), ...(c.due ? { due_date: isoDate(c.due) } : {}) };
+      await api.updateIssue(c.issue.id, f);
+      Object.assign(c.issue, f);
+      done.push(c);
+    }
+  } catch (e) {
+    toast(`日付を変えられませんでした。${e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: ')}`, { error: true });
+  }
+  if (done.length) {
+    const lateOnes = done.filter(c => { const dl = parseTitle(c.issue.subject).deadline; return dl && c.due && c.due > dl; });
+    const msg = `${jpDate(start)}〜${jpDate(due)} にしました` + (done.length > 1 ? `（後ろの仕事 ${done.length - 1} 件も一緒にずらしました）` : '')
+      + (lateOnes.length ? `。⚠ 締切を越えています: ${lateOnes.map(c => `「${parseTitle(c.issue.subject).text}」${gDeadlineText(parseTitle(c.issue.subject).deadline, c.due).replace(/^締切 \S+ を /, '')}`).join('、')}` : '');
+    toast(msg, { error: lateOnes.length > 0, action: { label: '元に戻す', run: () => gUndo(before.slice(0, done.length)) } });
+  }
+  G.busy = false; renderGantt();
+}
+async function gUndo(before) {
+  G.busy = true; renderGantt();
+  try {
+    // 戻すときも前の仕事から（前の仕事を早めてから、後ろの仕事を早める）
+    for (const [issue, f] of before) { await api.updateIssue(issue.id, f); Object.assign(issue, f); }
+    toast('元に戻しました');
+  } catch (e) { toast(`元に戻せませんでした。${e.message}`, { error: true }); }
+  G.busy = false; renderGantt();
+}
+function gOpenEditor(id) {
+  const issue = G.issues.get(id);
+  if (!issue) return;
+  state.issues.set(id, issue);   // 編集画面はボードのチケットを編集する作りなので、同じものを渡す
+  state.editorSaved = false; G.lastEditor = id;
+  openEditor(id);
+}
 
 /* =====================================================================
  * 10. ドラッグ＆ドロップ / キーボード

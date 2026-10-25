@@ -515,6 +515,61 @@ a.btn { text-decoration: none; display: inline-block; }
 .hcal tr.clickable { cursor: pointer; }
 .hcal tr.clickable:hover .name { color: var(--accent); }
 /* ---------- 課題バラシ ---------- */
+/* 日程表（ガント） */
+.gantt { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; position: relative; }
+.gantt .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.gantt .gtop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(360px, 100%); }
+.gantt .gtop .opt { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.gantt .gtop .sp { flex: 1; }
+.gantt .glegend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-2); }
+.gantt .glegend .dia { color: var(--late); font-style: normal; margin-right: 3px; }
+.gantt .glegend .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.gantt .glegend .sw.late { background: var(--late); }
+.gantt .glegend .sw.off { background: var(--surface-2); border: 1px solid var(--line); }
+.gantt .glegend .hint { color: var(--ink-3); }
+.gwrap { flex: 1; min-height: 0; overflow: auto; }
+.gtable { width: max-content; min-width: 100%; }
+.grow { display: flex; min-height: 34px; border-bottom: 1px solid var(--line); }
+.grow.gfirst { border-top: 2px solid var(--ink-3); }
+.grow.done .gs { color: var(--ink-3); text-decoration: line-through; }
+.gc { flex: none; padding: 5px 8px; font-size: 13px; background: var(--surface); position: sticky; z-index: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--line); }
+.gc.ga { width: 150px; left: 0; font-weight: 700; color: var(--accent); }
+.gc.gb { width: 180px; left: 150px; color: var(--ink-2); }
+.gc.gcc { width: 260px; left: 330px; display: flex; flex-direction: column; justify-content: center; cursor: default; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+.gc.gcc .gs { overflow: hidden; text-overflow: ellipsis; }
+.gc.gcc .gsub-t { font-size: 11px; color: var(--ink-3); }
+.grow.gsub .gc.gb, .grow.gsub .gc.gcc, .grow.gsub .gtrack { border-top: 1px solid var(--line); }
+.ghead { position: sticky; top: 0; z-index: 3; min-height: 44px; background: var(--surface-2); }
+.ghead .gc { background: var(--surface-2); font-size: 12px; color: var(--ink-2); display: flex; align-items: flex-end; }
+.gtrack { position: relative; flex: none; }
+.ghead .gtrack { height: 44px; }
+.gm { position: absolute; top: 2px; font-size: 11px; color: var(--ink-2); font-weight: 700; padding-left: 3px; border-left: 1px solid var(--ink-3); }
+.gd { position: absolute; bottom: 2px; width: 26px; text-align: center; font-size: 10px; line-height: 1.15; color: var(--ink-2); }
+.gd b { display: block; font-family: var(--font-num); font-size: 11px; font-weight: 500; }
+.gd.off { color: var(--ink-3); }
+.gd.today { color: var(--accent); font-weight: 700; }
+.gd.wk { border-left: 1px solid var(--line); }
+.goff { position: absolute; top: 0; bottom: 0; width: 26px; background: var(--surface-2); }
+.goff.half { background: linear-gradient(var(--surface-2) 50%, transparent 50%); }
+.gtoday { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); opacity: .5; }
+.gbar { position: absolute; top: 8px; height: 18px; border-radius: 4px; background: var(--accent-mid); cursor: grab; overflow: hidden; touch-action: none; z-index: 1; }
+.gbar.todo { background: var(--line); }
+.gbar.done, .gbar.approved { background: var(--ok-bg); }
+.gbar .gfill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: .85; }
+.gbar.done .gfill, .gbar.approved .gfill { background: var(--ok); opacity: .6; }
+.gbar .glate { position: absolute; top: 0; bottom: 0; background: var(--late); opacity: .85; }
+.gbar.late { box-shadow: 0 0 0 2px var(--late); }
+.gbar.dragging { cursor: grabbing; opacity: .85; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.gbar .gh { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.gbar .gh.l { left: 0; } .gbar .gh.r { right: 0; }
+.gdl { position: absolute; top: 7px; width: 26px; text-align: center; color: var(--late); font-size: 15px; line-height: 20px; z-index: 2; pointer-events: none; text-shadow: 0 0 2px var(--surface); }
+.gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
+.grow:has(.gnone) .gtrack { cursor: pointer; }
+.gempty { padding: 30px; color: var(--ink-3); }
+.gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
+.gtip { position: fixed; z-index: 1000; background: var(--ink); color: var(--surface); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.6; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.gtip .bad { color: #ff9b8f; font-weight: 700; }
+.gtip .ok { color: #9fe0b4; }
 .bara { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .bara .btop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .bara .btop select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; max-width: min(460px, 100%); }

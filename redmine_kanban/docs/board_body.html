@@ -28,6 +28,7 @@
     <main class="board" id="board"><div class="loading">読み込み中…</div></main>
     <div class="dash" id="dash" hidden></div>
     <div class="bara" id="bara" hidden></div>
+    <div class="gantt" id="gantt" hidden></div>
     <div class="inbox" id="inbox" hidden>
       <section class="col" aria-label="未整理のチケット">
         <header class="col-head">
@@ -77,6 +78,7 @@
           <li><a href="#g-new">新規タスク・みんなでやる仕事</a></li>
           <li><a href="#g-hours">工数入力は「押すだけ」</a></li>
           <li><a href="#g-bara">課題バラシ</a></li>
+          <li><a href="#g-gantt">日程表（ガント）</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
           <li><a href="#g-log">変更履歴</a></li>
@@ -197,7 +199,18 @@
       </ul>
       <p>矢印は Redmine の「先行」として保存されるので、ガントチャートにも同じ矢印が出ます。前の仕事が遅れると、後ろの仕事の日程も Redmine が自動でずらします。</p>
 
-      <h2 id="g-dash"><span class="no">08</span>全体ボード（朝会・Teams用）</h2>
+      <h2 id="g-gantt"><span class="no">08</span>日程表（ガント）</h2>
+      <div class="ba">
+        <div class="before"><b>これまで</b>ガントは縦に長く、バージョンや親チケットの行で上下に行ったり来たり。締切が出ないので、日付を動かしても間に合うか分からない。</div>
+        <div class="after"><b>これから</b>バージョン・親・チケットを横に並べて 1 行 1 チケット。締切は ◆、越えた分は赤。動かしている間に「締切まであと何日」が出ます。</div>
+      </div>
+      <ul>
+        <li>左上で <strong>担当者（1 人ずつ）／チーム全員／バージョン</strong> を切り替えます。</li>
+        <li>バーの真ん中をつかんで動かすと移動、端をつかむと開始日・終わりだけ変わります。</li>
+        <li>後ろにつながっている仕事（課題バラシの矢印）は、重なる分だけ一緒に後ろへずれます。締切を越えても止めませんが、お知らせで教えます。<span class="ui">元に戻す</span> で戻せます。</li>
+        <li>日付のないチケットは、置きたい日を押すと予定工数の長さで置きます。ダブルクリックで編集画面。</li>
+      </ul>
+      <h2 id="g-dash"><span class="no">09</span>全体ボード（朝会・Teams用）</h2>
       <p>「全体」タブは、Teams の画面共有でそのまま見せられるように、1画面に収めています。</p>
       <ul>
         <li><strong>上の数字</strong>：締切超過・今週の締切・2週間で完了した数・見直しが必要な仕事</li>
@@ -207,7 +220,7 @@
       </ul>
       <p>責めるための画面ではありません。<strong>早めに助けを出すための画面</strong>です。赤いものを見つけたら、遠慮なく声をかけてください（かけます）。</p>
 
-      <h2 id="g-faq"><span class="no">09</span>困ったとき</h2>
+      <h2 id="g-faq"><span class="no">10</span>困ったとき</h2>
       <table>
         <tr><th>こんなとき</th><th>こうする</th></tr>
         <tr><td>ボードが開かない</td><td>共有フォルダの <strong>kanban_relay.py</strong> をダブルクリック。自動で起動してボードが開きます。</td></tr>
@@ -223,9 +236,11 @@
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
 
-      <h2 id="g-log"><span class="no">10</span>変更履歴</h2>
+      <h2 id="g-log"><span class="no">11</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16</b><span>2026-10-25</span></dt>
+        <dd><ul><li>「日程表」タブを追加：左にバージョン・親チケット・チケットを横に並べ、右に日程。締切を ◆ で表示し、予定が締切を越えた分は赤。バーをドラッグして日付を変えると、締切まであと何日かが出て、後ろにつながる仕事も一緒にずれます</li></ul></dd>
         <dt><b>v15.5</b><span>2026-10-22</span></dt>
         <dd><ul><li>工数に「毎日の実績」を追加：前の月の1日から今日までの平日を横に並べて、1日ごとの記録を確認できます（横スクロール、記録のない日は赤）</li></ul></dd>
         <dt><b>v15.4</b><span>2026-10-22</span></dt>
