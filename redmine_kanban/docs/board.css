@@ -466,6 +466,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .rel-list .kind { color: var(--ink-2); white-space: nowrap; min-width: 9em; }
 .rel-list .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repeat-field .row { display: flex; gap: 10px; align-items: center; }
+.repeat-field select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; }
+.repeat-field small { color: var(--ink-3); }
+.card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }

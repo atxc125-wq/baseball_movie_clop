@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "16.5"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "17"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -202,6 +202,8 @@ redmine_kanban/
 - **説明欄の下に、説明に含まれる http/https の URL を「リンク1」「リンク2」…のボタンで並べる**（入力に合わせて更新。重複は 1 つ。末尾の句読点は除き、閉じ括弧は対応する開き括弧がないときだけ除く。別タブ・`rel="noopener noreferrer"`）。
 - 新規タスク: 担当はチェックボックスで複数選択可（「全員」「外す」）。2 人以上なら「まとめ用の親チケットを作り、各自のチケットをその下に入れる」（既定オン。親は件名に「（全員）」、担当なし）。**担当を空（またはバージョンを空）にすると「未整理に登録」で 1 件作って未整理へ**。開いているタブの人に最初からチェック。
 - 新しいバージョン: カテゴリ選択＋個別名 →「作られる名前: …」→ 作成。**全員に出す**（権限がなければ「バージョンを作る権限がありません（Redmine の役割に「バージョンの管理」が必要です）」）。
+
+- **繰り返しのタスク**: 説明の最後の行に「繰り返し: 毎週」「繰り返し: 毎月」（`REPEAT_RX`、全角コロン可）。入力欄（`issueFields`。編集・未整理・新規の全部）に「繰り返し」選択（しない／毎週／毎月、「担当完了にすると、次の週（月）の分を同じ内容で自動で作ります」）。説明欄にはこの行を出さず、保存時に `withRepeat` で最後に付ける。カードに「↻毎週」「↻毎月」。未完了 → 完了の列（担当完了・上司完了）に変わったとき（ボードの `changeStatus`、課題バラシの `bSetStatus` は保存できたときだけ）`makeNextRepeat`: 基準 = 件名の締切【M/D】→ 期日 → 開始日 → 今日。k = 1 から、基準を k 回分先へ送った日が今日以上になるまで増やす（毎週 = 7k 日、毎月 = k か月先で月末を越えない: 1/31 → 2/28）。締切・開始日・期日を同じ k だけ送り、件名・説明・担当・バージョン・親・予定工数・優先度をそのまま、ステータスは未着手で作る。同じ件名・同じ担当の未完了チケットが読み込んである中にあれば作らない（「次回分はもうあります（#N）」）。トースト「↻ 次回分 #N「…」（締切 M/D）を作りました」＋ `取り消す`（作ったものを中止）。Redmine で直接完了にした分は作らない。
 
 ### 5.8 未整理タブ
 - 対象: 担当かバージョンが空の未完了チケット。**子チケットを持つもの（中項目）は出さない**。
@@ -814,6 +816,10 @@ a.btn { text-decoration: none; display: inline-block; }
 .rel-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .rel-list .kind { color: var(--ink-2); white-space: nowrap; min-width: 9em; }
 .rel-list .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repeat-field .row { display: flex; gap: 10px; align-items: center; }
+.repeat-field select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; }
+.repeat-field small { color: var(--ink-3); }
+.card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -1255,6 +1261,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>毎週・毎月の仕事（繰り返し）</h3>
+      <p>週報や月次の集計など、毎回同じ仕事は、編集画面の <span class="ui">繰り返し</span> で「毎週」か「毎月」を選んでおきます。カードに <span class="ui">↻毎週</span> と出て、<strong>担当完了にすると次回分が自動でできます</strong>（締切・作業完了予定も 1 週・1 か月先）。遅れて完了したときは、締切が今日より後になるところまで送ります。間違えて作ったときは、お知らせの <span class="ui">取り消す</span> で中止にできます。</p>
       <h3>「すでに関連したチケットがあります」と言われたら</h3>
       <p>Redmine は 2 つのチケットの間につながりを 1 つしか持てません。「関連している」などが先にあると前後でつなげないので、出てきたお知らせの <span class="ui">外して前後にする</span> を押してください。カードの編集画面の「つながり」で、ボードに出ないつながりも見て外せます。</p>
       <h3>休みの予定</h3>
@@ -1369,6 +1377,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17</b><span>2026-10-25</span></dt>
+        <dd><ul><li>繰り返しのタスク：編集画面で「毎週」「毎月」を選ぶと、担当完了にしたときに次回分を自動で作ります（締切・日程も 1 週・1 か月先に）</li></ul></dd>
         <dt><b>v16.5</b><span>2026-10-25</span></dt>
         <dd><ul><li>子チケットがすべて中止になった親は、未整理に「子はすべて中止」と出すようにしました（残すか、親も中止にするかを決められるように）</li></ul></dd>
         <dt><b>v16.4</b><span>2026-10-25</span></dt>
