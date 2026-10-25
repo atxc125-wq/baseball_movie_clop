@@ -1023,6 +1023,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.4</b><span>2026-10-25</span></dt>
+        <dd><ul><li>子チケットがあるのに未整理に出てしまうことがある問題を直しました（子の側からも調べるようにしました）</li></ul></dd>
         <dt><b>v16.3</b><span>2026-10-25</span></dt>
         <dd><ul><li>日程表: 前後のつながりを線で結ぶようにしました。前の仕事が終わる前に始まっているものは赤い線になります</li></ul></dd>
         <dt><b>v16.2</b><span>2026-10-25</span></dt>
@@ -1101,7 +1103,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-25 12:36'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-25 22:37'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1546,8 +1548,8 @@ function createRedmineApi(baseUrl, apiKey) {
     const text = await res.text();
     return text ? JSON.parse(text) : null;
   }
-  async function allIssues(query) {
-    const scope = CONFIG.projectId ? `project_id=${encodeURIComponent(CONFIG.projectId)}&` : '';
+  async function allIssues(query, anyProject = false) {
+    const scope = CONFIG.projectId && !anyProject ? `project_id=${encodeURIComponent(CONFIG.projectId)}&` : '';
     const out = [];
     for (let offset = 0; ; ) {
       const j = await req(`/issues.json?${scope}${query}&limit=100&offset=${offset}`);
@@ -1654,14 +1656,24 @@ function createRedmineApi(baseUrl, apiKey) {
       const merged = new Map([...noAssignee, ...noVersion].map(i => [i.id, i]));
       return [...merged.values()];
     },
+    // 子チケットを持つものを、2 つの方法で調べて合わせる（どちらかで漏れても、もう片方で拾う）:
+    //   ① 子チケット条件 child_id=*（使える Redmine だけ）  ② 子の側から parent_id=親の番号 で探す
+    // 子が別のプロジェクトにあることもあるので、プロジェクトでは絞らない。URL が長くなりすぎないよう 50 件ずつ
     async withChildren(ids) {
       if (!ids.length) return new Set();
-      if (CONFIG.childFilterSupported) {
-        const hits = await allIssues(`issue_id=${ids.join(',')}&child_id=*&status_id=*`);
-        return new Set(hits.map(i => i.id));
-      }
-      // 子チケット条件が使えない Redmine 向け: 1 件ずつ children を確認（同時 4 件まで）
       const found = new Set();
+      let ok = false;
+      for (let k = 0; k < ids.length; k += 50) {
+        const chunk = ids.slice(k, k + 50), inChunk = new Set(chunk);
+        if (CONFIG.childFilterSupported) {
+          try { for (const i of await allIssues(`issue_id=${chunk.join(',')}&child_id=*&status_id=*`, true)) if (inChunk.has(i.id)) found.add(i.id); ok = true; }
+          catch (_) { /* もう片方で */ }
+        }
+        try { for (const c of await allIssues(`parent_id=${chunk.join(',')}&status_id=*`, true)) if (c.parent && inChunk.has(c.parent.id)) found.add(c.parent.id); ok = true; }
+        catch (_) { /* 下で 1 件ずつ */ }
+      }
+      if (ok) return found;
+      // どちらも使えない Redmine 向け: 1 件ずつ children を確認（同時 4 件まで）
       for (let i = 0; i < ids.length; i += 4) {
         await Promise.all(ids.slice(i, i + 4).map(async id => {
           const j = await req(`/issues/${id}.json?include=children`);

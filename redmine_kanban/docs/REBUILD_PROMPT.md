@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "16.3"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "16.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -154,7 +154,7 @@ redmine_kanban/
 - `issuesFor`: 担当の未完了 ＋ `approvedDays` 以内に更新された完了。
 - `issuesByIds`: **50 件ずつ**（URL が長くなりすぎないように）。`include=relations` を渡せる。
 - `inboxIssues`: 「担当なし」と「バージョンなし」の未完了を 2 回取って合わせる（OR 検索ができないため）。
-- `withChildren`: `child_id=*` が使えればそれで、使えなければ 1 件ずつ `include=children`（同時 4 件）。
+- `withChildren`: 50 件ずつ、①`issue_id=…&child_id=*&status_id=*`（childFilterSupported のときだけ）と ②`parent_id=…&status_id=*`（子の側から。返ってきた子の parent.id）の両方を調べて合わせる。どちらもプロジェクトで絞らない（子が別プロジェクトのことがある）。返ってきたものは渡した番号に入っているかを確かめる。両方とも失敗したときだけ 1 件ずつ `include=children`（同時 4 件）。
 - `updateIssue`: PUT のあと GET して、**ステータスと各項目（件名・担当・バージョン・期日・説明・親・予定工数・開始日）が本当に変わったか確かめる**。Redmine は権限やワークフローで許可されない変更をエラーにせず無視するため。ステータスが変わらなければ「Redmine がステータスの変更を受け付けませんでした（今は「…」のまま）。ワークフローで「…」→「…」が許可されているか確認してください。」、項目が反映されなければ `err.partial = true` で「反映されなかった項目があります: …」。
 - 読むだけの要求（GET）は、通信失敗か 502/503/504 なら 0.6 秒あけて 1 回だけやり直す。401 は「API キーが正しくありません (401)」、403 は「この操作の権限がありません (403)」。
 - 作業時間: `activity_id` は `/enumerations/time_entry_activities.json` の既定（なければ先頭、取れなければ付けない）。
@@ -1369,6 +1369,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.4</b><span>2026-10-25</span></dt>
+        <dd><ul><li>子チケットがあるのに未整理に出てしまうことがある問題を直しました（子の側からも調べるようにしました）</li></ul></dd>
         <dt><b>v16.3</b><span>2026-10-25</span></dt>
         <dd><ul><li>日程表: 前後のつながりを線で結ぶようにしました。前の仕事が終わる前に始まっているものは赤い線になります</li></ul></dd>
         <dt><b>v16.2</b><span>2026-10-25</span></dt>
