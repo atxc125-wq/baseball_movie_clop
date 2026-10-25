@@ -566,6 +566,13 @@ a.btn { text-decoration: none; display: inline-block; }
 .gnone { position: absolute; top: 9px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding-left: 4px; }
 .grow:has(.gnone) .gtrack { cursor: pointer; }
 .gempty { padding: 30px; color: var(--ink-3); }
+.gtable { position: relative; }
+.glinks { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; overflow: visible; }
+.glinks path { fill: none; stroke: var(--ink-2); stroke-width: 1.5; opacity: .75; }
+.glinks path.bad { stroke: var(--late); opacity: .9; }
+.glinks .ah { fill: var(--ink-2); stroke: none; }
+.glinks .ah.bad { fill: var(--late); }
+.gantt.dragging .glinks { display: none; }
 .grow.flash .gc { background: var(--soon-bg); }
 .grow.flash .gc.ga { box-shadow: inset 4px 0 0 var(--soon); }
 .gbusy { position: absolute; right: 14px; bottom: 12px; background: var(--ink); color: var(--surface); padding: 4px 10px; border-radius: 6px; font-size: 12px; }
