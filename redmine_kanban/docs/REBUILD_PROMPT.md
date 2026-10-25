@@ -35,7 +35,7 @@
 
 ## 2. 絶対条件（制約）
 
-1. **ボード**: 1 枚の HTML（素の JavaScript、フレームワーク・ビルドツールなし）。外部読み込みは Google Fonts（BIZ UDPGothic 400/700、IBM Plex Mono 500）だけ。
+1. **ボード**: 1 枚の HTML（素の JavaScript、フレームワーク・ビルドツールなし）。外部からは何も読み込まない（フォントも PC に入っているものだけ。通信はこの PC と Redmine の間だけ）。
 2. **中継プログラム**: Python 3（標準ライブラリだけ。サードパーティ禁止）。Windows で動くこと（DPAPI、レジストリの Run キー、pythonw）。Linux でも開発・テストできること。
 3. **配布物は `kanban_relay.py` 1 本**（＋共有フォルダに置く `board_settings.json`、初回用 `setup.bat`）。ボードの HTML は `build.py` で `kanban_relay.py` の中に埋め込む（base64(zlib(html))）。
 4. 画面の文言はすべて日本語。敬語は「です・ます」、短く。英語を混ぜない。
@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "16"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "16.1"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -270,7 +270,7 @@ redmine_kanban/
 
 ## 6. デザイン（付録 A の CSS が正）
 
-- フォント: 本文 `BIZ UDPGothic`（代替: Yu Gothic UI, Meiryo UI, Meiryo, Hiragino Sans）、数字 `IBM Plex Mono`（代替: Consolas, Menlo）。
+- フォント: 本文 `BIZ UDPGothic`（代替: Yu Gothic UI, Meiryo UI, Meiryo, Hiragino Sans）、数字 `Consolas`（代替: BIZ UDGothic, Menlo）。Google Fonts などの外部読み込みはしない。
 - 色はすべて CSS 変数（`--bg #e9edf1`、`--surface #fff`、`--accent #0e6488`、`--late #b8322a`、`--soon #8a5a00`、`--ok #2c7a4b`、タグ 6 色 など）。ダークモードは `prefers-color-scheme: dark`（`:root:not([data-theme="light"])`）と `:root[data-theme="dark"]` の両方で同じ値に切り替える。
 - レイアウト: 固定ヘッダー＋タブ＋サマリー、残りの高さにボード。列の中だけスクロール。860px 以下では横スクロールの列（最小 250px）と 1 列のフォーム。
 - 角丸 6〜12px、影は弱め（`--shadow`）。トーストは右下に積む（エラーは赤、7 秒。通常 5 秒）。
@@ -344,8 +344,6 @@ redmine_kanban/
 
 ```html
 <title>タスクボード</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
 /* Layout: 固定ヘッダー + 4列ボード（列の中だけ縦スクロール、ページはスクロールしない） */
 :root {
@@ -375,7 +373,7 @@ redmine_kanban/
   --tag5-bg: #e5e8ee; --tag5-fg: #3d4757;
   --tag6-bg: #f6f0d2; --tag6-fg: #6e5a0c;
   --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Hiragino Sans", sans-serif;
-  --font-num: "IBM Plex Mono", "Consolas", "Menlo", monospace;
+  --font-num: "Consolas", "BIZ UDGothic", "Menlo", monospace;   /* フォントは PC に入っているものだけ使う（外部から読み込まない） */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -1190,6 +1188,7 @@ a.btn { text-decoration: none; display: inline-block; }
           <li><a href="#g-gantt">日程表（ガント）</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
+          <li><a href="#g-about">このツールについて</a></li>
           <li><a href="#g-log">変更履歴</a></li>
         </ol>
       </nav>
@@ -1345,9 +1344,20 @@ a.btn { text-decoration: none; display: inline-block; }
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
 
-      <h2 id="g-log"><span class="no">11</span>変更履歴</h2>
+      <h2 id="g-about"><span class="no">11</span>このツールについて</h2>
+      <p>タスクボードは、<strong>Redmine の API（REST API）を使って、業務効率化のために独自に作ったローカルツール</strong>です。Redmine の代わりではなく、Redmine のデータを見やすく並べる画面です。</p>
+      <ul>
+        <li><strong>どこで動くか</strong>：各自の PC の中だけで動きます（中継プログラム <span class="ui">kanban_relay.py</span> が、この PC の中でボードの画面を出します）。サーバーの設置や、Redmine 本体への追加・改造はしていません。</li>
+        <li><strong>通信先</strong>：この PC と Redmine の間だけです。ほかのサーバーやクラウドサービスには何も送りません（文字のフォントも PC に入っているものを使います）。</li>
+        <li><strong>できること</strong>：表示が中心ですが、ステータス・日付・担当・作業時間・前後のつながりの変更や、チケット・バージョンの作成も、Redmine 標準の API で行います。<strong>使う人本人の API キーと権限の範囲</strong>で動くので、Redmine 側の権限やワークフローの制限はそのまま効きます。変更は Redmine の履歴にも残ります。</li>
+        <li><strong>API キーの扱い</strong>：本人の PC にだけ、Windows の仕組み（DPAPI）で暗号化して保存します。最初に確認した Redmine 以外には送りません。共有フォルダには置きません。</li>
+        <li><strong>中継する操作</strong>：ボードが使う決まった API だけを通し、それ以外は断ります。ほかの Web サイトからは呼び出せません。</li>
+      </ul>
+      <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.1</b><span>2026-10-25</span></dt>
+        <dd><ul><li>使い方に「このツールについて」を追加。フォントを外部から読み込まないようにしました（通信はこの PC と Redmine の間だけ）</li></ul></dd>
         <dt><b>v16</b><span>2026-10-25</span></dt>
         <dd><ul><li>「日程表」タブを追加：左にバージョン・親チケット・チケットを横に並べ、右に日程。締切を ◆ で表示し、予定が締切を越えた分は赤。バーをドラッグして日付を変えると、締切まであと何日かが出て、後ろにつながる仕事も一緒にずれます</li></ul></dd>
         <dt><b>v15.5</b><span>2026-10-22</span></dt>

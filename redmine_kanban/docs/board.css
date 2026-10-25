@@ -27,7 +27,7 @@
   --tag5-bg: #e5e8ee; --tag5-fg: #3d4757;
   --tag6-bg: #f6f0d2; --tag6-fg: #6e5a0c;
   --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Hiragino Sans", sans-serif;
-  --font-num: "IBM Plex Mono", "Consolas", "Menlo", monospace;
+  --font-num: "Consolas", "BIZ UDGothic", "Menlo", monospace;   /* フォントは PC に入っているものだけ使う（外部から読み込まない） */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {

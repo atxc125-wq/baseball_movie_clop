@@ -81,6 +81,7 @@
           <li><a href="#g-gantt">日程表（ガント）</a></li>
           <li><a href="#g-dash">全体ボード（朝会・Teams用）</a></li>
           <li><a href="#g-faq">困ったとき</a></li>
+          <li><a href="#g-about">このツールについて</a></li>
           <li><a href="#g-log">変更履歴</a></li>
         </ol>
       </nav>
@@ -236,9 +237,20 @@
         計画を直す時間を減らして、設計に時間を使いましょう。
       </div>
 
-      <h2 id="g-log"><span class="no">11</span>変更履歴</h2>
+      <h2 id="g-about"><span class="no">11</span>このツールについて</h2>
+      <p>タスクボードは、<strong>Redmine の API（REST API）を使って、業務効率化のために独自に作ったローカルツール</strong>です。Redmine の代わりではなく、Redmine のデータを見やすく並べる画面です。</p>
+      <ul>
+        <li><strong>どこで動くか</strong>：各自の PC の中だけで動きます（中継プログラム <span class="ui">kanban_relay.py</span> が、この PC の中でボードの画面を出します）。サーバーの設置や、Redmine 本体への追加・改造はしていません。</li>
+        <li><strong>通信先</strong>：この PC と Redmine の間だけです。ほかのサーバーやクラウドサービスには何も送りません（文字のフォントも PC に入っているものを使います）。</li>
+        <li><strong>できること</strong>：表示が中心ですが、ステータス・日付・担当・作業時間・前後のつながりの変更や、チケット・バージョンの作成も、Redmine 標準の API で行います。<strong>使う人本人の API キーと権限の範囲</strong>で動くので、Redmine 側の権限やワークフローの制限はそのまま効きます。変更は Redmine の履歴にも残ります。</li>
+        <li><strong>API キーの扱い</strong>：本人の PC にだけ、Windows の仕組み（DPAPI）で暗号化して保存します。最初に確認した Redmine 以外には送りません。共有フォルダには置きません。</li>
+        <li><strong>中継する操作</strong>：ボードが使う決まった API だけを通し、それ以外は断ります。ほかの Web サイトからは呼び出せません。</li>
+      </ul>
+      <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.1</b><span>2026-10-25</span></dt>
+        <dd><ul><li>使い方に「このツールについて」を追加。フォントを外部から読み込まないようにしました（通信はこの PC と Redmine の間だけ）</li></ul></dd>
         <dt><b>v16</b><span>2026-10-25</span></dt>
         <dd><ul><li>「日程表」タブを追加：左にバージョン・親チケット・チケットを横に並べ、右に日程。締切を ◆ で表示し、予定が締切を越えた分は赤。バーをドラッグして日付を変えると、締切まであと何日かが出て、後ろにつながる仕事も一緒にずれます</li></ul></dd>
         <dt><b>v15.5</b><span>2026-10-22</span></dt>
