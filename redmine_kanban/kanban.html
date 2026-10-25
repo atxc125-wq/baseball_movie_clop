@@ -1023,6 +1023,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v16.5</b><span>2026-10-25</span></dt>
+        <dd><ul><li>子チケットがすべて中止になった親は、未整理に「子はすべて中止」と出すようにしました（残すか、親も中止にするかを決められるように）</li></ul></dd>
         <dt><b>v16.4</b><span>2026-10-25</span></dt>
         <dd><ul><li>子チケットがあるのに未整理に出てしまうことがある問題を直しました（子の側からも調べるようにしました）</li></ul></dd>
         <dt><b>v16.3</b><span>2026-10-25</span></dt>
@@ -1103,7 +1105,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-10-25 22:37'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-10-25 22:40'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1479,8 +1481,11 @@ function createMockApi(getMockUserId) {
     },
     async withChildren(ids) {
       await wait(80);
-      const parents = new Set([...db.values()].filter(i => i.parent).map(i => i.parent.id));
-      return new Set(ids.filter(id => parents.has(id)));
+      const kids = [...db.values()].filter(i => i.parent);
+      const active = new Set(kids.filter(i => colOf(i) !== 'cancelled').map(i => i.parent.id));
+      const found = new Set(ids.filter(id => active.has(id)));
+      found.cancelledOnly = new Set(ids.filter(id => !active.has(id) && kids.some(k => k.parent.id === id)));
+      return found;
     },
     async updateIssue(id, fields) {
       await wait(350);
@@ -1656,21 +1661,31 @@ function createRedmineApi(baseUrl, apiKey) {
       const merged = new Map([...noAssignee, ...noVersion].map(i => [i.id, i]));
       return [...merged.values()];
     },
-    // 子チケットを持つものを、2 つの方法で調べて合わせる（どちらかで漏れても、もう片方で拾う）:
-    //   ① 子チケット条件 child_id=*（使える Redmine だけ）  ② 子の側から parent_id=親の番号 で探す
+    // 子チケットを持つもの（中止でない子が 1 つ以上）を返す。子がすべて中止の親は found.cancelledOnly に入れる（未整理に出して知らせる）。
+    // 2 つの方法で調べて合わせる: ① 子の側から parent_id=親の番号（子のステータスも分かる）
+    //   ② 子チケット条件 child_id=*（使える Redmine だけ。①で見えない子＝権限で見えない子がいる親を拾う）
     // 子が別のプロジェクトにあることもあるので、プロジェクトでは絞らない。URL が長くなりすぎないよう 50 件ずつ
     async withChildren(ids) {
       if (!ids.length) return new Set();
-      const found = new Set();
+      const found = new Set(), cancelledOnly = new Set();
+      found.cancelledOnly = cancelledOnly;
       let ok = false;
       for (let k = 0; k < ids.length; k += 50) {
         const chunk = ids.slice(k, k + 50), inChunk = new Set(chunk);
+        const seen = new Set();
+        try {
+          for (const c of await allIssues(`parent_id=${chunk.join(',')}&status_id=*`, true)) {
+            if (!c.parent || !inChunk.has(c.parent.id)) continue;
+            seen.add(c.parent.id);
+            if (colOf(c) !== 'cancelled') found.add(c.parent.id);
+          }
+          ok = true;
+        } catch (_) { /* もう片方で */ }
         if (CONFIG.childFilterSupported) {
-          try { for (const i of await allIssues(`issue_id=${chunk.join(',')}&child_id=*&status_id=*`, true)) if (inChunk.has(i.id)) found.add(i.id); ok = true; }
-          catch (_) { /* もう片方で */ }
+          try { for (const i of await allIssues(`issue_id=${chunk.join(',')}&child_id=*&status_id=*`, true)) if (inChunk.has(i.id) && !seen.has(i.id)) found.add(i.id); ok = true; }
+          catch (_) { /* 下で 1 件ずつ */ }
         }
-        try { for (const c of await allIssues(`parent_id=${chunk.join(',')}&status_id=*`, true)) if (c.parent && inChunk.has(c.parent.id)) found.add(c.parent.id); ok = true; }
-        catch (_) { /* 下で 1 件ずつ */ }
+        for (const id of seen) if (!found.has(id)) cancelledOnly.add(id);
       }
       if (ok) return found;
       // どちらも使えない Redmine 向け: 1 件ずつ children を確認（同時 4 件まで）
@@ -2603,7 +2618,8 @@ function renderInbox() {
       h('span', { class: 'meta' },
         h('span', {}, `#${i.id}`),
         h('span', {}, `${jpDate(new Date(i.created_on))} ${hhmm(i.created_on)} 受信`),
-        h('span', { class: 'missing' }, `${missing}なし`)),
+        h('span', { class: 'missing' }, `${missing}なし`),
+        (state.inboxKidsCancelled || new Set()).has(i.id) ? h('span', { class: 'missing', title: '子チケットがすべて中止になった親です。不要ならこの親も中止にしてください' }, '子はすべて中止') : null),
       ancestors(i).length ? h('span', { class: 'parent-line', title: ancestors(i).join(' › ') }, (ancestors(i).length > 2 ? '… › ' : '') + ancestors(i).slice(-2).join(' › ')) : null,
       h('span', { class: 'title' }, i.subject)));
   }) : [h('li', { class: 'empty' }, '未整理のチケットはありません')]));
@@ -3293,6 +3309,7 @@ async function loadInbox() {
   // 子チケットを持つものは「中項目（まとめ用）」なので、担当や期日の有無にかかわらず未整理に出さない
   const containers = await api.withChildren(open.map(i => i.id));
   state.inbox = open.filter(i => !containers.has(i.id));
+  state.inboxKidsCancelled = containers.cancelledOnly || new Set();   // 子がすべて中止の親（残しておくか、親も中止にするか決めてもらう）
   await loadAncestors(state.inbox);
   if (!state.versions.length && state.inbox.length) {
     // バージョン一覧は振り分けでしか使わないので、読めなくてもボードの表示は続ける
