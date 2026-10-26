@@ -1024,6 +1024,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.2</b><span>2026-10-26</span></dt>
+        <dd><ul><li>親タスク（子チケットを持つチケット）は、編集画面で担当なしのまま保存できるようにしました</li></ul></dd>
         <dt><b>v17.1</b><span>2026-10-26</span></dt>
         <dd><ul><li>課題バラシで仕事を足すと、上の仕事（親チケット）の締切を引き継ぐようにしました</li></ul></dd>
         <dt><b>v17</b><span>2026-10-25</span></dt>
@@ -2673,7 +2675,7 @@ function issueFields(issue, prefix, opts = {}) {
           memberOpts.map((m, k) => h('label', { class: 'chk' },
             h('input', { type: 'checkbox', id: k ? null : prefix + 'Assignee', value: m.id, checked: issue.assigned_to && issue.assigned_to.id === m.id }), m.name)))
       : h('select', { id: prefix + 'Assignee' },
-          h('option', { value: '' }, '選んでください'),
+          h('option', { value: '' }, opts.parent ? '担当なし（親タスク）' : '選んでください'),
           memberOpts.map(m => h('option', { value: m.id, selected: issue.assigned_to && issue.assigned_to.id === m.id }, m.name))),
     plan: h('input', { type: 'date', id: prefix + 'Plan', value: issue.due_date || '' }),
     desc: h('textarea', { id: prefix + 'Desc' }),
@@ -2780,7 +2782,8 @@ function issueFields(issue, prefix, opts = {}) {
       el.preview,
       h('div', { class: 'grid2' },
         field('対象バージョン', versionControl, !opts.optional, el.version.id),
-        field(opts.multi ? (opts.optional ? '担当（空のままなら「未整理」に入ります。複数選ぶと人数分を作ります）' : '担当（複数選ぶと人数分のチケットを作ります）') : '担当', el.assignee, !opts.optional, prefix + 'Assignee')),
+        field(opts.multi ? (opts.optional ? '担当（空のままなら「未整理」に入ります。複数選ぶと人数分を作ります）' : '担当（複数選ぶと人数分のチケットを作ります）')
+          : opts.parent ? '担当（親タスクなので空でもかまいません）' : '担当', el.assignee, !opts.optional && !opts.parent, prefix + 'Assignee')),
       opts.multi ? el.group : null,
       h('div', { class: 'field repeat-field' }, h('label', { for: el.repeat.id }, '繰り返し'),
         h('div', { class: 'row' }, el.repeat, h('small', {}, '担当完了にすると、次の週（月）の分を同じ内容で自動で作ります'))),
@@ -2793,13 +2796,13 @@ function issueFields(issue, prefix, opts = {}) {
       if (!el.subject.value.trim()) return fail('件名を入力してください。', el.subject);
       if (opts.optional) return true;   // 新規タスク: 担当・バージョンは空でもよい（未整理に入る）
       if (!el.version.value) return fail('対象バージョンを選んでください。', el.version);
-      if (!assignees().length) return fail('担当を選んでください。', opts.multi ? el.assignee.querySelector('input') : el.assignee);
+      if (!assignees().length && !opts.parent) return fail('担当を選んでください。', opts.multi ? el.assignee.querySelector('input') : el.assignee);
       return true;
     },
     collect: () => ({
       subject: buildTitle(el.subject.value.trim(), deadlineDate()),
       ...(el.version.value ? { fixed_version_id: Number(el.version.value) } : {}),
-      assigned_to_id: assignees()[0],
+      assigned_to_id: assignees()[0] ?? (opts.parent ? '' : undefined),   // 親タスクは担当なしにできる（'' で外す）
       description: withRepeat(el.desc.value, el.repeat.value),
       due_date: el.plan.value || null,
     }),
@@ -2811,7 +2814,7 @@ function issueFields(issue, prefix, opts = {}) {
       const v = versionOpts.find(x => x.id === fields.fixed_version_id);
       target.fixed_version = v ? { id: v.id, name: v.name } : target.fixed_version;
       const m = memberOpts.find(x => x.id === fields.assigned_to_id);
-      target.assigned_to = m ? { id: m.id, name: m.name } : target.assigned_to;
+      target.assigned_to = m ? { id: m.id, name: m.name } : fields.assigned_to_id === '' ? undefined : target.assigned_to;
     },
   };
 }
@@ -3029,7 +3032,9 @@ async function openEditor(id) {
   if (!issue || state.saving.has(id)) return;
   if (!(await ensureVersions(issue.project.id))) return;
   const form = $('editorForm');
-  const f = issueFields(issue, 'e');
+  // 子チケットを持つ親タスクは担当なしで保存できる
+  const isParent = [...state.issues.values(), ...B.issues.values()].some(x => x.parent && x.parent.id === issue.id) || state.parents.has(issue.id);
+  const f = issueFields(issue, 'e', { parent: isParent });
   const notes = h('textarea', { id: 'eNotes', placeholder: '例: 試作課に確認中。回答待ち' });
   const submit = h('button', { type: 'submit', class: 'btn primary' }, '保存');
   const url = issueUrl(issue.id);
@@ -3086,7 +3091,7 @@ async function openEditor(id) {
     const fields = f.collect();
     const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => {
       const now = { subject: issue.subject, description: issue.description || '', due_date: issue.due_date || null,
-        fixed_version_id: issue.fixed_version && issue.fixed_version.id, assigned_to_id: issue.assigned_to && issue.assigned_to.id }[k];
+        fixed_version_id: issue.fixed_version && issue.fixed_version.id, assigned_to_id: (issue.assigned_to && issue.assigned_to.id) ?? '' }[k];
       return v !== now;
     }));
     if (notes.value.trim()) changed.notes = notes.value.trim();
