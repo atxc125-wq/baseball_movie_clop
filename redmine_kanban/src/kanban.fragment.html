@@ -1024,6 +1024,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.3</b><span>2026-10-27</span></dt>
+        <dd><ul><li>「（全員）」のまとめ用チケットは、未整理に出さないようにしました</li></ul></dd>
         <dt><b>v17.2</b><span>2026-10-26</span></dt>
         <dd><ul><li>親タスク（子チケットを持つチケット）は、編集画面で担当なしのまま保存できるようにしました</li></ul></dd>
         <dt><b>v17.1</b><span>2026-10-26</span></dt>
@@ -1205,6 +1207,9 @@ function parseTitle(subject) {
   return { deadline: best, text: subject.slice(m[0].length) };
 }
 function buildTitle(text, deadline) { return deadline ? `【${deadline.getMonth() + 1}/${deadline.getDate()}】${text}` : text; }
+
+// 担当を複数選んで作った、まとめ用の親チケットの件名の終わり「（全員）」（半角の (全員) も）
+const ALL_MEMBERS_RX = /[（(]\s*全員\s*[）)]\s*$/;
 
 // 繰り返しのタスク: 説明の最後の行に「繰り返し: 毎週」「繰り返し: 毎月」と書く（Redmine の設定を変えずに済むように）
 const REPEAT_RX = /(?:^|\n)[ \t]*繰り返し[ \t]*[:：][ \t]*(毎週|毎月)[ \t]*(?=\n|$)/;
@@ -2839,7 +2844,7 @@ async function createCopies(projectId, fields, assigneeIds, parentId = null) {
 // まとめ用の親チケットに入れる内容（担当なし。子チケットがあるので未整理にも出ない）
 function parentFields(fields) {
   const { assigned_to_id, ...rest } = fields;
-  return { ...rest, subject: `${fields.subject}（全員）` };
+  return { ...rest, subject: `${fields.subject}（全員）` };   // 未整理には出さない（ALL_MEMBERS_RX）
 }
 const nameOf = id => (CONFIG.members.find(m => m.id === id) || { name: `ID ${id}` }).name;
 const whoText = ids => (ids.length > 1 ? `${nameOf(ids[0])}さんほか ${ids.length - 1} 名` : `${nameOf(ids[0])}さん`);
@@ -3339,7 +3344,8 @@ async function loadInbox() {
   const open = (await api.inboxIssues()).filter(i => ['todo', 'doing', 'done'].includes(colOf(i)));
   // 子チケットを持つものは「中項目（まとめ用）」なので、担当や期日の有無にかかわらず未整理に出さない
   const containers = await api.withChildren(open.map(i => i.id));
-  state.inbox = open.filter(i => !containers.has(i.id));
+  // 「（全員）」のまとめ用チケット（担当を複数選んで作った親）は、子の状態にかかわらず出さない
+  state.inbox = open.filter(i => !containers.has(i.id) && !ALL_MEMBERS_RX.test(i.subject || ''));
   state.inboxKidsCancelled = containers.cancelledOnly || new Set();   // 子がすべて中止の親（残しておくか、親も中止にするか決めてもらう）
   await loadAncestors(state.inbox);
   if (!state.versions.length && state.inbox.length) {
