@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "17.3"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "17.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -206,6 +206,8 @@ redmine_kanban/
 - **繰り返しのタスク**: 説明の最後の行に「繰り返し: 毎週」「繰り返し: 毎月」（`REPEAT_RX`、全角コロン可）。入力欄（`issueFields`。編集・未整理・新規の全部）に「繰り返し」選択（しない／毎週／毎月、「担当完了にすると、次の週（月）の分を同じ内容で自動で作ります」）。説明欄にはこの行を出さず、保存時に `withRepeat` で最後に付ける。カードに「↻毎週」「↻毎月」。未完了 → 完了の列（担当完了・上司完了）に変わったとき（ボードの `changeStatus`、課題バラシの `bSetStatus` は保存できたときだけ）`makeNextRepeat`: 基準 = 件名の締切【M/D】→ 期日 → 開始日 → 今日。k = 1 から、基準を k 回分先へ送った日が今日以上になるまで増やす（毎週 = 7k 日、毎月 = k か月先で月末を越えない: 1/31 → 2/28）。締切・開始日・期日を同じ k だけ送り、件名・説明・担当・バージョン・親・予定工数・優先度をそのまま、ステータスは未着手で作る。同じ件名・同じ担当の未完了チケットが読み込んである中にあれば作らない（「次回分はもうあります（#N）」）。トースト「↻ 次回分 #N「…」（締切 M/D）を作りました」＋ `取り消す`（作ったものを中止）。Redmine で直接完了にした分は作らない。
 
 - **親タスクは担当なしで保存できる**: 編集画面で、開いたチケットが子を持つ（読み込んであるチケットの parent か、state.parents にある）なら `issueFields(…, { parent: true })`: 担当の空の選択肢を「担当なし（親タスク）」、ラベル「担当（親タスクなので空でもかまいません）」、必須にしない。空なら `assigned_to_id: ''` で送って外す（変更の判定は今の担当がなければ '' とみなす）。子のないチケットは今までどおり担当が必要。
+
+- **開始日のリセット**: 編集画面で作業完了予定（期日）を今の開始日より前にしたら、入力欄の下に「開始日（M/D）より前の日付です。保存すると開始日を空にします（…）」（黄）。保存時は `start_date: ''` も一緒に送る（`withStartReset`。Redmine は期日 < 開始日を受け付けないため）。未整理の振り分け（登録・課題バラシへ）でも同じ（メールから作ったチケットは作った日が開始日に入っていることが多い）。モックの updateIssue も期日 < 開始日を 422 で断る。トーストに「（作業完了予定が開始日より前だったので、開始日を空にしました）」。
 
 ### 5.8 未整理タブ
 - 件名が `/[（(]\s*全員\s*[）)]\s*$/`（ALL_MEMBERS_RX）で終わるチケット（担当を複数選んで作ったまとめ用の親「…（全員）」）は、子の状態にかかわらず未整理に出さない。
@@ -825,6 +827,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .repeat-field select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; }
 .repeat-field small { color: var(--ink-3); }
 .card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
+.start-note { margin: -4px 0 0; font-size: 12px; color: var(--soon); background: var(--soon-bg); border-radius: 6px; padding: 6px 10px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -1383,6 +1386,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.4</b><span>2026-10-28</span></dt>
+        <dd><ul><li>編集画面で作業完了予定を開始日より前にしたとき、開始日を空にして保存できるようにしました（「開始日より後にして」と断られなくなります）</li></ul></dd>
         <dt><b>v17.3</b><span>2026-10-27</span></dt>
         <dd><ul><li>「（全員）」のまとめ用チケットは、未整理に出さないようにしました</li></ul></dd>
         <dt><b>v17.2</b><span>2026-10-26</span></dt>

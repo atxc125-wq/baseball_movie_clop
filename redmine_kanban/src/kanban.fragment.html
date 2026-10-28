@@ -471,6 +471,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .repeat-field select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; }
 .repeat-field small { color: var(--ink-3); }
 .card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
+.start-note { margin: -4px 0 0; font-size: 12px; color: var(--soon); background: var(--soon-bg); border-radius: 6px; padding: 6px 10px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -1024,6 +1025,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.4</b><span>2026-10-28</span></dt>
+        <dd><ul><li>編集画面で作業完了予定を開始日より前にしたとき、開始日を空にして保存できるようにしました（「開始日より後にして」と断られなくなります）</li></ul></dd>
         <dt><b>v17.3</b><span>2026-10-27</span></dt>
         <dd><ul><li>「（全員）」のまとめ用チケットは、未整理に出さないようにしました</li></ul></dd>
         <dt><b>v17.2</b><span>2026-10-26</span></dt>
@@ -1528,6 +1531,9 @@ function createMockApi(getMockUserId) {
         issue.status = { id: fields.status_id, name: statusById[fields.status_id].name };
       }
       if (fields.done_ratio != null) issue.done_ratio = fields.done_ratio;
+      // 本物と同じく、期日が開始日より前になる変更は断る
+      { const due = 'due_date' in fields ? fields.due_date : issue.due_date, st = 'start_date' in fields ? fields.start_date : issue.start_date;
+        if (due && st && due < st) throw new Error('Redmine がエラーを返しました (422) 期日 は開始日より後の日付にしてください'); }
       if ('subject' in fields) issue.subject = fields.subject;
       if ('description' in fields) issue.description = fields.description;
       if ('due_date' in fields) issue.due_date = fields.due_date || null;
@@ -2849,6 +2855,12 @@ function parentFields(fields) {
 const nameOf = id => (CONFIG.members.find(m => m.id === id) || { name: `ID ${id}` }).name;
 const whoText = ids => (ids.length > 1 ? `${nameOf(ids[0])}さんほか ${ids.length - 1} 名` : `${nameOf(ids[0])}さん`);
 
+// 期日を今の開始日より前にするときは開始日を空にする（Redmine は期日 < 開始日を受け付けない。
+// メールから作られたチケットは、作った日が開始日に入っていることが多い）
+function withStartReset(issue, fields) {
+  return fields.due_date && issue.start_date && fields.due_date < issue.start_date ? { ...fields, start_date: '' } : fields;
+}
+
 function renderTriageForm(issue) {
   const form = $('triage');
   if (!issue) { form.replaceChildren(h('p', { class: 'hint' }, '左の一覧から整理するチケットを選んでください。')); return; }
@@ -2886,7 +2898,7 @@ function renderTriageForm(issue) {
     try {
       // まとめる場合: 元のチケットを親にする（Power Automate の重複判定のため元のチケットは残す）
       // まとめない場合: 元のチケットは 1 人目の担当に
-      await api.updateIssue(issue.id, grouped ? parentFields(fields) : fields);
+      await api.updateIssue(issue.id, withStartReset(issue, grouped ? parentFields(fields) : fields));
     } catch (err) {
       f.el.error.textContent = `登録できませんでした。${err.message}`;
       submit.disabled = false; submit.textContent = label();
@@ -2909,7 +2921,7 @@ async function triageToBara(issue, f) {
   if (!f.el.version.value) { f.el.error.textContent = '分解したタスクに付けるので、対象バージョンを選んでください。'; f.el.version.focus(); return; }
   const fields = f.collect();
   if (!fields.assigned_to_id) delete fields.assigned_to_id;
-  try { await api.updateIssue(issue.id, fields); }
+  try { await api.updateIssue(issue.id, withStartReset(issue, fields)); }
   catch (err) { f.el.error.textContent = `保存できませんでした。${err.message}`; return; }
   state.bara.scope = { kind: 'issue', id: issue.id };
   state.bara.selected = issue.id;
@@ -3046,6 +3058,15 @@ async function openEditor(id) {
   const fp = flagPriority();
   const flagBox = fp ? h('input', { type: 'checkbox', id: 'eFlag', checked: isFlagged(issue) }) : null;
   const chain = ancestors(issue);
+  // 作業完了予定を開始日より前にしたら、保存のときに開始日を空にすることを先に知らせる
+  const startNote = h('p', { class: 'start-note', hidden: true });
+  const checkStart = () => {
+    const bad = issue.start_date && f.el.plan.value && f.el.plan.value < issue.start_date;
+    startNote.hidden = !bad;
+    if (bad) startNote.textContent = `開始日（${jpDate(parseDate(issue.start_date))}）より前の日付です。保存すると開始日を空にします（日程は作業順・課題バラシ・日程表で決め直せます）。`;
+  };
+  f.el.plan.addEventListener('input', checkStart);
+  checkStart();
   // つながり（Redmine の関連）。開いたあと裏で読み、あれば一覧と「外す」を出す
   const relBox = h('div', { class: 'field rel-list', hidden: true });
   loadEditorRels(issue.id, relBox);
@@ -3065,6 +3086,7 @@ async function openEditor(id) {
       h('span', {}, `ステータス: ${issue.status.name}`),
       chain.length ? h('span', {}, `親: ${chain.join(' › ')}`) : null),
     ...f.rows('説明'),
+    startNote,
     h('div', { class: 'field' },
       h('span', { class: 'label' }, '作業時間を記録（今日）'),
       // ほかの人の仕事: 既定は担当者の作業時間。手伝った分は「自分」に切り替えて記録する
@@ -3102,19 +3124,24 @@ async function openEditor(id) {
     if (notes.value.trim()) changed.notes = notes.value.trim();
     if (flagBox && flagBox.checked !== isFlagged(issue)) changed.priority_id = (flagBox.checked ? fp.on : fp.off).id;
     if (!Object.keys(changed).length) { closeEditor(); toast('変更はありませんでした'); return; }
+    // 作業完了予定（期日）を開始日より前にすると Redmine が受け付けないので、開始日を空に戻す（日程は作業順・課題バラシで決め直せる）
+    const startReset = changed.due_date && issue.start_date && changed.due_date < issue.start_date;
+    if (startReset) Object.assign(changed, withStartReset(issue, changed));
 
     submit.disabled = true; submit.textContent = '保存中…';
     try {
       await api.updateIssue(issue.id, changed);
       const before = issue.assigned_to && issue.assigned_to.id;
       f.applyTo(issue, fields);
+      if (startReset) issue.start_date = null;
       if (changed.priority_id) { const pr = state.priorities.find(x => x.id === changed.priority_id); issue.priority = { id: pr.id, name: pr.name }; }
       issue.updated_on = new Date().toISOString();
       state.editorSaved = true;
       closeEditor();
       renderBoard();
       const moved = issue.assigned_to && issue.assigned_to.id !== before;
-      toast(moved ? `#${issue.id} を${issue.assigned_to.name}さんに渡しました` : `#${issue.id} を保存しました`);
+      toast((moved ? `#${issue.id} を${issue.assigned_to.name}さんに渡しました` : `#${issue.id} を保存しました`)
+        + (startReset ? '（作業完了予定が開始日より前だったので、開始日を空にしました）' : ''));
     } catch (err) {
       f.el.error.textContent = err.partial ? err.message : `保存できませんでした。${err.message}`;
       submit.disabled = false; submit.textContent = '保存';

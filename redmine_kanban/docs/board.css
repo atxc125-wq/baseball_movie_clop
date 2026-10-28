@@ -470,6 +470,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .repeat-field select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 5px 8px; }
 .repeat-field small { color: var(--ink-3); }
 .card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
+.start-note { margin: -4px 0 0; font-size: 12px; color: var(--soon); background: var(--soon-bg); border-radius: 6px; padding: 6px 10px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
