@@ -459,6 +459,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
+.toast.ask.pass { border-color: var(--ok); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }

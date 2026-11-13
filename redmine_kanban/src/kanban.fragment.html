@@ -460,6 +460,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
+.toast.ask.pass { border-color: var(--ok); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }
@@ -908,6 +909,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>次の人に回す（検図・承認など）</h3>
+      <p>担当完了にすると、右下に「次の人に回しますか？」とメンバーの名前が出ます。名前を押すと、<strong>その人の「進行中」に同じ仕事ができます</strong>（元の仕事の後ろにつながり、説明に「#番号から回ってきた仕事です」と入ります）。回さないときは押さなくて大丈夫です（30 秒で消えます）。間違えたら <span class="ui">取り消す</span>。聞かれたくなければ <span class="ui">接続設定</span> で止められます。</p>
       <h3>毎週・毎月の仕事（繰り返し）</h3>
       <p>週報や月次の集計など、毎回同じ仕事は、編集画面の <span class="ui">繰り返し</span> で「毎週」か「毎月」を選んでおきます。カードに <span class="ui">↻毎週</span> と出て、<strong>担当完了にすると次回分が自動でできます</strong>（締切・作業完了予定も 1 週・1 か月先）。遅れて完了したときは、締切が今日より後になるところまで送ります。間違えて作ったときは、お知らせの <span class="ui">取り消す</span> で中止にできます。</p>
       <h3>「すでに関連したチケットがあります」と言われたら</h3>
@@ -1025,6 +1028,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.5</b><span>2026-11-13</span></dt>
+        <dd><ul><li>担当完了にしたとき「次の人に回しますか？」と聞くようにしました。名前を押すと、その人の「進行中」に同じ仕事を作ります（検図・承認などの流れ向け）</li></ul></dd>
         <dt><b>v17.4</b><span>2026-10-28</span></dt>
         <dd><ul><li>編集画面で作業完了予定を開始日より前にしたとき、開始日を空にして保存できるようにしました（「開始日より後にして」と断られなくなります）</li></ul></dd>
         <dt><b>v17.3</b><span>2026-10-27</span></dt>
@@ -1101,6 +1106,7 @@ a.btn { text-decoration: none; display: inline-block; }
     <div class="field">
       <span class="label">工数</span>
       <label><input type="checkbox" id="askHours"> 進捗を動かしたときに、作業時間を聞く（押さなければ記録しません）</label>
+      <label><input type="checkbox" id="askPass"> 担当完了にしたときに、次の人に回すか聞く（押さなければ何もしません）</label>
     </div>
     <p class="test-result" id="testResult" hidden></p>
     <p class="hint" id="versionInfo"></p>
@@ -3538,6 +3544,7 @@ async function changeStatus(id, statusId, { undoable = false } = {}) {
     if (issue.parent) syncParentsAndReport(issue.parent.id);
     if (settings.askHours !== false && issue.assigned_to && isTeamMember(issue.assigned_to.id) && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
     if (!isDoneCol(statusById[prev.status.id] && statusById[prev.status.id].col) && isDoneCol(next.col)) makeNextRepeat(issue);
+    if (settings.askPass !== false && next.col === 'done' && !isDoneCol((statusById[prev.status.id] || {}).col)) askPass(issue);
   } catch (e) {
     issue.status = prev.status;
     issue.done_ratio = prev.done_ratio;
@@ -3649,8 +3656,59 @@ async function recordHours(issueId, hours, spentOn, comments, forUser) {
 }
 const firstName = u => u.name.split(/[ 　]/)[0];   // 「高橋 健」→「高橋」
 
+// 担当完了にしたとき「次の人に回す」を聞く（検図・承認など、フローで次の人に渡す仕事向け）。
+// 押した人の「進行中」に、同じ件名の仕事を作る（元の仕事の後ろにつなぐ）。押さなければ何もしない
+function askPass(issue) {
+  document.querySelectorAll('.toast.pass').forEach(el => el.remove());
+  const owner = issue.assigned_to && issue.assigned_to.id;
+  const people = CONFIG.members.filter(m => m.id !== owner);
+  if (!people.length) return;
+  const { deadline, text } = parseTitle(issue.subject);
+  const el = h('div', { class: 'toast ask pass', role: 'status' });
+  const close = () => el.remove();
+  const pass = async m => {
+    close();
+    const doing = statusForColumn('doing');
+    const st = doing && statusById[doing];
+    const fields = {
+      subject: buildTitle(text, deadline),
+      description: `#${issue.id}「${text}」から回ってきた仕事です（${issue.assigned_to ? issue.assigned_to.name.split(/[ 　]/)[0] + 'さんが' : ''}担当完了）。`
+        + (stripRepeat(issue.description) ? `\n\n${stripRepeat(issue.description)}` : ''),
+      assigned_to_id: m.id,
+      start_date: isoDate(startOfToday()),
+      ...(doing ? { status_id: doing } : {}),
+      ...(CONFIG.syncDoneRatio && st && st.ratio != null ? { done_ratio: st.ratio } : {}),
+      ...(issue.fixed_version ? { fixed_version_id: issue.fixed_version.id } : {}),
+      ...(issue.parent ? { parent_issue_id: issue.parent.id } : {}),
+      ...(issue.priority ? { priority_id: issue.priority.id } : {}),
+    };
+    try {
+      const c = await api.createIssue((issue.project && issue.project.id) || projectForNew(), fields);
+      // 作るときのステータスを受け付けない Redmine（最初は「新規」だけ）もあるので、進行中になっていなければ動かす
+      if (doing && c.status && c.status.id !== doing) {
+        try { await api.updateIssue(c.id, { status_id: doing, ...(fields.done_ratio != null ? { done_ratio: fields.done_ratio } : {}) }); c.status = { id: doing, name: st.name }; }
+        catch (e) { toast(`#${c.id} は作りましたが、「進行中」にできませんでした。${e.message}`, { error: true }); }
+      }
+      try { await api.addRelation(issue.id, c.id); } catch (_) { /* つなげなくても仕事は作る */ }
+      if (issue.parent) syncParentsAndReport(issue.parent.id);   // 親は「完了」になっていることがあるので、子に合わせ直す
+      if (state.view === m.id) { state.issues.set(c.id, c); render(); }
+      toast(`${m.name.split(/[ 　]/)[0]}さんの「進行中」に #${c.id}「${text}」を追加しました`, { action: { label: '取り消す', run: async () => {
+        try { await api.updateIssue(c.id, { status_id: cancelStatusId() }); state.issues.delete(c.id); render(); toast(`#${c.id} を中止にしました`); }
+        catch (e) { toast(`取り消せませんでした。${e.message}`, { error: true }); }
+      } } });
+    } catch (e) { toast(`次の人に回せませんでした。${e.message}`, { error: true }); }
+  };
+  el.append(
+    h('span', { class: 'q' }, `#${issue.id} `, h('b', {}, text.length > 24 ? text.slice(0, 24) + '…' : text), ' — 次の人に回しますか？（その人の「進行中」に入ります）'),
+    h('span', { class: 'chips' },
+      people.map(m => h('button', { type: 'button', onclick: () => pass(m) }, m.name.split(/[ 　]/)[0])),
+      h('button', { type: 'button', class: 'skip', onclick: close }, '回さない')));
+  $('toasts').append(el);
+  setTimeout(close, 30000);
+}
+
 function askHours(issue, statusName) {
-  document.querySelectorAll('.toast.ask').forEach(el => el.remove());   // 聞くのは最新の 1 件だけ
+  document.querySelectorAll('.toast.ask:not(.pass)').forEach(el => el.remove());   // 聞くのは最新の 1 件だけ
   const subject = parseTitle(issue.subject).text;
   const el = h('div', { class: 'toast ask', role: 'status' });
   const close = () => el.remove();
@@ -4327,7 +4385,10 @@ async function bSetStatus(issue, statusId) {
   if (settings.askHours !== false && issue.assigned_to && state.me && isTeamMember(issue.assigned_to.id) && ['doing', 'done'].includes(next.col)) askHours(issue, next.name);
   // 繰り返しのタスクを完了にしたら次回分（保存できたときだけ）
   const now = B.issues.get(issue.id);
-  if (now && now.status.id === statusId && !isDoneCol((statusById[before] || {}).col) && isDoneCol(next.col)) { await makeNextRepeat(now); bReload(); }
+  if (now && now.status.id === statusId && !isDoneCol((statusById[before] || {}).col) && isDoneCol(next.col)) {
+    if (settings.askPass !== false && next.col === 'done') askPass(now);
+    await makeNextRepeat(now); bReload();
+  }
 }
 
 function bOpenEst(issue, anchor) {
@@ -5488,6 +5549,7 @@ function openSettings() {
   $('apiKey').value = settings.key;
   $('testResult').hidden = true;
   $('askHours').checked = settings.askHours !== false;
+  $('askPass').checked = settings.askPass !== false;
   $('settings').hidden = false;
   $({ relay: 'modeRelay', live: 'modeLive', mock: 'modeMock' }[settings.mode] || 'modeMock').focus();
 }
@@ -5560,7 +5622,7 @@ $('settingsForm').addEventListener('submit', e => {
     out.textContent = 'Redmine に接続するには URL と API キーが必要です。';
     return;
   }
-  settings = { ...settings, mode, url, key, askHours: $('askHours').checked };
+  settings = { ...settings, mode, url, key, askHours: $('askHours').checked, askPass: $('askPass').checked };
   saveSettings();
   closeSettings();
   boot();

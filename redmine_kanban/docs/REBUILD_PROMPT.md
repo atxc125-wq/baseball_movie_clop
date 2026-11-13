@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "17.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "17.5"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -208,6 +208,8 @@ redmine_kanban/
 - **親タスクは担当なしで保存できる**: 編集画面で、開いたチケットが子を持つ（読み込んであるチケットの parent か、state.parents にある）なら `issueFields(…, { parent: true })`: 担当の空の選択肢を「担当なし（親タスク）」、ラベル「担当（親タスクなので空でもかまいません）」、必須にしない。空なら `assigned_to_id: ''` で送って外す（変更の判定は今の担当がなければ '' とみなす）。子のないチケットは今までどおり担当が必要。
 
 - **開始日のリセット**: 編集画面で作業完了予定（期日）を今の開始日より前にしたら、入力欄の下に「開始日（M/D）より前の日付です。保存すると開始日を空にします（…）」（黄）。保存時は `start_date: ''` も一緒に送る（`withStartReset`。Redmine は期日 < 開始日を受け付けないため）。未整理の振り分け（登録・課題バラシへ）でも同じ（メールから作ったチケットは作った日が開始日に入っていることが多い）。モックの updateIssue も期日 < 開始日を 422 で断る。トーストに「（作業完了予定が開始日より前だったので、開始日を空にしました）」。
+
+- **次の人に回す**（`askPass`）: 未完了 → 「担当完了」に変えたとき（ボード・課題バラシ。接続設定「担当完了にしたときに、次の人に回すか聞く」、既定オン、settings.askPass）、右下に「#番号 件名 — 次の人に回しますか？（その人の「進行中」に入ります）」＋担当以外のメンバーの名字ボタン＋`回さない`（30 秒で消える。作業時間の問いとは別に出す）。押すと同じ件名（締切【M/D】そのまま）・説明「#番号「件名」から回ってきた仕事です（○○さんが担当完了）。」＋元の説明（繰り返しの行は除く）・バージョン・親・優先度、開始日 = 今日、ステータス = 進行中（作成で受け付けられなければ作ったあとに更新）で作り、元 → 新の先行でつなぐ（失敗しても続ける）。親があれば親のステータスを子に合わせ直す。トースト「○○さんの「進行中」に #N「…」を追加しました」＋`取り消す`（中止）。
 
 ### 5.8 未整理タブ
 - 件名が `/[（(]\s*全員\s*[）)]\s*$/`（ALL_MEMBERS_RX）で終わるチケット（担当を複数選んで作ったまとめ用の親「…（全員）」）は、子の状態にかかわらず未整理に出さない。
@@ -816,6 +818,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .toast.ask .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .toast.ask .chips button { text-decoration: none; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 4px 10px; font-family: var(--font-num); font-size: 13px; }
 .toast.ask .chips button:hover { background: var(--accent); color: var(--accent-ink); }
+.toast.ask.pass { border-color: var(--ok); }
 .toast.ask .chips button.skip { border-color: var(--line); background: transparent; color: var(--ink-2); font-family: var(--font-ui); }
 .dialog.hours { width: min(1080px, 100%); }
 .hours .seg { align-self: flex-start; }
@@ -1269,6 +1272,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>次の人に回す（検図・承認など）</h3>
+      <p>担当完了にすると、右下に「次の人に回しますか？」とメンバーの名前が出ます。名前を押すと、<strong>その人の「進行中」に同じ仕事ができます</strong>（元の仕事の後ろにつながり、説明に「#番号から回ってきた仕事です」と入ります）。回さないときは押さなくて大丈夫です（30 秒で消えます）。間違えたら <span class="ui">取り消す</span>。聞かれたくなければ <span class="ui">接続設定</span> で止められます。</p>
       <h3>毎週・毎月の仕事（繰り返し）</h3>
       <p>週報や月次の集計など、毎回同じ仕事は、編集画面の <span class="ui">繰り返し</span> で「毎週」か「毎月」を選んでおきます。カードに <span class="ui">↻毎週</span> と出て、<strong>担当完了にすると次回分が自動でできます</strong>（締切・作業完了予定も 1 週・1 か月先）。遅れて完了したときは、締切が今日より後になるところまで送ります。間違えて作ったときは、お知らせの <span class="ui">取り消す</span> で中止にできます。</p>
       <h3>「すでに関連したチケットがあります」と言われたら</h3>
@@ -1386,6 +1391,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.5</b><span>2026-11-13</span></dt>
+        <dd><ul><li>担当完了にしたとき「次の人に回しますか？」と聞くようにしました。名前を押すと、その人の「進行中」に同じ仕事を作ります（検図・承認などの流れ向け）</li></ul></dd>
         <dt><b>v17.4</b><span>2026-10-28</span></dt>
         <dd><ul><li>編集画面で作業完了予定を開始日より前にしたとき、開始日を空にして保存できるようにしました（「開始日より後にして」と断られなくなります）</li></ul></dd>
         <dt><b>v17.3</b><span>2026-10-27</span></dt>
@@ -1462,6 +1469,7 @@ a.btn { text-decoration: none; display: inline-block; }
     <div class="field">
       <span class="label">工数</span>
       <label><input type="checkbox" id="askHours"> 進捗を動かしたときに、作業時間を聞く（押さなければ記録しません）</label>
+      <label><input type="checkbox" id="askPass"> 担当完了にしたときに、次の人に回すか聞く（押さなければ何もしません）</label>
     </div>
     <p class="test-result" id="testResult" hidden></p>
     <p class="hint" id="versionInfo"></p>
