@@ -172,6 +172,12 @@ button { cursor: pointer; }
 .card .flag.on { background: var(--soon-bg); color: var(--soon); font-weight: 700; border-color: var(--soon); }
 .card .flag + .tag { margin-left: 6px; }
 .card.flagged { box-shadow: inset 0 0 0 1px var(--soon), var(--shadow); }
+/* 直前に触ったチケット */
+.card.touched, .bara .bx.touched { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }
+.card.touched.pulse, .bara .bx.touched.pulse { animation: touched-pulse 1.2s ease-out 1; }
+.card.touched.flagged { box-shadow: 0 0 0 3px var(--accent), inset 0 0 0 1px var(--soon), var(--shadow); }
+.card.touched::before, .bara .bx.touched::before { content: 'さっき触った'; position: absolute; top: -9px; left: 10px; z-index: 1; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 4px; background: var(--accent); color: var(--accent-ink); font-weight: 700; pointer-events: none; }
+@keyframes touched-pulse { 0% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent), var(--shadow); } 100% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } }
 .bara .bx .meta .flag-b { color: var(--soon); font-weight: 700; }
 .card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
 .card .slack.low { background: var(--soon-bg); color: var(--soon); }
@@ -1034,6 +1040,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.6</b><span>2026-11-16</span></dt>
+        <dd><ul><li>直前に触ったチケットを「さっき触った」の枠で目立たせるようにしました（ボード・課題バラシ・日程表。読み直しても残ります）</li></ul></dd>
         <dt><b>v17.5</b><span>2026-11-13</span></dt>
         <dd><ul><li>担当完了にしたとき「次の人に回しますか？」と聞くようにしました。名前を押すと、その人の「進行中」に同じ仕事を作ります（検図・承認などの流れ向け）</li></ul></dd>
         <dt><b>v17.4</b><span>2026-10-28</span></dt>
@@ -1129,7 +1137,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-11-13 03:47'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-11-16 01:20'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -1836,6 +1844,16 @@ const state = {
   lastMove: new Map(),                // ステータスが最後に変わった日: チケット ID → { updated_on, at }
   leaves: null,                       // 休みの予定（Lychee のマイルストーンから）。loadLeaves() を参照
 };
+// 直前に触ったチケット（ボード・課題バラシ・日程表で目立たせる）。このブラウザに覚えておき、読み直しても消えない
+const TOUCH_KEY = 'designBoard.lastTouched';
+state.touched = (() => { try { return Number(localStorage.getItem(TOUCH_KEY)) || null; } catch (_) { return null; } })();
+// 触った直後の描き直しだけ、ふわっと光らせる（何度も描き直すたびに光らないように）
+const touchPulse = () => (state.touchedAt && Date.now() - state.touchedAt < 4000 ? ' pulse' : '');
+function markTouched(id) {
+  if (!(id > 0)) return;
+  state.touched = id; state.touchedAt = Date.now();
+  try { localStorage.setItem(TOUCH_KEY, String(id)); } catch (_) { /* 覚えられなくても続ける */ }
+}
 const statusById = Object.fromEntries(CONFIG.statuses.map(s => [s.id, s]));
 const colOf = issue => (statusById[issue.status.id] || {}).col;
 // 列にドロップしたときに設定するステータス ID（statuses の col から決める）
@@ -1955,7 +1973,7 @@ function renderCard(issue) {
   }
 
   return h('article', {
-    class: ['card', due.level === 2 ? 'is-late' : '', isFlagged(issue) ? 'flagged' : '', state.saving.has(issue.id) ? 'saving' : ''].join(' ').trim(),
+    class: ['card', due.level === 2 ? 'is-late' : '', isFlagged(issue) ? 'flagged' : '', state.saving.has(issue.id) ? 'saving' : '', state.touched === issue.id ? 'touched' + touchPulse() : ''].join(' ').trim(),
     draggable: 'true', tabindex: '0', 'data-id': issue.id,
     'aria-label': `#${issue.id} ${issue.subject}`, title: 'クリックで編集 / ドラッグで移動',
   },
@@ -2048,6 +2066,7 @@ function isFlagged(i) {
 async function toggleFlag(issue) {
   const fp = flagPriority();
   if (!fp || state.saving.has(issue.id)) return;
+  markTouched(issue.id);
   const before = issue.priority;
   const next = isFlagged(issue) ? fp.off : fp.on;
   issue.priority = { id: next.id, name: next.name };
@@ -2155,6 +2174,7 @@ async function scheduleQueue(queue) {
 }
 
 async function reorderCard(id, colKey, beforeId) {
+  markTouched(id);
   const member = state.view;
   const mine = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === member);
   const column = k => sortColumn(mine.filter(i => colOf(i) === k), k);
@@ -2920,6 +2940,7 @@ function renderTriageForm(issue) {
       ? await createCopies(issue.project.id, fields, ids, issue.id)
       : await createCopies(issue.project.id, fields, ids.slice(1));
     state.inbox = state.inbox.filter(i => i.id !== issue.id);
+    markTouched(issue.id);
     toast(`#${issue.id} を${whoText(ids)}の「未着手」に登録しました` + (ids.length > 1 ? `（${ids.length} 件）` : ''));
     if (failed.length) toast(`作れなかった分があります: ${failed.join('、')}`, { error: true });
     render();
@@ -3145,6 +3166,7 @@ async function openEditor(id) {
       await api.updateIssue(issue.id, changed);
       const before = issue.assigned_to && issue.assigned_to.id;
       f.applyTo(issue, fields);
+      markTouched(issue.id);
       if (startReset) issue.start_date = null;
       if (changed.priority_id) { const pr = state.priorities.find(x => x.id === changed.priority_id); issue.priority = { id: pr.id, name: pr.name }; }
       issue.updated_on = new Date().toISOString();
@@ -3533,6 +3555,7 @@ async function makeNextRepeat(issue) {
 async function changeStatus(id, statusId, { undoable = false } = {}) {
   const issue = state.issues.get(id);
   if (!issue || state.saving.has(id)) return;
+  markTouched(id);
   const prev = { status: issue.status, done_ratio: issue.done_ratio };
   const next = statusById[statusId];
   const fields = { status_id: statusId };
@@ -3657,6 +3680,7 @@ const hoursLabel = n => (n === CONFIG.hoursPerDay ? `1日(${n}h)` : fmtH(n));
 
 // forUser: だれの作業時間として記録するか（{ id, name }、省略または自分なら自分）
 async function recordHours(issueId, hours, spentOn, comments, forUser) {
+  markTouched(issueId);
   const userId = forUser && state.me && forUser.id !== state.me.id ? forUser.id : undefined;
   await api.createTimeEntry({ issueId, hours, spentOn, comments, userId });
 }
@@ -4253,7 +4277,7 @@ function bBox(issue, isHeader) {
   const due = issue.temp ? null : deadlineInfo(issue);
   const knob = (cls, title, text, fn, ev = 'onclick') => h('button', { type: 'button', class: 'knob ' + cls, title, 'aria-label': title, [ev]: e => { e.stopPropagation(); fn(e); } }, text);
   return h('div', {
-    class: `bx ${st}${B.selected === issue.id ? ' sel' : ''}${isRoot ? ' root' : ''}${issue.saving ? ' saving' : ''}`, tabindex: '0',
+    class: `bx ${st}${B.selected === issue.id ? ' sel' : ''}${isRoot ? ' root' : ''}${issue.saving ? ' saving' : ''}${state.touched === issue.id ? ' touched' + touchPulse() : ''}`, tabindex: '0',
     draggable: B.editing === issue.id || isRoot || issue.temp ? 'false' : 'true', 'data-id': issue.id, 'aria-label': issue.subject,
   },
     // 担当者・親チケットの範囲ではバージョンがまちまちなので、何の仕事か分かるようにタグを出す
@@ -4777,6 +4801,7 @@ async function bRun(fn, okMsg, undo) {
         await api.addRelation(ex.from, ex.to);
       }, `前のつながりを外して、#${ex.from} → #${ex.to} をつなぎました`) } });
   } finally { api = real; }
+  if (touched.size) markTouched(touched.has(B.selected) ? B.selected : [...touched][0]);
   // 変えたところだけ読み直す（失敗したら全部）
   try { await bRefresh(touched); }
   catch (_) { try { await loadBara(); } catch (e) { toast(e.message, { error: true }); } }
@@ -5201,7 +5226,7 @@ function renderGantt() {
     const track = h('div', { class: 'gtrack', style: `width:${width}px` }, shade,
       h('div', { class: 'gtoday', style: `left:${gX(today, from) + GDAY / 2}px` }));
     gDrawBar(track, i, from);
-    return h('div', { class: 'grow' + (newVer ? ' gfirst' : newPath ? ' gsub' : '') + (isDoneCol(colOf(i)) ? ' done' : '') + (G.flash.has(i.id) ? ' flash' : ''), 'data-id': i.id },
+    return h('div', { class: 'grow' + (newVer ? ' gfirst' : newPath ? ' gsub' : '') + (isDoneCol(colOf(i)) ? ' done' : '') + (G.flash.has(i.id) || state.touched === i.id ? ' flash' : ''), 'data-id': i.id },
       h('div', { class: 'gc ga', title: i.fixed_version ? i.fixed_version.name : '' }, newVer ? ver : ''),
       h('div', { class: 'gc gb', title: path }, newPath ? path : ''),
       h('div', { class: 'gc gcc', title: `#${i.id} ${i.subject}`, ondblclick: () => gOpenEditor(i.id) },
@@ -5396,6 +5421,7 @@ async function gCommit(issue, start, due) {
     toast(`日付を変えられませんでした。${e.message.replace(/^Redmine がエラーを返しました \(422\)\s*/, 'Redmine が受け付けませんでした: ')}`, { error: true });
   }
   G.flash = new Set(done.map(c => c.issue.id));
+  markTouched(issue.id);
   if (done.length) {
     const lateOnes = done.filter(c => { const dl = parseTitle(c.issue.subject).deadline; return dl && c.due && c.due > dl; });
     const msg = `${jpDate(start)}〜${jpDate(due)} にしました` + (done.length > 1 ? `（後ろの仕事 ${done.length - 1} 件も一緒にずらしました）` : '')

@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "17.5"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "17.6"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -188,6 +188,8 @@ redmine_kanban/
 - **手持ちの上限**: 進行中が `wipLimit`（5）件を超えたら列見出しに「上限5件を超えています」（黄）と件数を黄色に。
 - **同じ列の中で上下にドラッグ = 自分の作業順**（5.6）。差し込み位置に青い線（カードの上辺、列の最後なら下に線）。
 - ステータスを変えたら、親チケットのステータスを子に合わせる（5.12）。自分のカードを進行中・担当完了にしたら工数を聞く（5.10）。
+
+- **直前に触ったチケット**: `markTouched(id)` で `state.touched` に 1 件だけ覚える（localStorage `designBoard.lastTouched`、読み直しても残る）。呼ぶところ: ステータス・進捗の変更、★、並び替え、作業時間の記録、編集画面の保存、未整理の登録、課題バラシの操作（bRun で触ったチケット。選んでいる箱を優先）、日程表のドラッグ。カード・課題バラシの箱は青い 3px の枠＋左上に「さっき触った」の小さな札、日程表は行を黄色（flash と同じ）。触ってから 4 秒以内の描き直しだけ、ふわっと光るアニメーション（毎回の描き直しでは光らない）。
 
 ### 5.6 並び順と自分の作業順
 - 並び順の切り替え（サマリーの右、localStorage `designBoard.boardSort`）: `並び: いつもの順` / `並び: 余裕が少ない順`（値 `mine` / `slack`。古い値 `deadline` は `slack` とみなす）。
@@ -525,6 +527,12 @@ button { cursor: pointer; }
 .card .flag.on { background: var(--soon-bg); color: var(--soon); font-weight: 700; border-color: var(--soon); }
 .card .flag + .tag { margin-left: 6px; }
 .card.flagged { box-shadow: inset 0 0 0 1px var(--soon), var(--shadow); }
+/* 直前に触ったチケット */
+.card.touched, .bara .bx.touched { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }
+.card.touched.pulse, .bara .bx.touched.pulse { animation: touched-pulse 1.2s ease-out 1; }
+.card.touched.flagged { box-shadow: 0 0 0 3px var(--accent), inset 0 0 0 1px var(--soon), var(--shadow); }
+.card.touched::before, .bara .bx.touched::before { content: 'さっき触った'; position: absolute; top: -9px; left: 10px; z-index: 1; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 4px; background: var(--accent); color: var(--accent-ink); font-weight: 700; pointer-events: none; }
+@keyframes touched-pulse { 0% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent), var(--shadow); } 100% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } }
 .bara .bx .meta .flag-b { color: var(--soon); font-weight: 700; }
 .card .slack { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--ok-bg); color: var(--ok); font-variant-numeric: tabular-nums; }
 .card .slack.low { background: var(--soon-bg); color: var(--soon); }
@@ -1391,6 +1399,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.6</b><span>2026-11-16</span></dt>
+        <dd><ul><li>直前に触ったチケットを「さっき触った」の枠で目立たせるようにしました（ボード・課題バラシ・日程表。読み直しても残ります）</li></ul></dd>
         <dt><b>v17.5</b><span>2026-11-13</span></dt>
         <dd><ul><li>担当完了にしたとき「次の人に回しますか？」と聞くようにしました。名前を押すと、その人の「進行中」に同じ仕事を作ります（検図・承認などの流れ向け）</li></ul></dd>
         <dt><b>v17.4</b><span>2026-10-28</span></dt>
