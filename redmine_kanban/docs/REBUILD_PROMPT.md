@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "17.6"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "17.7"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -109,6 +109,8 @@ redmine_kanban/
 8. `check_destination`（4.4）→ キー読み込み（なければ端末なら setup、端末でなければログを出して終了）→ `/users/current.json` で確認（ダメなら理由を表示し、端末なら setup し直し）。
 9. 初回設定で自動起動にした場合は、画面なしの常駐に切り替えて終了。
 10. Redmine からボードの設定を作る（4.5）→ サーバー開始 → 端末ならブラウザを開く。
+
+- **自動起動を確実にする（v17.7）**: `ensure_autostart()` を対話の起動（ダブルクリック）のたびに呼ぶ。API キー保存済み（relay.json がある）かつ `no_autostart`（初期設定で「しない」を選んだ／--uninstall した印）がなければ、HKCU\…\Run の DesignTaskBoardRelay が `autostart_command()` と違う・ない場合に登録し直して「自動起動の登録を直しました（登録が消えていたため／起動先が古くなっていたため）」。起動先の pythonw は、Microsoft Store の Python なら変わらない別名 `%LOCALAPPDATA%\Microsoft\WindowsApps\pythonw.exe`、それ以外は実行中の Python の隣の pythonw.exe。`…\Explorer\StartupApproved\Run` の値が有効（先頭 0x02/0x06）でなければ「タスクマネージャーの「スタートアップ」で無効になっています」と知らせるだけ（本人の操作なので変えない）。ログオン時（画面なし）は最初に「ログオン時の起動を始めました（vN、Python のパス）」を記録し、共有フォルダの確認は OSError を握って「共有フォルダを読めませんでした（…）。前回の設定のまま起動します」と続ける。`main()` は `run()` で包み、思わぬ例外は traceback を relay.log に書く。
 
 ### 4.4 API キーの送り先の固定（check_destination）
 - `url_origin(url)` = `scheme://host(小文字):port`（http/https 以外は空）。
@@ -1399,6 +1401,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v17.7</b><span>2026-11-22</span></dt>
+        <dd><ul><li>PC を起動しても中継が立ち上がらないことがある問題に対応しました（ダブルクリックで自動起動の登録を確かめて直す、起動直後に共有フォルダが読めなくても止まらない、止まった理由を記録に残す）</li></ul></dd>
         <dt><b>v17.6</b><span>2026-11-16</span></dt>
         <dd><ul><li>直前に触ったチケットを「さっき触った」の枠で目立たせるようにしました（ボード・課題バラシ・日程表。読み直しても残ります）</li></ul></dd>
         <dt><b>v17.5</b><span>2026-11-13</span></dt>
