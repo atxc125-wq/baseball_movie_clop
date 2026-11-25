@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "17.7"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "18"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -192,6 +192,8 @@ redmine_kanban/
 - ステータスを変えたら、親チケットのステータスを子に合わせる（5.12）。自分のカードを進行中・担当完了にしたら工数を聞く（5.10）。
 
 - **直前に触ったチケット**: `markTouched(id)` で `state.touched` に 1 件だけ覚える（localStorage `designBoard.lastTouched`、読み直しても残る）。呼ぶところ: ステータス・進捗の変更、★、並び替え、作業時間の記録、編集画面の保存、未整理の登録、課題バラシの操作（bRun で触ったチケット。選んでいる箱を優先）、日程表のドラッグ。カード・課題バラシの箱は青い 3px の枠＋左上に「さっき触った」の小さな札、日程表は行を黄色（flash と同じ）。触ってから 4 秒以内の描き直しだけ、ふわっと光るアニメーション（毎回の描き直しでは光らない）。
+
+- **AI で課題バラシ／一覧をテキストに**（個人ボードのサマリーの右に 2 つのボタン）: 表示している人の未着手・進行中・担当完了を `issuesByIds(ids,'relations')` で読み直し、進行中 → 未着手 → 担当完了、各列は基本順で並べる。1 件ごとに `## #番号 件名（【M/D】は外す）` と「ステータス／締切（件名の【M/D】）／優先度（★優先）／親チケット（#番号 親 › 親の親）／対象バージョン／開始日 ／ 期日（作業完了予定）／予定工数（あれば）／繰り返し（あれば）／作成日 ／ 更新日／関連チケット（種類 #番号「件名」（完了））／説明（`  > ` で引用、2000 文字まで、繰り返しの行は除く）」。先頭に「# 担当チケット一覧（N 件、日付 時点）」と注記。担当者・作成者の欄は出さない。`redactText`: メール → （メール）、0 で始まる電話番号 → （電話番号）、知っている人の名前（メンバー・自分・担当・作成者。フルネーム・空白なし・2 文字以上の名字）→ （名前）、「○○さん/氏/君」（1〜4 漢字・カタカナ）、「○○様/殿」（2〜4 漢字、直後が漢字でない。仕様・同様・模様・お客様・皆様などは除く）、先頭 3 行の 30 文字以内の名乗り「○○課 佐藤です」。「AI で課題バラシ」は前に依頼文（チケットごとに 0.5〜2 日の作業に分ける・予定工数（根拠が弱ければ「仮」）・前後関係・締切が危ないものと手の打ち方・順番・分からないことは質問に、出し方の型、人の名前は使わない）を付ける。ダイアログで中身を確かめて直せる（textarea）。`コピー` は Clipboard API、だめなら選択して execCommand。
 
 ### 5.6 並び順と自分の作業順
 - 並び順の切り替え（サマリーの右、localStorage `designBoard.boardSort`）: `並び: いつもの順` / `並び: 余裕が少ない順`（値 `mine` / `slack`。古い値 `deadline` は `slack` とみなす）。
@@ -841,6 +843,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .repeat-field small { color: var(--ink-3); }
 .card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
 .start-note { margin: -4px 0 0; font-size: 12px; color: var(--soon); background: var(--soon-bg); border-radius: 6px; padding: 6px 10px; }
+.dialog.export { width: min(860px, 100%); }
+.export-text { width: 100%; min-height: 52vh; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 10px 12px; font-family: var(--font-num); font-size: 12.5px; line-height: 1.6; color: var(--ink); }
+.export-ctl { display: inline-flex; gap: 6px; margin-left: 6px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -1195,6 +1200,10 @@ a.btn { text-decoration: none; display: inline-block; }
   <form class="dialog triage editor" id="editorForm" novalidate aria-label="チケットの編集"></form>
 </div>
 
+<div class="overlay" id="exportDlg" hidden>
+  <div class="dialog export" id="exportBody" role="dialog" aria-label="チケットをテキストにする"></div>
+</div>
+
 <div class="overlay" id="hoursDlg" hidden>
   <div class="dialog hours" id="hoursBody" role="dialog" aria-label="工数"></div>
 </div>
@@ -1282,6 +1291,9 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>AI で課題バラシ</h3>
+      <p>個人ボードの上の <span class="ui">AI で課題バラシ</span> を押すと、表示している人の未完了の仕事（未着手・進行中・担当完了）が、AI への依頼文つきのテキストになります。<span class="ui">コピー</span> して AI の入力欄に貼れば、作業の分け方・予定工数・前後関係・危ない締切・確認したいことをまとめてくれます。依頼文がいらなければ <span class="ui">一覧をテキストに</span>。</p>
+      <p>中身は、番号・ステータス・締切・優先度・親チケット・バージョン・開始日・期日・作成日・更新日・関連チケット・説明です。<strong>担当者・作成者の欄は入れず、説明の中の名前・メールアドレス・電話番号も「（名前）」などに置き換えます。</strong>ただし完全ではないので、コピーの前に画面で中身を確かめてください（その場で直せます）。社外に出せない情報が入っていれば消してから使ってください。</p>
       <h3>次の人に回す（検図・承認など）</h3>
       <p>担当完了にすると、右下に「次の人に回しますか？」とメンバーの名前が出ます。名前を押すと、<strong>その人の「進行中」に同じ仕事ができます</strong>（元の仕事の後ろにつながり、説明に「#番号から回ってきた仕事です」と入ります）。回さないときは押さなくて大丈夫です（30 秒で消えます）。間違えたら <span class="ui">取り消す</span>。聞かれたくなければ <span class="ui">接続設定</span> で止められます。</p>
       <h3>毎週・毎月の仕事（繰り返し）</h3>
@@ -1401,6 +1413,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v18</b><span>2026-11-25</span></dt>
+        <dd><ul><li>担当の仕事をテキストにする「AI で課題バラシ」「一覧をテキストに」を追加。AI にそのまま貼れば課題バラシを始められます（名前・メール・電話番号は伏せます）</li></ul></dd>
         <dt><b>v17.7</b><span>2026-11-22</span></dt>
         <dd><ul><li>PC を起動しても中継が立ち上がらないことがある問題に対応しました（ダブルクリックで自動起動の登録を確かめて直す、起動直後に共有フォルダが読めなくても止まらない、止まった理由を記録に残す）</li></ul></dd>
         <dt><b>v17.6</b><span>2026-11-16</span></dt>

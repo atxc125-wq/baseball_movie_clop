@@ -479,6 +479,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .repeat-field small { color: var(--ink-3); }
 .card .rep { font-size: 11px; color: var(--accent); white-space: nowrap; }
 .start-note { margin: -4px 0 0; font-size: 12px; color: var(--soon); background: var(--soon-bg); border-radius: 6px; padding: 6px 10px; }
+.dialog.export { width: min(860px, 100%); }
+.export-text { width: 100%; min-height: 52vh; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 10px 12px; font-family: var(--font-num); font-size: 12.5px; line-height: 1.6; color: var(--ink); }
+.export-ctl { display: inline-flex; gap: 6px; margin-left: 6px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
 .hours-who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
@@ -828,6 +831,10 @@ a.btn { text-decoration: none; display: inline-block; }
   <form class="dialog triage editor" id="editorForm" novalidate aria-label="チケットの編集"></form>
 </div>
 
+<div class="overlay" id="exportDlg" hidden>
+  <div class="dialog export" id="exportBody" role="dialog" aria-label="チケットをテキストにする"></div>
+</div>
+
 <div class="overlay" id="hoursDlg" hidden>
   <div class="dialog hours" id="hoursBody" role="dialog" aria-label="工数"></div>
 </div>
@@ -915,6 +922,9 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの上の小さい文字は<strong>親・親の親</strong>です。「何のための作業か」が分かるようにしています。右上の色付きタグはバージョン（仕事の区分）です。</p>
       <h3>★ 優先してほしい</h3>
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
+      <h3>AI で課題バラシ</h3>
+      <p>個人ボードの上の <span class="ui">AI で課題バラシ</span> を押すと、表示している人の未完了の仕事（未着手・進行中・担当完了）が、AI への依頼文つきのテキストになります。<span class="ui">コピー</span> して AI の入力欄に貼れば、作業の分け方・予定工数・前後関係・危ない締切・確認したいことをまとめてくれます。依頼文がいらなければ <span class="ui">一覧をテキストに</span>。</p>
+      <p>中身は、番号・ステータス・締切・優先度・親チケット・バージョン・開始日・期日・作成日・更新日・関連チケット・説明です。<strong>担当者・作成者の欄は入れず、説明の中の名前・メールアドレス・電話番号も「（名前）」などに置き換えます。</strong>ただし完全ではないので、コピーの前に画面で中身を確かめてください（その場で直せます）。社外に出せない情報が入っていれば消してから使ってください。</p>
       <h3>次の人に回す（検図・承認など）</h3>
       <p>担当完了にすると、右下に「次の人に回しますか？」とメンバーの名前が出ます。名前を押すと、<strong>その人の「進行中」に同じ仕事ができます</strong>（元の仕事の後ろにつながり、説明に「#番号から回ってきた仕事です」と入ります）。回さないときは押さなくて大丈夫です（30 秒で消えます）。間違えたら <span class="ui">取り消す</span>。聞かれたくなければ <span class="ui">接続設定</span> で止められます。</p>
       <h3>毎週・毎月の仕事（繰り返し）</h3>
@@ -1034,6 +1044,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
+        <dt><b>v18</b><span>2026-11-25</span></dt>
+        <dd><ul><li>担当の仕事をテキストにする「AI で課題バラシ」「一覧をテキストに」を追加。AI にそのまま貼れば課題バラシを始められます（名前・メール・電話番号は伏せます）</li></ul></dd>
         <dt><b>v17.7</b><span>2026-11-22</span></dt>
         <dd><ul><li>PC を起動しても中継が立ち上がらないことがある問題に対応しました（ダブルクリックで自動起動の登録を確かめて直す、起動直後に共有フォルダが読めなくても止まらない、止まった理由を記録に残す）</li></ul></dd>
         <dt><b>v17.6</b><span>2026-11-16</span></dt>
@@ -2294,7 +2306,10 @@ function renderSummary(visible) {
     (() => { const lv = upcomingLeaves(state.view);   // これから2週間の休み（Lychee のマイルストーンから）
       return lv.length ? h('span', { class: 'chip leave', title: lv.map(x => `${leaveText(x)}（${x.name}）`).join('\n') },
         '休み', h('b', {}, lv.slice(0, 3).map(leaveText).join('・') + (lv.length > 3 ? ` ほか${lv.length - 3}日` : ''))) : null; })(),
-    boardSortControls()].filter(Boolean));
+    boardSortControls(),
+    h('span', { class: 'export-ctl' },
+      h('button', { type: 'button', class: 'btn-mini', title: '担当の仕事を、AI にそのまま渡せる「課題バラシの依頼文＋チケット一覧」にする', onclick: () => openExport('prompt') }, 'AI で課題バラシ'),
+      h('button', { type: 'button', class: 'btn-mini', title: '担当の仕事の一覧をテキストにする（名前・メールなどは伏せる）', onclick: () => openExport('list') }, '一覧をテキストに'))].filter(Boolean));
 }
 
 // チームのメンバー（または自分）か。担当がグループなどのときは作業時間を聞かない
@@ -4033,6 +4048,151 @@ async function renderHoursMonth(slot) {
 }
 
 /* =====================================================================
+ * 9c2. チケットをテキストにする（AI に渡して課題バラシを始める用）
+ *   表示している人の未完了の仕事（未着手・進行中・担当完了）を、ID・親・ステータス・優先度・件名（締切）・日付・バージョン・関連・説明で並べる。
+ *   名前・メールアドレス・電話番号など、人が分かる情報は伏せる（担当・作成者の欄は出さない）。コピーの前に画面で中身を確かめられる
+ * ===================================================================== */
+const EXPORT_DESC_MAX = 2000;   // 説明は 1 件この文字数まで
+
+// 人が分かる情報を伏せる: メール・電話番号・知っている人の名前（メンバー・担当・作成者）・「○○さん/様」・挨拶の「○○課 佐藤です」
+function redactText(text, names) {
+  let t = String(text || '');
+  t = t.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '（メール）');
+  t = t.replace(/(?<![\dA-Za-z])0\d{1,4}[-‐ー−(（]?\d{1,4}[-‐ー−)）]?\d{3,4}(?![\dA-Za-z])/g, '（電話番号）');
+  for (const n of names) t = t.split(n).join('（名前）');
+  // 「さん・氏・君」は 1 文字の名字から、「様・殿」は 2 文字以上から（「仕様」「同様」「模様」を名前にしないように）
+  t = t.replace(/([一-龥々]{1,4}|[ァ-ヶー]{2,8})(さん|氏|君)/g, (all, name, hon) => (/^(皆|各|お客|神|王|奥|お父|お母|お兄|お姉)$/.test(name) ? all : `（名前）${hon}`));
+  t = t.replace(/([一-龥々]{2,4})(様|殿)(?![一-龥])/g, (all, name, hon) => (/^(皆|各|お客|仕|同|模|多|異|一|有|左|斯)|様/.test(name) ? all : `（名前）${hon}`));
+  // 名乗り（先頭の短い行の「試作課 佐々木です」）
+  t = t.split('\n').map((line, k) => (k < 3 && line.length <= 30
+    ? line.replace(/(^|[\s　課部室係班G])([一-龥々]{2,4})(です|と申します)/, (all, pre, name, tail) => (/^(以上|確認|了解|承知|宜し|宜敷)/.test(name) ? all : `${pre}（名前）${tail}`))
+    : line)).join('\n');
+  return t;
+}
+// 伏せる名前の一覧: 「高橋 健」なら「高橋健」「高橋 健」「高橋」（2 文字以上の名字だけ。1 文字は普通の言葉と重なるため）
+function knownNames(issues) {
+  const raw = new Set();
+  for (const m of CONFIG.members) raw.add(m.name);
+  if (state.me) raw.add(state.me.name);
+  for (const i of issues) for (const u of [i.assigned_to, i.author]) if (u && u.name) raw.add(u.name);
+  const out = new Set();
+  for (const r of raw) {
+    const name = r.replace(/[（(][^）)]*[）)]/g, '').trim();
+    const parts = name.split(/[\s　]+/).filter(Boolean);
+    if (!parts.length) continue;
+    out.add(parts.join(' ')); out.add(parts.join('')); out.add(parts.join('　'));
+    for (const p of parts) if (p.length >= 2) out.add(p);
+  }
+  return [...out].filter(n => n.length >= 2).sort((a, b) => b.length - a.length);
+}
+
+async function exportText(kind) {
+  const uid = state.view;
+  const mine = [...state.issues.values()].filter(i => i.assigned_to && i.assigned_to.id === uid && ['todo', 'doing', 'done'].includes(colOf(i)));
+  const ids = mine.map(i => i.id);
+  let full = mine;
+  try { const got = await api.issuesByIds(ids, 'relations'); if (got.length) full = got; } catch (_) { /* 読めた分だけ */ }
+  const byId = new Map(full.map(i => [i.id, i]));
+  // 関連の相手の件名（一覧にないもの）
+  const otherIds = [...new Set(full.flatMap(i => (i.relations || []).map(r => relFrom(r, i.id).otherId)).filter(id => !byId.has(id)))];
+  const others = new Map();
+  if (otherIds.length) { try { for (const o of await api.issuesByIds(otherIds)) others.set(o.id, o); } catch (_) { /* 番号だけ */ } }
+  const names = knownNames([...full, ...others.values()]);
+  const red = t => redactText(t, names);
+  const d = iso => (iso ? iso.slice(0, 10) : '—');
+  const order = { doing: 0, todo: 1, done: 2 };
+  const list = [...full].sort((a, b) => (order[colOf(a)] - order[colOf(b)]) || byPriority(a, b));
+  const lines = [];
+  for (const i of list) {
+    const { deadline, text } = parseTitle(i.subject);
+    const chain = ancestors(i);
+    const rels = (i.relations || []).map(r => {
+      const v = relFrom(r, i.id), o = byId.get(v.otherId) || others.get(v.otherId);
+      return `${v.name} #${v.otherId}${o ? `「${red(parseTitle(o.subject).text)}」` : ''}${o && isDoneCol(colOf(o)) ? '（完了）' : ''}`;
+    });
+    const desc = red(stripRepeat(i.description || '')).trim();
+    lines.push(
+      `## #${i.id} ${red(text)}`,
+      `- ステータス: ${i.status.name}`,
+      `- 締切（件名の【M/D】）: ${deadline ? isoDate(deadline) : 'なし'}`,
+      `- 優先度: ${i.priority ? i.priority.name : '—'}${isFlagged(i) ? '（★優先）' : ''}`,
+      `- 親チケット: ${i.parent ? `#${i.parent.id}${chain.length ? ` ${red(chain.join(' › '))}` : ''}` : 'なし'}`,
+      `- 対象バージョン: ${i.fixed_version ? i.fixed_version.name : 'なし'}`,
+      `- 開始日: ${d(i.start_date)} ／ 期日（作業完了予定）: ${d(i.due_date)}`,
+      ...(i.estimated_hours != null ? [`- 予定工数: ${i.estimated_hours}h`] : []),
+      ...(repeatOf(i) ? [`- 繰り返し: ${repeatOf(i) === 'week' ? '毎週' : '毎月'}`] : []),
+      `- 作成日: ${d(i.created_on)} ／ 更新日: ${d(i.updated_on)}`,
+      `- 関連チケット: ${rels.length ? rels.join('、') : 'なし'}`,
+      `- 説明:`,
+      desc ? desc.slice(0, EXPORT_DESC_MAX).split('\n').map(l => `  > ${l}`).join('\n') + (desc.length > EXPORT_DESC_MAX ? '\n  > …（長いので省略）' : '') : '  > （なし）',
+      '');
+  }
+  const head = `# 担当チケット一覧（${list.length} 件、${isoDate(startOfToday())} 時点）\n` +
+    '※ 人の名前・メールアドレス・電話番号は伏せています。日付は YYYY-MM-DD。「締切」は本来の期限、「期日」は作業完了の予定です。\n';
+  const body = head + '\n' + lines.join('\n');
+  if (kind !== 'prompt') return { text: body, count: list.length };
+  const prompt = [
+    'あなたは設計業務の段取りを手伝うアシスタントです。下の「担当チケット一覧」は、私が Redmine で担当している仕事です。',
+    'これを課題バラシ（作業分解）してください。',
+    '',
+    '## やってほしいこと',
+    '1. チケットごとに、具体的な作業（1 つ 0.5〜2 日程度）に分けてください。すでに十分小さいチケットは、そのままで構いません。',
+    '2. 作業ごとに予定工数（時間）を見積もってください。根拠が弱いものは「仮」と付けてください。',
+    '3. 作業の前後関係（どれが終わらないと始められないか）を書いてください。チケットをまたぐつながりも書いてください。',
+    '4. 締切（本来の期限）と期日（作業完了予定）から見て、間に合わない・余裕が少ないものを挙げ、どう手を打つか（前倒し・分担・締切の相談）を提案してください。',
+    '5. 取りかかる順番のおすすめを、理由と一緒に書いてください。',
+    '6. 情報が足りず分解できないものは、私に確認すべき質問として挙げてください。推測で埋めないでください。',
+    '',
+    '## 出し方',
+    '- チケットごとに、次の形で書いてください（このあと課題バラシの画面に手で入れます）:',
+    '  #番号 チケット名',
+    '    1. 作業名 — 予定工数 ○h — 前: なし',
+    '    2. 作業名 — 予定工数 ○h — 前: 1',
+    '- 最後に「全体の順番」「締切が危ないもの」「確認したいこと」をまとめてください。',
+    '- 日本語で、箇条書き中心に。人の名前は使わず「担当者」「依頼元」などと書いてください。',
+    '',
+    '---',
+    '',
+  ].join('\n');
+  return { text: prompt + body, count: list.length };
+}
+
+let exportKind = 'list';
+async function openExport(kind) {
+  exportKind = kind;
+  const box = $('exportBody');
+  box.replaceChildren(h('h2', {}, kind === 'prompt' ? 'AI で課題バラシ（依頼文＋チケット一覧）' : 'チケット一覧をテキストに'), h('div', { class: 'loading' }, '読み込み中…'));
+  $('exportDlg').hidden = false;
+  let res;
+  try { res = await exportText(kind); }
+  catch (e) { box.replaceChildren(h('h2', {}, 'テキストにできませんでした'), h('p', { class: 'test-result ng' }, e.message), h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: closeExport }, '閉じる'))); return; }
+  const area = h('textarea', { class: 'export-text', spellcheck: 'false', 'aria-label': 'コピーする内容（直してからコピーできます）' });
+  area.value = res.text;
+  const copy = h('button', { type: 'button', class: 'btn primary', onclick: async () => {
+    const ok = await copyText(area.value, area);
+    toast(ok ? `${res.count} 件をコピーしました。${kind === 'prompt' ? 'AI の入力欄に貼り付けてください' : ''}` : 'コピーできませんでした。中の文字を選んで Ctrl+C でコピーしてください', { error: !ok });
+    if (ok) closeExport();
+  } }, 'コピー');
+  const who = memberList().find(m => m.id === state.view);
+  box.replaceChildren(
+    h('h2', {}, kind === 'prompt' ? 'AI で課題バラシ（依頼文＋チケット一覧）' : 'チケット一覧をテキストに'),
+    h('p', { class: 'hint' }, `${who ? who.name.split(/[ 　]/)[0] + 'さんの' : ''}未完了の仕事 ${res.count} 件（未着手・進行中・担当完了）。名前・メールアドレス・電話番号は「（名前）」などに置き換えています。`
+      + '説明に会社名・製品名など外に出せない情報が入っていないか、コピーの前に確かめてください（ここで直せます）。'),
+    area,
+    h('div', { class: 'dialog-actions' },
+      h('button', { type: 'button', class: 'btn', onclick: () => openExport(kind === 'prompt' ? 'list' : 'prompt') }, kind === 'prompt' ? '一覧だけにする' : '依頼文を付ける'),
+      h('span', { style: 'flex:1' }),
+      h('button', { type: 'button', class: 'btn', onclick: closeExport }, '閉じる'), copy));
+  area.focus(); area.setSelectionRange(0, 0); area.scrollTop = 0;
+}
+function closeExport() { $('exportDlg').hidden = true; }
+// クリップボードへ。使えないブラウザでは、選んだ状態にして古いやり方でコピーする
+async function copyText(text, area) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (_) { /* 下の方法で */ }
+  try { area.focus(); area.select(); return document.execCommand('copy'); } catch (_) { return false; }
+}
+
+/* =====================================================================
  * 9d. 課題バラシ（親子 = 枠の入れ子、前後 = Redmine の「先行」を矢印で）
  *   範囲はバージョン 1 つか、親チケット 1 つ。予定工数を入れると「一番長い流れ」を時間で出す
  * ===================================================================== */
@@ -5610,10 +5770,12 @@ $('guide').querySelectorAll('nav.toc a').forEach(a => a.addEventListener('click'
 $('hoursDlg').addEventListener('click', e => { if (e.target === $('hoursDlg')) closeHours(); });
 $('cancelSettings').addEventListener('click', closeSettings);
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
+$('exportDlg').addEventListener('click', e => { if (e.target === $('exportDlg')) closeExport(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('guide').hidden) closeGuide();
   else if (!$('hoursDlg').hidden) closeHours();
+  else if (!$('exportDlg').hidden) closeExport();
   else if (!$('editor').hidden) closeEditor();
   else if (!$('settings').hidden) closeSettings();
 });
