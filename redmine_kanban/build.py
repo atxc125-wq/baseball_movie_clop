@@ -15,6 +15,10 @@ here = Path(__file__).parent
 src = (here / "src" / "kanban.fragment.html").read_text(encoding="utf-8")
 stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 src = src.replace("__BUILD__", stamp)
+# 使い方ページの変更履歴が、新しい版から順に並んでいるか確かめる（足す場所を間違えると順番が崩れるため）
+_vers = re.findall(r'<dt><b>v([0-9.]+)</b>', src)
+_keys = [tuple(int(x) for x in v.split(".")) for v in _vers]
+assert _keys == sorted(_keys, reverse=True), "変更履歴の順番が崩れています（新しい版を一番上に）: " + " ".join("v" + v for v in _vers)
 head, body = src.split("<!--BODY-->", 1)
 html = (
     "<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n"

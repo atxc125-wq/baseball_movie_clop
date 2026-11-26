@@ -1435,14 +1435,14 @@ a.btn { text-decoration: none; display: inline-block; }
       <h2 id="g-log"><span class="no">12</span>変更履歴</h2>
       <p class="log-lead">版は <span class="ui">接続設定</span> の一番下で確認できます。大きな機能追加で番号が 1 つ上がり、小さな改善・修正は v15.1、v15.2 のように増えます。</p>
       <dl class="changelog">
-        <dt><b>v18.2</b><span>2026-11-26</span></dt>
-        <dd><ul><li>AI で課題バラシの依頼文を「コーチ役」に作り直しました（7つの習慣・アドラー心理学の考え方で、状況の見立て・順番・今日の最初の一歩・問いかけまで返すように）</li></ul></dd>
         <dt><b>v18.5</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシは「まだ大きい仕事」だけを頼むようにしました（もうバラした親と、予定工数が 2 日以内の作業は二重にバラさない）</li></ul></dd>
         <dt><b>v18.4</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI が取り込める形（【バラシ結果】）で書かなかったとき用に「形を直してもらう文をコピー」を追加。表で書かれた作業も読めるようにしました</li><li>AI とのやりとりの要約（目的・完了条件・メモ）を、元のチケットの説明に追記できるようにしました</li></ul></dd>
         <dt><b>v18.3</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシ：仕事を必ず「#番号 件名」で書くよう強く指示し、1 件ずつ順番に「見立て → 問いかけ → 答えたらバラシ」の対話で進める形にしました（「スキップ」「まとめて」も使えます）。取り込みは会話全体を貼れば全部の結果を読みます</li></ul></dd>
+        <dt><b>v18.2</b><span>2026-11-26</span></dt>
+        <dd><ul><li>AI で課題バラシの依頼文を「コーチ役」に作り直しました（7つの習慣・アドラー心理学の考え方で、状況の見立て・順番・今日の最初の一歩・問いかけまで返すように）</li></ul></dd>
         <dt><b>v18.1</b><span>2026-11-25</span></dt>
         <dd><ul><li>AI で課題バラシ：締切・優先度の高い順に 5 件ずつ頼むようにし、タスク管理のコツと「#番号 件名」で書くルールを依頼文に入れました</li><li>「AI の答えを取り込む」を追加：AI の【バラシ結果】を貼ると、仕事の中の作業（子チケット）として、予定工数・前後のつながりつきで作ります</li></ul></dd>
         <dt><b>v18</b><span>2026-11-25</span></dt>
@@ -1655,6 +1655,10 @@ here = Path(__file__).parent
 src = (here / "src" / "kanban.fragment.html").read_text(encoding="utf-8")
 stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 src = src.replace("__BUILD__", stamp)
+# 使い方ページの変更履歴が、新しい版から順に並んでいるか確かめる（足す場所を間違えると順番が崩れるため）
+_vers = re.findall(r'<dt><b>v([0-9.]+)</b>', src)
+_keys = [tuple(int(x) for x in v.split(".")) for v in _vers]
+assert _keys == sorted(_keys, reverse=True), "変更履歴の順番が崩れています（新しい版を一番上に）: " + " ".join("v" + v for v in _vers)
 head, body = src.split("<!--BODY-->", 1)
 html = (
     "<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n"
