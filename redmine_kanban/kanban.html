@@ -1063,6 +1063,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <dl class="changelog">
         <dt><b>v18.2</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシの依頼文を「コーチ役」に作り直しました（7つの習慣・アドラー心理学の考え方で、状況の見立て・順番・今日の最初の一歩・問いかけまで返すように）</li></ul></dd>
+        <dt><b>v18.5</b><span>2026-11-26</span></dt>
+        <dd><ul><li>AI で課題バラシは「まだ大きい仕事」だけを頼むようにしました（もうバラした親と、予定工数が 2 日以内の作業は二重にバラさない）</li></ul></dd>
         <dt><b>v18.4</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI が取り込める形（【バラシ結果】）で書かなかったとき用に「形を直してもらう文をコピー」を追加。表で書かれた作業も読めるようにしました</li><li>AI とのやりとりの要約（目的・完了条件・メモ）を、元のチケットの説明に追記できるようにしました</li></ul></dd>
         <dt><b>v18.3</b><span>2026-11-26</span></dt>
@@ -1170,7 +1172,7 @@ a.btn { text-decoration: none; display: inline-block; }
 /* =====================================================================
  * 1. CONFIG — 運用に合わせてここだけ書き換える
  * ===================================================================== */
-const BOARD_BUILD = '2026-11-26 22:23'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
+const BOARD_BUILD = '2026-11-26 23:12'; // build.py が作成日時を入れる。どの版が表示されているかの確認用
 const CONFIG = {
   // Redmine のステータス ID と、どの列に出すかの対応表。
   // ID は Redmine の「管理 → チケットのステータス」で確認して合わせる。
@@ -4234,18 +4236,25 @@ async function exportText(kind, batch = 0) {
   if (kind !== 'prompt') {
     return { text: `# 担当チケット一覧（${list.length} 件、${today} 時点。締切・優先度の高い順）\n${note}\n` + list.flatMap(i => exportIssueLines(i, byId, others, red)).join('\n'), count: list.length, total: list.length, batch: 0 };
   }
-  const pages = Math.max(1, Math.ceil(list.length / EXPORT_BATCH));
+  // バラす候補は「まだ大きい仕事」だけ: 子チケットを持つ親（もうバラしたもの）と、
+  // 予定工数が 2 日（2 × hoursPerDay）以内の作業（バラした結果できた作業など、もう十分小さいもの）は除く
+  let parents = new Set();
+  try { parents = await api.withChildren(list.map(i => i.id)); } catch (_) { /* 分からなければ除かない */ }
+  const small = i => i.estimated_hours != null && i.estimated_hours <= 2 * (CONFIG.hoursPerDay || 8);
+  const big = list.filter(i => !parents.has(i.id) && !small(i));
+  const skipped = { parents: list.filter(i => parents.has(i.id)).length, small: list.filter(i => !parents.has(i.id) && small(i)).length };
+  const pages = Math.max(1, Math.ceil(big.length / EXPORT_BATCH));
   const k = Math.min(Math.max(0, batch), pages - 1);
-  const now = list.slice(k * EXPORT_BATCH, (k + 1) * EXPORT_BATCH);
-  const rest = list.filter(i => !now.includes(i));
+  const now = big.slice(k * EXPORT_BATCH, (k + 1) * EXPORT_BATCH);
+  const rest = big.filter(i => !now.includes(i));
   const short = i => { const { deadline, text } = parseTitle(i.subject); return `- #${i.id} ${red(text)}（締切 ${deadline ? isoDate(deadline) : 'なし'}、${i.status.name}）`; };
   const text = AI_PROMPT_HEAD
-    + `<今回の仕事>\n# 今回バラす仕事（${now.length} 件。全 ${list.length} 件のうち ${k * EXPORT_BATCH + 1}〜${k * EXPORT_BATCH + now.length} 件目、${today} 時点）\n${note}\n`
+    + `<今回の仕事>\n# 今回バラす仕事（${now.length} 件。まだ大きい仕事 ${big.length} 件のうち ${k * EXPORT_BATCH + 1}〜${k * EXPORT_BATCH + now.length} 件目、${today} 時点）\n${note}\n`
     + now.flatMap(i => exportIssueLines(i, byId, others, red)).join('\n')
     + '</今回の仕事>\n'
-    + (rest.length ? `\n<ほかの仕事>\n${rest.map(short).join('\n')}\n</ほかの仕事>\n` : '')
+    + (rest.length ? `\n<ほかの仕事>\n${rest.slice(0, 20).map(short).join('\n')}${rest.length > 20 ? `\n…ほか ${rest.length - 20} 件` : ''}\n</ほかの仕事>\n` : '')
     + AI_PROMPT_TAIL;
-  return { text, count: now.length, total: list.length, batch: k, pages };
+  return { text, count: now.length, total: big.length, batch: k, pages, skipped };
 }
 
 let exportKind = 'list', exportBatch = 0;
@@ -4259,7 +4268,9 @@ async function openExport(kind, batch = 0) {
   try { res = await exportText(kind, batch); }
   catch (e) { box.replaceChildren(h('h2', {}, 'テキストにできませんでした'), h('p', { class: 'test-result ng' }, e.message), h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: closeExport }, '閉じる'))); return; }
   const area = h('textarea', { class: 'export-text', spellcheck: 'false', 'aria-label': 'コピーする内容（直してからコピーできます）' });
-  area.value = res.text;
+  area.value = kind === 'prompt' && !res.count
+    ? 'いまバラす必要のある大きい仕事はありません。\n（もうバラした親と、予定工数が 2 日以内の作業は除いています。さらに分けたい作業は、課題バラシの ＋ で足せます）'
+    : res.text;
   const copy = h('button', { type: 'button', class: 'btn primary', onclick: async () => {
     const ok = await copyText(area.value, area);
     toast(ok ? `${res.count} 件をコピーしました。${kind === 'prompt' ? 'AI の入力欄に貼り付けてください。答えが返ってきたら「AI の答えを取り込む」へ' : ''}` : 'コピーできませんでした。中の文字を選んで Ctrl+C でコピーしてください', { error: !ok });
@@ -4273,7 +4284,9 @@ async function openExport(kind, batch = 0) {
   box.replaceChildren(...[
     h('h2', {}, title),
     h('p', { class: 'hint' }, kind === 'prompt'
-      ? `${who ? who.name.split(/[ 　]/)[0] + 'さんの' : ''}これからの仕事（未着手・進行中）を、締切・優先度の高い順に ${EXPORT_BATCH} 件ずつ AI に頼みます。AI の答えの【バラシ結果】は「AI の答えを取り込む」で課題バラシに入れられます。`
+      ? `${who ? who.name.split(/[ 　]/)[0] + 'さんの' : ''}これからの仕事（未着手・進行中）のうち、まだ大きい仕事を締切・優先度の高い順に ${EXPORT_BATCH} 件ずつ AI に頼みます。`
+        + (res.skipped && (res.skipped.parents || res.skipped.small) ? `もうバラした親 ${res.skipped.parents} 件と、予定工数が 2 日以内の作業 ${res.skipped.small} 件は除いています（さらに分けたいときは課題バラシの ＋ で）。` : '')
+        + 'AI の答えの【バラシ結果】は「AI の答えを取り込む」で課題バラシに入れられます。'
       : `${who ? who.name.split(/[ 　]/)[0] + 'さんの' : ''}未完了の仕事 ${res.count} 件（未着手・進行中・担当完了）。`),
     h('p', { class: 'hint' }, '名前・メールアドレス・電話番号は「（名前）」などに置き換えています。説明に会社名・製品名など外に出せない情報が入っていないか、コピーの前に確かめてください（ここで直せます）。'),
     paging,
