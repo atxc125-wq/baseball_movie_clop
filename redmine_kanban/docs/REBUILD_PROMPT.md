@@ -73,7 +73,7 @@ redmine_kanban/
 ## 4. 中継プログラム（kanban_relay.py）の仕様
 
 ### 4.1 定数
-- `PORT = 8765`、`VERSION = "18.3"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
+- `PORT = 8765`、`VERSION = "18.4"`（大きな機能追加で整数を上げ、小さな改善・修正は 15.1, 15.2 …。比べるときは `version_key("15.2") → (15, 2)`、末尾の 0 は無視。`file_version` は `^VERSION = "([\d.]+)"` を読み (比較用, BUILD, 表記) を返す）、`BUILD`（build.py が書く）
 - `APP_DIR = %APPDATA%\DesignTaskBoard`（なければ `~/.config/DesignTaskBoard`）
   - `relay.json`（API キー。Windows は DPAPI で暗号化 `key_dpapi`、それ以外は `key_plain` を権限 600 で保存し、保存時・起動時に「平文で保存しています」と警告）＋ `redmine_origin`（キーを送ってよい接続先）
   - `detected_config.json`（Redmine から読んだ設定の控え。読めなかったときに使う）
@@ -201,6 +201,8 @@ redmine_kanban/
 - **依頼文はコーチ役（v18.2）**: `AI_PROMPT` の全文は `docs/AI_COACH_PROMPT.md`。伴走コーチとして評価せず問いかける。考え方（終わりを思い描く・最優先事項・主体的／課題の分離・Win-Win／まず理解・不完全である勇気・勇気づけ・刃を研ぐ）。答える順番を見出しで固定: 1 いまの状況 / 2 今回の 5 件の見立て（表: 重要度・緊急度・目的・完了条件・自分で動かせること・相手次第のこと）/ 3 進める順番と理由 / 4 今日の最初の一歩（15 分）/ 5 気をつけたいこと / 6 コーチからの問いかけ（3〜5、#番号 件名つき）/ 7 【バラシ結果】（取り込み用）。取り込みは答えの中の**最後の**【バラシ結果】〜【ここまで】を読む。
 
 - **依頼文の形（v18.3）**: `AI_PROMPT_HEAD`（短い前置き）→ `<今回の仕事>`（5 件）`</今回の仕事>` → `<ほかの仕事>`（1 行ずつ）→ `AI_PROMPT_TAIL`（データを先、指示を最後に）。TAIL の先頭と最後に「仕事は必ず『#番号 件名』。番号だけは書かない」（悪い例・良い例つき）。進め方は**1 件ずつ対話**: 最初の返事は いまの状況・5 件の並び（#番号 件名 — ひとこと）と理由・1 件目の見立て（目的／完了条件／自分で動かせること／相手次第のこと／気をつけたいこと）・問いかけ 2〜3 個で止まる → 答えたら 1 件目の【バラシ結果】と今日の最初の一歩、2 件目の見立てと問いかけ → … →「スキップ」「まとめて」→ 最後に全体の順番・危ない締切・全部の【バラシ結果】。見本は「#1234 （例）…」。取り込み（`parseBarashi`）は全部の【バラシ結果】〜【ここまで】を読み、同じ仕事は後のもの、（例）は除く。全文の写しは `docs/AI_COACH_PROMPT.md`。
+
+- **v18.4**: 【バラシ結果】の仕事ごとに「目的: / 完了条件: / メモ:」（やりとりの要約、各 1 行）を作業の前に書かせ、「表やコードブロックにしない」「1 件バラすたびに必ず【バラシ結果】」を念押し。`parseBarashi` は `目的|完了条件|メモ|方針|気をつけたいこと: …` を notes に、`| 1 | 作業名 | 2h | 前 |` の表の行も作業として読む（作業がなくてメモだけの仕事も残す）。取り込みで何も読めなければ「取り込める形（【バラシ結果】）が見つかりませんでした…」と `形を直してもらう文をコピー`（`AI_REFORMAT`: ここまでの仕事を形どおりに出し直して、の文）。メモがあれば「目的・完了条件・メモを、元のチケットの説明に追記する」（既定オン）: `getIssue` で今の説明を読み、繰り返しの行を外して最後に「―― 課題バラシのメモ（日付）――」＋メモを足し、繰り返しの行を戻して保存。同じメモがもう入っていれば足さない。トースト「N 件の作業を作りました。M 件のチケットの説明にメモを追記しました」。
 
 ### 5.6 並び順と自分の作業順
 - 並び順の切り替え（サマリーの右、localStorage `designBoard.boardSort`）: `並び: いつもの順` / `並び: 余裕が少ない順`（値 `mine` / `slack`。古い値 `deadline` は `slack` とみなす）。
@@ -859,6 +861,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .import-preview .imp-g { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .import-preview .imp-g.ng { opacity: .6; border-style: dashed; }
 .import-preview ol { margin: 4px 0 0; padding-left: 1.6em; }
+.import-preview .imp-notes { margin: 4px 0 0; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 12px; color: var(--ink-2); }
 .import-preview .imp-m { margin-left: 8px; color: var(--ink-3); font-size: 12px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
@@ -1307,6 +1310,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
       <h3>AI で課題バラシ</h3>
       <p>個人ボードの上の <span class="ui">AI で課題バラシ</span> を押すと、表示している人の未完了の仕事（未着手・進行中・担当完了）が、AI への依頼文つきのテキストになります。<span class="ui">コピー</span> して AI の入力欄に貼れば、作業の分け方・予定工数・前後関係・危ない締切・確認したいことをまとめてくれます。依頼文がいらなければ <span class="ui">一覧をテキストに</span>。</p>
+      <p>AI が作業を表や文章だけで書いて、取り込める形（【バラシ結果】）を出さなかったときは、取り込みの画面の <span class="ui">形を直してもらう文をコピー</span> を押して、その文を AI に送ってください。出し直してくれます。AI がまとめた<strong>目的・完了条件・メモは、元のチケットの説明の最後に追記</strong>できます（元の説明は消しません）。</p>
       <p>AI は<strong>1 件ずつ順番に</strong>、見立てと問いかけを出してきます。問いかけに答えると、その仕事のバラシ結果と次の仕事に進みます（「スキップ」で問いかけを飛ばす、「まとめて」で残りを一気に）。仕事は必ず「#番号 件名」で書くよう頼んであります。</p>
       <p>AI には<strong>締切・優先度の高い順に 5 件ずつ</strong>頼みます（<span class="ui">次の5件 ▶</span> で次へ）。AI は決まった形（【バラシ結果】）で答えるので、その答えを全部コピーして <span class="ui">AI の答えを取り込む</span> に貼り付ければ、<strong>それぞれの仕事の中の作業（子チケット）として作れます</strong>。締切・担当・バージョンは親と同じで、予定工数と前後のつながりも入ります。取り込む前に、読み取った内容を画面で確かめられます。</p>
       <p>中身は、番号・ステータス・締切・優先度・親チケット・バージョン・開始日・期日・作成日・更新日・関連チケット・説明です。<strong>担当者・作成者の欄は入れず、説明の中の名前・メールアドレス・電話番号も「（名前）」などに置き換えます。</strong>ただし完全ではないので、コピーの前に画面で中身を確かめてください（その場で直せます）。社外に出せない情報が入っていれば消してから使ってください。</p>
@@ -1431,6 +1435,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <dl class="changelog">
         <dt><b>v18.2</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシの依頼文を「コーチ役」に作り直しました（7つの習慣・アドラー心理学の考え方で、状況の見立て・順番・今日の最初の一歩・問いかけまで返すように）</li></ul></dd>
+        <dt><b>v18.4</b><span>2026-11-26</span></dt>
+        <dd><ul><li>AI が取り込める形（【バラシ結果】）で書かなかったとき用に「形を直してもらう文をコピー」を追加。表で書かれた作業も読めるようにしました</li><li>AI とのやりとりの要約（目的・完了条件・メモ）を、元のチケットの説明に追記できるようにしました</li></ul></dd>
         <dt><b>v18.3</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシ：仕事を必ず「#番号 件名」で書くよう強く指示し、1 件ずつ順番に「見立て → 問いかけ → 答えたらバラシ」の対話で進める形にしました（「スキップ」「まとめて」も使えます）。取り込みは会話全体を貼れば全部の結果を読みます</li></ul></dd>
         <dt><b>v18.1</b><span>2026-11-25</span></dt>

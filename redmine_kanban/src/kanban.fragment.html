@@ -488,6 +488,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .import-preview .imp-g { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .import-preview .imp-g.ng { opacity: .6; border-style: dashed; }
 .import-preview ol { margin: 4px 0 0; padding-left: 1.6em; }
+.import-preview .imp-notes { margin: 4px 0 0; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 12px; color: var(--ink-2); }
 .import-preview .imp-m { margin-left: 8px; color: var(--ink-3); font-size: 12px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
@@ -931,6 +932,7 @@ a.btn { text-decoration: none; display: inline-block; }
       <p>カードの右上の <span class="ui">☆</span> を押すと <span class="ui">★ 優先</span> になります（Redmine の優先度が「高め」に）。「余裕が少ない順」では緊急の次に並びます。上司から「これ先にお願い」と頼むときにも使えます。</p>
       <h3>AI で課題バラシ</h3>
       <p>個人ボードの上の <span class="ui">AI で課題バラシ</span> を押すと、表示している人の未完了の仕事（未着手・進行中・担当完了）が、AI への依頼文つきのテキストになります。<span class="ui">コピー</span> して AI の入力欄に貼れば、作業の分け方・予定工数・前後関係・危ない締切・確認したいことをまとめてくれます。依頼文がいらなければ <span class="ui">一覧をテキストに</span>。</p>
+      <p>AI が作業を表や文章だけで書いて、取り込める形（【バラシ結果】）を出さなかったときは、取り込みの画面の <span class="ui">形を直してもらう文をコピー</span> を押して、その文を AI に送ってください。出し直してくれます。AI がまとめた<strong>目的・完了条件・メモは、元のチケットの説明の最後に追記</strong>できます（元の説明は消しません）。</p>
       <p>AI は<strong>1 件ずつ順番に</strong>、見立てと問いかけを出してきます。問いかけに答えると、その仕事のバラシ結果と次の仕事に進みます（「スキップ」で問いかけを飛ばす、「まとめて」で残りを一気に）。仕事は必ず「#番号 件名」で書くよう頼んであります。</p>
       <p>AI には<strong>締切・優先度の高い順に 5 件ずつ</strong>頼みます（<span class="ui">次の5件 ▶</span> で次へ）。AI は決まった形（【バラシ結果】）で答えるので、その答えを全部コピーして <span class="ui">AI の答えを取り込む</span> に貼り付ければ、<strong>それぞれの仕事の中の作業（子チケット）として作れます</strong>。締切・担当・バージョンは親と同じで、予定工数と前後のつながりも入ります。取り込む前に、読み取った内容を画面で確かめられます。</p>
       <p>中身は、番号・ステータス・締切・優先度・親チケット・バージョン・開始日・期日・作成日・更新日・関連チケット・説明です。<strong>担当者・作成者の欄は入れず、説明の中の名前・メールアドレス・電話番号も「（名前）」などに置き換えます。</strong>ただし完全ではないので、コピーの前に画面で中身を確かめてください（その場で直せます）。社外に出せない情報が入っていれば消してから使ってください。</p>
@@ -1055,6 +1057,8 @@ a.btn { text-decoration: none; display: inline-block; }
       <dl class="changelog">
         <dt><b>v18.2</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシの依頼文を「コーチ役」に作り直しました（7つの習慣・アドラー心理学の考え方で、状況の見立て・順番・今日の最初の一歩・問いかけまで返すように）</li></ul></dd>
+        <dt><b>v18.4</b><span>2026-11-26</span></dt>
+        <dd><ul><li>AI が取り込める形（【バラシ結果】）で書かなかったとき用に「形を直してもらう文をコピー」を追加。表で書かれた作業も読めるようにしました</li><li>AI とのやりとりの要約（目的・完了条件・メモ）を、元のチケットの説明に追記できるようにしました</li></ul></dd>
         <dt><b>v18.3</b><span>2026-11-26</span></dt>
         <dd><ul><li>AI で課題バラシ：仕事を必ず「#番号 件名」で書くよう強く指示し、1 件ずつ順番に「見立て → 問いかけ → 答えたらバラシ」の対話で進める形にしました（「スキップ」「まとめて」も使えます）。取り込みは会話全体を貼れば全部の結果を読みます</li></ul></dd>
         <dt><b>v18.1</b><span>2026-11-25</span></dt>
@@ -4172,8 +4176,9 @@ const AI_PROMPT_TAIL = [
   '   - 1 件目の見立て: 目的／完了条件／自分で動かせること／相手次第のこと／気をつけたいこと（分からないものは「？」）',
   '   - 1 件目についての問いかけを 2〜3 個（はい／いいえで終わらない問い）',
   '2. 私が答えたら、その答えを踏まえて、',
-  '   - 1 件目の【バラシ結果】（下の形）と、その仕事の「今日の最初の一歩」（15 分でできること）を書き、',
+  '   - 1 件目の【バラシ結果】（下の形。目的・完了条件・メモも入れる）と、その仕事の「今日の最初の一歩」（15 分でできること）を書き、',
   '   - 続けて 2 件目の見立てと問いかけを書いて、また止めてください。',
+  '   - 作業を表や文章で説明したときも、**同じ内容を必ず【バラシ結果】の形でも書いてください**。【バラシ結果】がないと、私はボードに取り込めません。',
   '3. これを 5 件目まで繰り返します。',
   '4. 私が「スキップ」と書いたら、その仕事は問いかけなしで分かる範囲でバラして、次の仕事に進んでください。',
   '5. 私が「まとめて」と書いたら、残りを問いかけなしで一気にバラしてください。',
@@ -4181,22 +4186,28 @@ const AI_PROMPT_TAIL = [
   '',
   '## 【バラシ結果】の形（ボードに取り込むので、この形をそのまま守る。中にほかの文章を入れない）',
   '下は形の見本です。番号と件名は、見本ではなく本当の仕事のものを書いてください。',
+  '目的・完了条件・メモは、それまでのやりとり（私の答え）を短くまとめたもので、元のチケットの説明に追記します。',
   '',
   '【バラシ結果】',
   '#1234 （例）○○部品の取付構造を検討する',
+  '目的: 次の試作で取付部の強度不足を出さないため',
+  '完了条件: 取付構造の案が 1 つに決まり、上司の確認が済んでいる',
+  'メモ: 荷重条件は依頼元の回答待ち。待っている間に案の比較表を作る',
   '- [1] 目的と完了条件を依頼元に確かめる | 1h | 前: なし',
   '- [2] 取付条件と荷重を整理する | 2h | 前: 1',
   '- [3] 取付構造の案を 2 つ作る | 8h | 前: 2',
   '- [4] 案を上司にレビューしてもらう | 1h | 前: 3',
   '【ここまで】',
   '',
-  '- 「#番号 件名」の行の下に、その仕事の作業を並べる。[ ] の数字は仕事ごとに 1 から振る。',
+  '- 「#番号 件名」の行の下に、「目的:」「完了条件:」「メモ:」（各 1 行、分からなければ書かない）、そのあとに作業を並べる。[ ] の数字は仕事ごとに 1 から振る。',
+  '- 表やコードブロック（```）にしないでください。この形のまま書いてください。',
   '- 予定工数は時間（h）で。自信がないときは「仮2h」のように「仮」を付ける。',
   '- 「前:」は、同じ仕事の中で先に終わっている必要がある作業の番号（複数なら 1,2）。なければ「なし」。',
   '',
   '## 書き方',
   '- 日本語で、短い文と箇条書きで。人の名前は使わず「担当者」「依頼元」「上司」「メーカー」など役割で書く。',
   '- もう一度: 仕事に触れるときは必ず「#番号 件名」。番号だけで書かない。',
+  '- もう一度: 1 件バラすたびに、必ず【バラシ結果】〜【ここまで】を書く。',
 ].join('\n');
 
 async function exportText(kind, batch = 0) {
@@ -4292,7 +4303,22 @@ function parseBarashi(text) {
     const line = toHalfWidth(raw.replace(/[＃]/g, '#').replace(/[［]/g, '[').replace(/[］]/g, ']').replace(/[｜]/g, '|')).trim().replace(/^[*_`>\s]+|[*_`\s]+$/g, '');
     if (!line) continue;
     const head = /^#{0,3}\s*#(\d+)\s*[「『]?(.*?)[」』]?\s*$/.exec(line);
-    if (head && !/^\s*[-・*]/.test(raw)) { cur = { id: Number(head[1]), title: head[2], tasks: [] }; groups.push(cur); continue; }
+    if (head && !/^\s*[-・*]/.test(raw)) { cur = { id: Number(head[1]), title: head[2], tasks: [], notes: [] }; groups.push(cur); continue; }
+    // 目的・完了条件・メモ（元のチケットの説明に追記する）
+    const note = cur && /^(?:[-・*]\s*)?(目的|完了条件|メモ|方針|気をつけたいこと)\s*[:：]\s*(.+)$/.exec(line);
+    if (note) { cur.notes.push(`${note[1]}: ${note[2].trim()}`); continue; }
+    // 表で書かれたとき: | 1 | 作業名 | 2h | 前: なし |
+    if (cur && line.startsWith('|')) {
+      const cells = line.split('|').map(x => x.trim()).filter(x => x !== '');
+      const n = cells.length && /^\[?(\d+)\]?$/.exec(cells[0]);
+      if (n && cells[1]) {
+        const hc = cells.slice(2).find(c => /\d\s*(h|時間)/i.test(c)) || '';
+        const hm = /(仮)?\s*(\d+(?:\.\d+)?)/.exec(hc);
+        const ac = cells.slice(2).find(c => /前|なし|^[\d,\s、]+$/.test(c) && c !== hc) || '';
+        cur.tasks.push({ no: Number(n[1]), name: cells[1].replace(/[。.]$/, ''), hours: hm ? Number(hm[2]) : null, tentative: !!(hm && hm[1]), after: /なし/.test(ac) ? [] : (ac.match(/\d+/g) || []).map(Number) });
+      }
+      continue;
+    }
     const m = /^(?:[-・*]\s*)?(?:\[(\d+)\]|(\d+)[.)、．])\s*(.+)$/.exec(line);
     if (!m || !cur) { if (line && !/^(【|#|※|・{0,1}\s*$)/.test(line)) skipped.push(raw.trim()); continue; }
     const no = Number(m[1] || m[2]);
@@ -4309,9 +4335,24 @@ function parseBarashi(text) {
   }
   // 見本（「（例）」付き）は除き、同じ仕事は後に出てきたものだけ残す
   const last = new Map();
-  for (const g of groups) if (g.tasks.length && !/（例）|\(例\)/.test(g.title)) last.set(g.id, g);
+  for (const g of groups) if ((g.tasks.length || g.notes.length) && !/（例）|\(例\)/.test(g.title)) last.set(g.id, g);
   return { groups: [...last.values()], skipped };
 }
+
+// AI が【バラシ結果】の形で書かなかったときに、AI に送り直す文
+const AI_REFORMAT = [
+  'ここまでにバラした仕事を、ボードに取り込める形で出し直してください。',
+  '次の形をそのまま守り、表やコードブロックにしないでください。仕事ごとに、目的・完了条件・メモ（ここまでのやりとりの要約、各 1 行）と作業を書いてください。',
+  '',
+  '【バラシ結果】',
+  '#番号 件名',
+  '目的: …',
+  '完了条件: …',
+  'メモ: …',
+  '- [1] 作業名 | 2h | 前: なし',
+  '- [2] 作業名 | 仮4h | 前: 1',
+  '【ここまで】',
+].join('\n');
 
 function openImport() {
   const box = $('exportBody');
@@ -4319,11 +4360,25 @@ function openImport() {
   const area = h('textarea', { class: 'export-text imp', spellcheck: 'false', placeholder: 'AI の答えをそのまま貼り付けてください（【バラシ結果】〜【ここまで】の部分が読まれます）', 'aria-label': 'AI の答え' });
   const preview = h('div', { class: 'import-preview' });
   const go = h('button', { type: 'button', class: 'btn primary', disabled: true }, '課題バラシに入れる');
+  const noteBox = h('input', { type: 'checkbox', checked: true });
+  const noteOpt = h('label', { class: 'group-opt', hidden: true }, noteBox,
+    h('span', {}, '目的・完了条件・メモを、元のチケットの説明に追記する', h('small', {}, 'AI とのやりとりの要約です。説明の最後に日付つきで足します（元の説明は消しません）')));
+  // AI が【バラシ結果】の形で書かなかったとき、AI に送り直す文をコピーする
+  const reformat = h('button', { type: 'button', class: 'btn', onclick: async e => {
+    const ok = await copyText(AI_REFORMAT, area);
+    toast(ok ? '送り直す文をコピーしました。AI の入力欄に貼り付けて送ると、取り込める形で出し直してくれます' : 'コピーできませんでした', { error: !ok });
+  } }, '形を直してもらう文をコピー');
   let parsed = null;
   const read = async () => {
     parsed = parseBarashi(area.value);
     go.disabled = true;
-    if (!parsed.groups.length) { preview.replaceChildren(h('p', { class: 'hint' }, area.value.trim() ? '【バラシ結果】の形が見つかりませんでした。「#番号 件名」の行の下に「- [1] 作業名 | 2h | 前: なし」が並んでいるか確かめてください。' : '')); return; }
+    noteOpt.hidden = true;
+    if (!parsed.groups.length) {
+      preview.replaceChildren(...(area.value.trim() ? [
+        h('p', { class: 'test-result ng' }, '取り込める形（【バラシ結果】）が見つかりませんでした。AI が作業を表や文章だけで書いたときに起きます。'),
+        h('p', { class: 'hint' }, '下の「形を直してもらう文をコピー」を押して、その文を AI に送ってください。取り込める形で出し直してくれるので、その答えをここに貼り直します。')] : []));
+      return;
+    }
     // チケットが本当にあるか確かめる（件名・担当・バージョン・締切を親から引き継ぐため）
     const ids = parsed.groups.map(g => g.id);
     let found = new Map();
@@ -4334,10 +4389,12 @@ function openImport() {
       h('p', { class: 'hint' }, `読み取れた仕事 ${parsed.groups.length} 件・作業 ${parsed.groups.reduce((n, g) => n + g.tasks.length, 0)} 件。それぞれの仕事の「中の作業（子チケット）」として作ります（締切・担当・バージョンは親と同じ、前後のつながりも付けます）。`),
       ...parsed.groups.map(g => h('div', { class: 'imp-g' + (g.issue ? '' : ' ng') },
         h('b', {}, g.issue ? `#${g.id} ${parseTitle(g.issue.subject).text}` : `#${g.id} ${g.title}（見つかりません。取り込みません）`),
+        g.notes.length ? h('div', { class: 'imp-notes' }, g.notes.map(n => h('div', {}, n))) : null,
         h('ol', {}, g.tasks.map(t => h('li', {}, `${t.name}`, h('span', { class: 'imp-m' },
           `${t.hours != null ? `${t.tentative ? '仮' : ''}${t.hours}h` : '工数なし'}・前: ${t.after.length ? t.after.join(',') : 'なし'}`)))))),
       parsed.skipped.length ? h('p', { class: 'hint' }, `読み飛ばした行 ${parsed.skipped.length} 件（形が違うもの）: ${parsed.skipped.slice(0, 3).join(' ／ ')}${parsed.skipped.length > 3 ? ' …' : ''}`) : null,
     ].filter(Boolean));
+    noteOpt.hidden = !ok.some(g => g.notes.length);
     go.disabled = !ok.length;
   };
   let timer = null;
@@ -4345,6 +4402,7 @@ function openImport() {
   go.addEventListener('click', async () => {
     go.disabled = true; go.textContent = '作っています…';
     const made = [], failed = [], parents = [];
+    let noted = 0;
     for (const g of parsed.groups.filter(x => x.issue)) {
       const p = g.issue;
       parents.push(p.id);
@@ -4368,10 +4426,22 @@ function openImport() {
         try { await addPrecedes(byNo.get(a), byNo.get(t.no)); } catch (e) { failed.push(`#${p.id} の ${a}→${t.no} のつながり: ${e.message}`); }
       }
       if (p.parent) syncParentsAndReport(p.parent.id).catch(() => {});
+      // やりとりの要約（目的・完了条件・メモ）を元のチケットの説明の最後に足す。同じものがもう入っていれば足さない
+      if (noteBox.checked && g.notes.length) {
+        try {
+          const fresh = await api.getIssue(p.id);
+          const desc = stripRepeat(fresh.description || '');
+          const memo = g.notes.join('\n');
+          if (!desc.includes(memo)) {
+            await api.updateIssue(p.id, { description: withRepeat(`${desc}${desc ? '\n\n' : ''}―― 課題バラシのメモ（${isoDate(startOfToday())}）――\n${memo}`, repeatOf(fresh)) });
+            noted++;
+          }
+        } catch (e) { failed.push(`#${p.id} の説明への追記: ${e.message}`); }
+      }
     }
     closeExport();
     if (made.length) markTouched(made[0]);
-    toast(`${made.length} 件の作業を作りました${failed.length ? `（できなかったもの ${failed.length} 件）` : ''}`, { error: !!failed.length,
+    toast(`${made.length} 件の作業を作りました${noted ? `。${noted} 件のチケットの説明にメモを追記しました` : ''}${failed.length ? `（できなかったもの ${failed.length} 件）` : ''}`, { error: !!failed.length,
       // 1 件だけならその仕事を、複数ならその人の分を開く
       action: { label: '課題バラシで見る', run: () => { B.scope = parents.length === 1 ? { kind: 'issue', id: parents[0] } : { kind: 'user', id: state.view }; B.selected = made[0] || null; switchView(BARA); } } });
     if (failed.length) toast(`作れなかったもの: ${failed.slice(0, 3).join(' ／ ')}${failed.length > 3 ? ' …' : ''}`, { error: true });
@@ -4381,9 +4451,10 @@ function openImport() {
   box.replaceChildren(
     h('h2', {}, 'AI の答えを取り込む'),
     h('p', { class: 'hint' }, 'AI とのやりとりを全部そのまま貼り付けてください（1 件ずつ進めた場合も、まとめてで大丈夫です。同じ仕事を直したときは後のものを使います）。【バラシ結果】の部分を読み取って、下に取り込む内容を出します。確かめてから「課題バラシに入れる」を押してください。日程は課題バラシの「日程を反映」で決められます。'),
-    area, preview,
+    area, preview, noteOpt,
     h('div', { class: 'dialog-actions' },
       h('button', { type: 'button', class: 'btn', onclick: () => openExport('prompt', exportBatch) }, '依頼文に戻る'),
+      reformat,
       h('span', { style: 'flex:1' }),
       h('button', { type: 'button', class: 'btn', onclick: closeExport }, '閉じる'), go));
   area.focus();

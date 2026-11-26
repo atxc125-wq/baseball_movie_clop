@@ -487,6 +487,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .import-preview .imp-g { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .import-preview .imp-g.ng { opacity: .6; border-style: dashed; }
 .import-preview ol { margin: 4px 0 0; padding-left: 1.6em; }
+.import-preview .imp-notes { margin: 4px 0 0; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 12px; color: var(--ink-2); }
 .import-preview .imp-m { margin-left: 8px; color: var(--ink-3); font-size: 12px; }
 .hours-who { display: inline-flex; align-self: flex-start; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 6px; }
 .hours-who button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 4px 12px; border-radius: 6px; }
